@@ -61,7 +61,7 @@ cd backend
 python -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r ../requirements.txt
-cp ../.env.example ../.env    # заполни GEMINI_API_KEY
+cp ../.env.example ../.env    # заполни GROQ_API_KEY
 uvicorn main:app --reload
 ```
 

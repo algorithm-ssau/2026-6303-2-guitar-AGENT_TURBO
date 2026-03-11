@@ -21,4 +21,4 @@
 
 ---
 
-> LLM: Google Gemini 2.0 Flash, SDK: `google-generativeai`. Подробнее — [STACK.md](../../STACK.md)
+> LLM: Groq (`llama-3.3-70b-versatile` по умолчанию, модель задаётся через `LLM_MODEL` в `.env`), SDK: `groq`. Подробнее — [STACK.md](../../STACK.md)

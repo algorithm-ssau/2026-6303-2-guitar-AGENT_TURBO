@@ -10,8 +10,8 @@
 | Фреймворк | FastAPI | ✅ |
 | Менеджер пакетов | pip + `requirements.txt` | ✅ |
 | Виртуальная среда | venv | ✅ |
-| LLM API | Google Gemini 2.0 Flash | ✅ |
-| LLM SDK | `google-generativeai` | ✅ |
+| LLM API | Groq (бесплатные модели) | ✅ |
+| LLM SDK | `groq` | ✅ |
 | Интеграция с Reverb | _исследует Сидоров_ | 🔄 |
 
 ---
@@ -32,9 +32,10 @@
 
 | Компонент | Значение |
 |-----------|----------|
-| Провайдер | Google AI Studio |
-| Модель | `gemini-2.0-flash` |
-| Способ вызова | Python SDK (`google-generativeai`) |
+| Провайдер | Groq |
+| Модель | задаётся через `LLM_MODEL` в `.env` (дефолт: `llama-3.3-70b-versatile`) |
+| Доступные модели | `llama-3.3-70b-versatile`, `qwen-qwq-32b`, `llama-3.1-8b-instant`, `mixtral-8x7b-32768` |
+| Способ вызова | Python SDK (`groq`, OpenAI-compatible) |
 | API ключ | в `.env`, не коммитить |
 
 ---
@@ -72,7 +73,8 @@ project/
 ## Переменные окружения (`.env`)
 
 ```
-GEMINI_API_KEY=...
+GROQ_API_KEY=...
+LLM_MODEL=llama-3.3-70b-versatile
 ```
 
 > `.env` не коммитится. В репозитории хранится только `.env.example`.
