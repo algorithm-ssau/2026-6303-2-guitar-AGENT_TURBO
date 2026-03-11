@@ -21,4 +21,4 @@
 
 ---
 
-> LLM: Google Gemini 2.0 Flash. Подробнее — [STACK.md](../../STACK.md). Согласуй шаги 1–2 с Павловым.
+> LLM: Groq (`llama-3.3-70b-versatile` по умолчанию, модель задаётся через `LLM_MODEL` в `.env`). Подробнее — [STACK.md](../../STACK.md). Согласуй шаги 1–2 с Павловым.
