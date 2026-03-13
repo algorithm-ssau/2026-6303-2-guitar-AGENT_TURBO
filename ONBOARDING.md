@@ -13,7 +13,7 @@
 | [STACK.md](STACK.md) | Технологии: Python + FastAPI на бэке, React + Vite + TypeScript на фронте |
 | [PROJECT_PLAN.md](PROJECT_PLAN.md) | Этапы, Git Flow, требования по коммитам, распределение модулей |
 | [prd/prd.md](prd/prd.md) | Что продукт делает и не делает, пользовательские сценарии |
-| [tasks/week-01/](tasks/week-01/) | Задачи на текущую неделю — найди свой файл |
+| [tasks/](tasks/) | Задачи по неделям — найди папку текущей недели и свой файл |
 
 ---
 
@@ -21,18 +21,18 @@
 
 | Участник | Модуль | Файл задачи |
 |----------|--------|-------------|
-| Сальников Илья | Chat UI (фронт) | [tasks/week-01/TODO_salnikov.md](tasks/week-01/TODO_salnikov.md) |
-| Павлов Виктор | LLM-агент, промпты | [tasks/week-01/TODO_pavlov.md](tasks/week-01/TODO_pavlov.md) |
-| Мергалиев Радмир | Параметры поиска, API-контракт | [tasks/week-01/TODO_mergaliev.md](tasks/week-01/TODO_mergaliev.md) |
-| Сидоров Артемий | Интеграция с Reverb | [tasks/week-01/TODO_sidorov.md](tasks/week-01/TODO_sidorov.md) |
-| Хасанов Дамир | Ранжирование результатов | [tasks/week-01/TODO_khasanov.md](tasks/week-01/TODO_khasanov.md) |
-| Фокин Евгений | Консультационный режим | [tasks/week-01/TODO_fokin.md](tasks/week-01/TODO_fokin.md) |
+| Сальников Илья | Chat UI (фронт) | `tasks/<текущая-неделя>/TODO_salnikov.md` |
+| Павлов Виктор | LLM-агент, промпты | `tasks/<текущая-неделя>/TODO_pavlov.md` |
+| Мергалиев Радмир | Параметры поиска, API-контракт | `tasks/<текущая-неделя>/TODO_mergaliev.md` |
+| Сидоров Артемий | Интеграция с Reverb | `tasks/<текущая-неделя>/TODO_sidorov.md` |
+| Хасанов Дамир | Ранжирование результатов | `tasks/<текущая-неделя>/TODO_khasanov.md` |
+| Фокин Евгений | Консультационный режим | `tasks/<текущая-неделя>/TODO_fokin.md` |
 
 ---
 
 ## Как работать в течение недели
 
-**1. Найди свой TODO-файл** в `tasks/week-01/` — там одна задача, разбитая на 3 шага.
+**1. Найди свой TODO-файл** в папке текущей недели (`tasks/week-XX/`) — там одна задача, разбитая на 3 шага.
 
 **2. Создай ветку** от `main`:
 ```bash
