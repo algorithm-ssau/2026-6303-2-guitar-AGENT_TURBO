@@ -1,5 +1,7 @@
+import { Chat } from './features/chat';
+
 function App() {
-  return <div>Hello world</div>
+  return <Chat />;
 }
 
-export default App
+export default App;
