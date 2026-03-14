@@ -6,12 +6,16 @@
   "search_queries":[
     "Fender Stratocaster White under 1200",
     "Squier Classic Vibe Stratocaster"
-  ]
+  ],
+  "price_min": 800,
+  "price_max": 1200
 }
 ```
 
 ### Описание полей запроса:
 * `search_query`:  Массив строк, содержащих конкретные поисковые запросы (бренды, модели, серии, ценовые ограничения в долларах), которые скрипт напрямую введет в поисковый движок Reverb.
+* `price_min`: (Опционально) Минимальная цена в долларах (USD). Заполняется, если пользователь указал нижний порог.
+* `price_max`: (Опционально) Максимальная цена в долларах (USD). Заполняется, если пользователь указал верхний предел бюджета.
 
 
 ## 2. Формат ответа (Response от скрипта к агенту)
@@ -51,7 +55,8 @@
   "search_queries":[
     "Jackson JS22 Dinky",
     "Ibanez RG Standard"
-  ]
+  ],
+  "price_max": 450
 }
 ```
 
@@ -71,15 +76,17 @@
 ### Сценарий 2: Поиск яркого "стеклянного" звука
 
 **1. Запрос пользователя:**  
-"Нужен классический яркий звук стратокастера, бюджет 70к"
+"Ищу б/у Gibson Les Paul Studio, бюджет от 800 до 1200 баксов"
 
 **2. JSON уходит в скрипт:**
 ```json
 {
-  "search_queries":[
-    "Fender Player Stratocaster",
-    "Squier Classic Vibe '50s Stratocaster"
-  ]
+  "search_queries": [
+    "Gibson Les Paul Studio",
+    "Gibson Les Paul Tribute"
+  ],
+  "price_min": 800,
+  "price_max": 1200
 }
 ```
 
@@ -89,11 +96,11 @@
 [
   {
     "id": "rev_002",
-    "title": "Fender Player Stratocaster 2022",
-    "price": 68500,
-    "currency": "RUB",
-    "image_url": "https://reverb.com/fender-strat.jpg",
-    "listing_url": "https://reverb.com/p/fender-strat-player"
+    "title": "Gibson Les Paul Studio Faded Cherry 2012",
+    "price": 950,
+    "currency": "USD",
+    "image_url": "https://reverb.com/gibson-lp.jpg",
+    "listing_url": "https://reverb.com/p/gibson-les-paul-studio"
   }
 ]
 ```
