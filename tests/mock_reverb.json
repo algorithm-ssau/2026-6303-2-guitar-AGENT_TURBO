@@ -1,0 +1,42 @@
+[
+  {
+    "id": "rev_mock_001",
+    "title": "Fender Player Stratocaster HSS Plus Top 2021 - Aged Cherry Burst",
+    "price": 849,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/fender-player-stratocaster.jpg",
+    "listing_url": "https://reverb.com/item/10000001-fender-player-stratocaster-hss-plus-top-2021-aged-cherry-burst"
+  },
+  {
+    "id": "rev_mock_002",
+    "title": "Ibanez RG421EX 2022 - Black Flat",
+    "price": 379,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/ibanez-rg421ex.jpg",
+    "listing_url": "https://reverb.com/item/10000002-ibanez-rg421ex-2022-black-flat"
+  },
+  {
+    "id": "rev_mock_003",
+    "title": "PRS SE Custom 24 2023 - Faded Blue",
+    "price": 699,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/prs-se-custom-24.jpg",
+    "listing_url": "https://reverb.com/item/10000003-prs-se-custom-24-2023-faded-blue"
+  },
+  {
+    "id": "rev_mock_004",
+    "title": "Gibson Les Paul Studio 2016 - Wine Red",
+    "price": 999,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/gibson-les-paul-studio.jpg",
+    "listing_url": "https://reverb.com/item/10000004-gibson-les-paul-studio-2016-wine-red"
+  },
+  {
+    "id": "rev_mock_005",
+    "title": "Squier Classic Vibe '50s Telecaster 2024 - Butterscotch Blonde",
+    "price": 429,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/squier-classic-vibe-telecaster.jpg",
+    "listing_url": "https://reverb.com/item/10000005-squier-classic-vibe-50s-telecaster-2024-butterscotch-blonde"
+  }
+]
