@@ -114,28 +114,34 @@ def score_type(result: dict, params: dict) -> float:
 def score_pickups(result: dict, params: dict) -> float:
     """
     Оценивает совпадение конфигурации датчиков.
-    
+
     100 баллов: точное совпадение (SSS, HH, HSS, P90)
     70 баллов: похожий характер звука
     0 баллов: противоположный характер
     """
     if 'pickups' not in params or params['pickups'] is None:
         return 70.0  # нейтральный score если датчики не указаны
-    
+
     requested_pickups = params['pickups'].lower()
-    result_pickups = result.get('pickups', '').lower()
+    result_pickups_raw = result.get('pickups')
     
+    # Если pickups не указан в результате — возвращаем нейтральный score
+    if result_pickups_raw is None:
+        return 50.0
+    
+    result_pickups = result_pickups_raw.lower()
+
     # Точное совпадение
     if requested_pickups == result_pickups:
         return 100.0
-    
+
     # Нормализация форматов
     req_normalized = requested_pickups.replace(' ', '').replace('-', '')
     res_normalized = result_pickups.replace(' ', '').replace('-', '')
-    
+
     if req_normalized == res_normalized:
         return 100.0
-    
+
     # Проверка на single coil
     if requested_pickups in SINGLE_COIL_CONFIGS:
         if result_pickups in SINGLE_COIL_CONFIGS:
@@ -144,7 +150,7 @@ def score_pickups(result: dict, params: dict) -> float:
             return 70.0  # частично похоже
         elif result_pickups in HUMBUCKER_CONFIGS:
             return 0.0  # противоположный характер
-    
+
     # Проверка на humbucker
     if requested_pickups in HUMBUCKER_CONFIGS:
         if result_pickups in HUMBUCKER_CONFIGS:
@@ -153,13 +159,13 @@ def score_pickups(result: dict, params: dict) -> float:
             return 70.0  # частично похоже
         elif result_pickups in SINGLE_COIL_CONFIGS:
             return 0.0  # противоположный характер
-    
+
     # Проверка на mixed
     if requested_pickups in MIXED_CONFIGS:
         if result_pickups in MIXED_CONFIGS:
             return 100.0
         return 70.0  # частично похоже на что-то
-    
+
     # P90 — особый тип single coil
     if 'p90' in requested_pickups or 'p90' in result_pickups:
         if 'p90' in requested_pickups and 'p90' in result_pickups:
@@ -168,7 +174,7 @@ def score_pickups(result: dict, params: dict) -> float:
             return 70.0
         if 'p90' in result_pickups and requested_pickups in SINGLE_COIL_CONFIGS:
             return 70.0
-    
+
     return 50.0  # нейтральный score если не удалось определить
 
 
