@@ -45,7 +45,11 @@
 | Вопрос | Статус |
 |--------|--------|
 | Способ (API vs парсинг) | ✅ основной вариант: официальный Reverb API; парсинг только как запасной путь |
-| Библиотека | `requests` или `httpx` для вызова Reverb API, уточним при реализации MVP |
+| Библиотека | `requests` для вызова Reverb API |
+| Реализация | ✅ `backend/search/search_reverb.py` — функция `search_reverb(search_queries, price_min, price_max)` |
+| Тестирование | ✅ `tests/test_search.py` — тесты с мок-HTTP (`responses`), тесты на граничные случаи |
+| Мок-данные | ✅ `tests/mock_reverb.json` — 5 реалистичных объявлений для тестирования |
+| Переменная окружения | ✅ `USE_MOCK_REVERB` — переключатель режимов (true/false) |
 
 ---
 
@@ -75,6 +79,7 @@ project/
 ```
 GROQ_API_KEY=...
 LLM_MODEL=llama-3.3-70b-versatile
+USE_MOCK_REVERB=false
 ```
 
 > `.env` не коммитится. В репозитории хранится только `.env.example`.
@@ -89,4 +94,4 @@ LLM_MODEL=llama-3.3-70b-versatile
 
 ---
 
-_Обновлено: 8 марта 2026_
+_Обновлено: 21 марта 2026_
