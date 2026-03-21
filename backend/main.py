@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.search.router import router as chat_router
+
 app = FastAPI(title="Guitar Agent API")
 
 app.add_middleware(
@@ -10,13 +12,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(chat_router)
+
 
 @app.get("/")
 def root():
     return {"status": "ok"}
-
-
-@app.post("/chat")
-def chat(body: dict):
-    # TODO: передать сообщение в agent/agent.py
-    return {"reply": "placeholder"}
