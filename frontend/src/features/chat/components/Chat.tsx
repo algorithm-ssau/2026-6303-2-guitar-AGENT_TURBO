@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, ChatState } from '../types';
 import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
+import { sendMessage } from '../api';
 
 /**
  * Главный компонент чата
@@ -22,10 +23,9 @@ export const Chat: React.FC = () => {
   }, [state.messages]);
 
   /**
-   * Отправка сообщения
-   * Пока без вызова API — только добавление в состояние
+   * Отправка сообщения с вызовом API
    */
-  const handleSend = (content: string) => {
+  const handleSend = async (content: string) => {
     const newUserMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -40,12 +40,13 @@ export const Chat: React.FC = () => {
       error: null,
     }));
 
-    // Имитация ответа агента (будет заменено на API call)
-    setTimeout(() => {
+    try {
+      const response = await sendMessage(content);
+      
       const agentMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'agent',
-        content: 'Это тестовый ответ агента. Скоро здесь будет интеграция с backend!',
+        content: response.reply,
         timestamp: new Date(),
       };
 
@@ -54,7 +55,13 @@ export const Chat: React.FC = () => {
         messages: [...prev.messages, agentMessage],
         isLoading: false,
       }));
-    }, 1500);
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Неизвестная ошибка',
+      }));
+    }
   };
 
   return (
