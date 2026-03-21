@@ -1,34 +1,50 @@
 """Сервис агента: точка входа для обработки пользовательских запросов."""
 
-from backend.agent.mode_detector import detect_mode
+import json
+import os
+from backend.agent.llm_client import get_llm_client, get_llm_model
 
+def get_system_prompt() -> str:
+    """Загружает системный промпт из файла AGENT_PROMPT.md"""
+    prompt_path = os.path.join(os.path.dirname(__file__), "../../docs/AGENT_PROMPT.md")
+    if os.path.exists(prompt_path):
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read()
+    return "Ты ИИ-агент по подбору гитар. ВЕРНИ СТРОГО JSON."
 
-def interpret_query(text: str, llm_client=None, search_fn=None) -> dict:
-    """Обрабатывает запрос пользователя: определяет режим и вызывает нужную ветку.
-
-    Args:
-        text: текст запроса пользователя
-        llm_client: callable для вызова LLM (принимает prompt, возвращает str)
-        search_fn: callable для поиска гитар (принимает text, возвращает list)
-
-    Returns:
-        dict с ключами:
-            - mode: "search" или "consultation"
-            - answer: ответ LLM (для consultation)
-            - results: результаты поиска (для search)
+def interpret_query(text: str, llm_client=None) -> dict:
+    """Обрабатывает запрос пользователя через LLM.
+    
+    Возвращает JSON с ключами mode и params (для поиска) или answer (для консультации).
     """
-    mode = detect_mode(text)
-
-    if mode == "consultation":
-        # Консультация — LLM отвечает напрямую, поиск не вызывается
-        answer = ""
-        if llm_client:
-            answer = llm_client(text)
-        return {"mode": "consultation", "answer": answer}
-
-    # Поиск — вызываем поисковый пайплайн
-    results = []
-    if search_fn:
-        results = search_fn(text)
-
-    return {"mode": "search", "results": results}
+    if llm_client is None:
+        llm_client = get_llm_client()
+        
+    system_prompt = get_system_prompt()
+    
+    # Инструкция для LLM, чтобы гарантировать правильный JSON формат
+    json_instruction = (
+        "\n\nОБЯЗАТЕЛЬНО ВЕРНИ ОТВЕТ В ФОРМАТЕ JSON:\n"
+        "Для поиска:\n"
+        "{\"mode\": \"search\", \"params\": {\"search_queries\": [\"Fender Stratocaster\"], \"price_max\": 1000}}\n"
+        "Для консультации:\n"
+        "{\"mode\": \"consultation\", \"answer\": \"В чем разница...\"}"
+    )
+    
+    messages = [
+        {"role": "system", "content": system_prompt + json_instruction},
+        {"role": "user", "content": text}
+    ]
+    
+    try:
+        response = llm_client.chat.completions.create(
+            model=get_llm_model(),
+            messages=messages,
+            temperature=0.0,
+            response_format={"type": "json_object"}
+        )
+        content = response.choices[0].message.content
+        return json.loads(content)
+    except Exception as e:
+        # Fallback при ошибке парсинга или вызова
+        return {"mode": "consultation", "answer": f"Извините, произошла ошибка обработки: {str(e)}"}
