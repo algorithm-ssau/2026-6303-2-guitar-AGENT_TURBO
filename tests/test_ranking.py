@@ -249,9 +249,167 @@ class TestRankResultsBasic:
             'type': 'Stratocaster',
             'pickups': 'SSS'  # single coil
         }
-        
+
         # Проверяем что score за датчики = 0
         from backend.ranking.ranking import score_pickups
         pickups_score = score_pickups(result, params)
-        
+
         assert pickups_score == 0.0
+
+
+class TestRankResultsEdgeCases:
+    """Тесты на граничные случаи для функции rank_results."""
+
+    def test_rank_results_empty_list(self):
+        """Тест 1: пустой список на входе."""
+        mock_results = []
+        params = {
+            'budget_max': 500,
+            'type': 'Stratocaster',
+            'pickups': 'SSS'
+        }
+
+        results = rank_results(mock_results, params)
+
+        assert results == []
+
+    def test_rank_results_equal_scores(self):
+        """Тест 2: все результаты с одинаковым скором."""
+        mock_results = [
+            {
+                'title': 'Guitar 1',
+                'price': 400,
+                'type': 'Stratocaster',
+                'pickups': 'SSS',
+                'brand': 'Squier',
+                'condition': 'New',
+                'country': 'China'
+            },
+            {
+                'title': 'Guitar 2',
+                'price': 400,
+                'type': 'Stratocaster',
+                'pickups': 'SSS',
+                'brand': 'Squier',
+                'condition': 'New',
+                'country': 'China'
+            },
+            {
+                'title': 'Guitar 3',
+                'price': 400,
+                'type': 'Stratocaster',
+                'pickups': 'SSS',
+                'brand': 'Squier',
+                'condition': 'New',
+                'country': 'China'
+            },
+        ]
+
+        params = {
+            'budget_max': 500,
+            'type': 'Stratocaster',
+            'pickups': 'SSS'
+        }
+
+        results = rank_results(mock_results, params)
+
+        # Все результаты должны быть (3 штуки, все ≤ 5)
+        assert len(results) == 3
+        # Все scores должны быть равны
+        first_score = results[0]['score']
+        for result in results:
+            assert result['score'] == first_score
+
+    def test_rank_results_no_budget(self):
+        """Тест 3: бюджет не указан в params."""
+        mock_results = [
+            {
+                'title': 'Cheap Guitar',
+                'price': 100,
+                'type': 'Stratocaster',
+                'pickups': 'SSS',
+                'brand': 'Harley Benton',
+                'condition': 'New',
+                'country': 'China'
+            },
+            {
+                'title': 'Expensive Guitar',
+                'price': 2000,
+                'type': 'Stratocaster',
+                'pickups': 'SSS',
+                'brand': 'Fender',
+                'condition': 'New',
+                'country': 'USA'
+            },
+            {
+                'title': 'Medium Guitar',
+                'price': 500,
+                'type': 'Stratocaster',
+                'pickups': 'SSS',
+                'brand': 'Yamaha',
+                'condition': 'New',
+                'country': 'Indonesia'
+            },
+        ]
+
+        # budget_max отсутствует
+        params = {
+            'type': 'Stratocaster',
+            'pickups': 'SSS'
+        }
+
+        results = rank_results(mock_results, params)
+
+        # Все результаты должны быть (без фильтра по бюджету)
+        assert len(results) == 3
+        # Fender должен быть выше из-за премиум бренда и USA
+        assert results[0]['brand'] == 'Fender'
+
+    def test_rank_results_type_mismatch(self):
+        """Тест 4: тип инструмента не совпадает ни с одним результатом."""
+        mock_results = [
+            {
+                'title': 'Les Paul Standard',
+                'price': 800,
+                'type': 'Les Paul',
+                'pickups': 'HH',
+                'brand': 'Gibson',
+                'condition': 'New',
+                'country': 'USA'
+            },
+            {
+                'title': 'SG Standard',
+                'price': 700,
+                'type': 'SG',
+                'pickups': 'HH',
+                'brand': 'Gibson',
+                'condition': 'New',
+                'country': 'USA'
+            },
+            {
+                'title': 'ES-335',
+                'price': 900,
+                'type': 'ES-335',
+                'pickups': 'HH',
+                'brand': 'Epiphone',
+                'condition': 'New',
+                'country': 'China'
+            },
+        ]
+
+        params = {
+            'budget_max': 1000,
+            'type': 'Stratocaster',  # Запрошен Stratocaster, но в результатах нет
+            'pickups': 'SSS'
+        }
+
+        results = rank_results(mock_results, params)
+
+        # Все результаты должны быть (просто с низкими scores за тип)
+        assert len(results) == 3
+        # Все scores должны быть относительно низкими из-за несовпадения типа
+        # (тип даёт 25% веса, при 0 баллов это снижает общий score)
+        for result in results:
+            # Максимальный возможный score без типа: 75 баллов (остальные критерии)
+            # Но с учётом весов: 0*0.25 + 100*0.75 = 75
+            assert result['score'] < 80  # меньше чем если бы тип совпал
