@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Message, ChatState } from '../types';
 import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
+import { ErrorMessage } from './ErrorMessage';
+import { EmptyResults } from './EmptyResults';
 import { sendMessage } from '../api';
 
 /**
