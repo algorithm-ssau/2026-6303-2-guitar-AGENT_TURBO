@@ -6,12 +6,22 @@ import { z } from 'zod';
 /** Роль отправителя сообщения */
 export type MessageRole = 'user' | 'agent';
 
+export interface GuitarResult {
+  id?: string;
+  title: string;
+  price?: number;
+  currency?: string;
+  imageUrl?: string;
+  listingUrl: string;
+}
+
 /** Сообщение в чате */
 export interface Message {
   id: string;
   role: MessageRole;
   content: string;
   timestamp: Date;
+  results?: GuitarResult[];
 }
 
 /** Состояние чата */
@@ -30,9 +40,12 @@ export type ChatRequest = z.infer<typeof ChatRequestSchema>;
 
 /** Схема результата поиска (одна гитара) */
 export const SearchResultSchema = z.object({
+  id: z.string().optional(),
   title: z.string(),
-  url: z.string().url(),
   price: z.number().optional(),
+  currency: z.string().optional(),
+  imageUrl: z.string().url().optional(),
+  listingUrl: z.string().url(),
 });
 
 export type SearchResult = z.infer<typeof SearchResultSchema>;
