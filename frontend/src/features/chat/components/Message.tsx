@@ -1,6 +1,7 @@
 import React from 'react';
 import { Message } from '../types';
 import { ResultsList } from './ResultsList';
+import { SearchStatus } from './SearchStatus';
 
 interface MessageProps {
   message: Message;
@@ -51,6 +52,14 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
         <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
           {message.content}
         </div>
+        {/* Отображаем статус поиска перед результатами */}
+        {message.results && (
+          <SearchStatus
+            isLoading={false}
+            resultsCount={message.results.length}
+          />
+        )}
+        {/* Отображаем список результатов */}
         {message.results && message.results.length > 0 && (
           <ResultsList results={message.results} />
         )}
