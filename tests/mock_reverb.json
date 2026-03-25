@@ -38,5 +38,125 @@
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/squier-classic-vibe-telecaster.jpg",
     "listing_url": "https://reverb.com/item/10000005-squier-classic-vibe-50s-telecaster-2024-butterscotch-blonde"
+  },
+  {
+    "id": "rev_mock_006",
+    "title": "Martin D-28 Acoustic Guitar 2020 - Natural",
+    "price": 2899,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/martin-d28-acoustic.jpg",
+    "listing_url": "https://reverb.com/item/10000006-martin-d-28-acoustic-guitar-2020-natural"
+  },
+  {
+    "id": "rev_mock_007",
+    "title": "Taylor 214ce Acoustic-Electric Guitar 2021 - Sunburst",
+    "price": 1199,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/taylor-214ce-acoustic.jpg",
+    "listing_url": "https://reverb.com/item/10000007-taylor-214ce-acoustic-electric-guitar-2021-sunburst"
+  },
+  {
+    "id": "rev_mock_008",
+    "title": "Yamaha FG830 Acoustic Guitar 2023 - Natural",
+    "price": 249,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/yamaha-fg830-acoustic.jpg",
+    "listing_url": "https://reverb.com/item/10000008-yamaha-fg830-acoustic-guitar-2023-natural"
+  },
+  {
+    "id": "rev_mock_009",
+    "title": "Fender Precision Bass 2019 - Olympic White",
+    "price": 749,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/fender-precision-bass.jpg",
+    "listing_url": "https://reverb.com/item/10000009-fender-precision-bass-2019-olympic-white"
+  },
+  {
+    "id": "rev_mock_010",
+    "title": "Gibson Thunderbird Bass 2018 - Heritage Cherry",
+    "price": 1299,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/gibson-thunderbird-bass.jpg",
+    "listing_url": "https://reverb.com/item/10000010-gibson-thunderbird-bass-2018-heritage-cherry"
+  },
+  {
+    "id": "rev_mock_011",
+    "title": "Ibanez SR505 Bass Guitar 2022 - Brown Mahogany",
+    "price": 549,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/ibanez-sr505-bass.jpg",
+    "listing_url": "https://reverb.com/item/10000011-ibanez-sr505-bass-guitar-2022-brown-mahogany"
+  },
+  {
+    "id": "rev_mock_012",
+    "title": "Ibanez RG7421 7-String Electric Guitar 2021 - Black Flat",
+    "price": 499,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/ibanez-rg7421-7string.jpg",
+    "listing_url": "https://reverb.com/item/10000012-ibanez-rg7421-7-string-electric-guitar-2021-black-flat"
+  },
+  {
+    "id": "rev_mock_013",
+    "title": "Schecter Hellraiser C-7 7-String with EMG Active Pickups 2020 - Black Cherry",
+    "price": 899,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/schecter-hellraiser-c7.jpg",
+    "listing_url": "https://reverb.com/item/10000013-schecter-hellraiser-c-7-7-string-with-emg-active-pickups-2020-black-cherry"
+  },
+  {
+    "id": "rev_mock_014",
+    "title": "ESP LTD EC-1000 7-String Metal Guitar 2022 - See Thru Black",
+    "price": 1099,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/esp-ltd-ec1000-7string.jpg",
+    "listing_url": "https://reverb.com/item/10000014-esp-ltd-ec-1000-7-string-metal-guitar-2022-see-thru-black"
+  },
+  {
+    "id": "rev_mock_015",
+    "title": "Fender Stratocaster 1978 Vintage - Sunburst",
+    "price": 2499,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/fender-stratocaster-1978-vintage.jpg",
+    "listing_url": "https://reverb.com/item/10000015-fender-stratocaster-1978-vintage-sunburst"
+  },
+  {
+    "id": "rev_mock_016",
+    "title": "Gibson SG Standard 1980 Vintage - Walnut",
+    "price": 1899,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/gibson-sg-1980-vintage.jpg",
+    "listing_url": "https://reverb.com/item/10000016-gibson-sg-standard-1980-vintage-walnut"
+  },
+  {
+    "id": "rev_mock_017",
+    "title": "PRS Custom 22 1987 Vintage - Tobacco Sunburst",
+    "price": 2799,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/prs-custom-22-1987-vintage.jpg",
+    "listing_url": "https://reverb.com/item/10000017-prs-custom-22-1987-vintage-tobacco-sunburst"
+  },
+  {
+    "id": "rev_mock_018",
+    "title": "Epiphone Les Paul Standard 2023 - Heritage Cherry Sunburst",
+    "price": 599,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/epiphone-les-paul-standard.jpg",
+    "listing_url": "https://reverb.com/item/10000018-epiphone-les-paul-standard-2023-heritage-cherry-sunburst"
+  },
+  {
+    "id": "rev_mock_019",
+    "title": "Jackson JS Series Dinky JS32 2022 - Metallic Blue",
+    "price": 299,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/jackson-js32-dinky.jpg",
+    "listing_url": "https://reverb.com/item/10000019-jackson-js-series-dinky-js32-2022-metallic-blue"
+  },
+  {
+    "id": "rev_mock_020",
+    "title": "Gretsch G5422T Electromatic Hollow Body 2021 - Vintage Sunburst",
+    "price": 649,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/gretsch-g5422t-hollow.jpg",
+    "listing_url": "https://reverb.com/item/10000020-gretsch-g5422t-electromatic-hollow-body-2021-vintage-sunburst"
   }
 ]

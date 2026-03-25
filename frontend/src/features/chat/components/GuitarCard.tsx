@@ -63,9 +63,9 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
             <div style={{ flex: 1 }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>{result.title}</h4>
                 {result.price !== undefined && (
-                    <div style={{ 
-                        fontWeight: 'bold', 
-                        color: priceColorStyle, 
+                    <div style={{
+                        fontWeight: 'bold',
+                        color: priceColorStyle,
                         fontSize: '15px',
                         display: 'flex',
                         alignItems: 'center',

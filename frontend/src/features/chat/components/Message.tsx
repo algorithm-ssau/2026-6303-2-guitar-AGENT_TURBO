@@ -1,5 +1,7 @@
 import React from 'react';
 import { Message } from '../types';
+import { ResultsList } from './ResultsList';
+import { SearchStatus } from './SearchStatus';
 
 interface MessageProps {
   message: Message;
@@ -11,7 +13,7 @@ interface MessageProps {
  */
 export const MessageItem: React.FC<MessageProps> = ({ message }) => {
   const isUser = message.role === 'user';
-  
+
   const formattedTime = message.timestamp.toLocaleTimeString('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
@@ -23,11 +25,12 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
         display: 'flex',
         justifyContent: isUser ? 'flex-end' : 'flex-start',
         marginBottom: '16px',
+        width: '100%',
       }}
     >
       <div
         style={{
-          maxWidth: '70%',
+          maxWidth: isUser ? '70%' : '90%',
           padding: '12px 16px',
           borderRadius: '12px',
           backgroundColor: isUser ? '#007bff' : '#e9ecef',
@@ -49,6 +52,17 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
         <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
           {message.content}
         </div>
+        {/* Отображаем статус поиска перед результатами */}
+        {message.results && (
+          <SearchStatus
+            isLoading={false}
+            resultsCount={message.results.length}
+          />
+        )}
+        {/* Отображаем список результатов */}
+        {message.results && message.results.length > 0 && (
+          <ResultsList results={message.results} />
+        )}
         <div
           style={{
             fontSize: '11px',
