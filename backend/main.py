@@ -3,6 +3,7 @@ import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.models import GuitarResult, WSMessage
 from backend.agent.service import interpret_query
 from backend.search.router import router as chat_router
 
@@ -24,50 +25,86 @@ def root():
 
 
 @app.websocket("/chat")
-async def websocket_chat(websocket: WebSocket):
-    """WebSocket-эндпоинт для чата с агентом.
-
-    Принимает: {"query": "текст запроса"}
-    Отправляет:
-      - {"type": "status", "text": "..."} — промежуточные статусы
-      - {"type": "result", "mode": "search", "results": [...]} — результат поиска
-      - {"type": "result", "mode": "consultation", "answer": "..."} — консультация
-      - {"type": "error", "text": "..."} — ошибка
-    """
+async def chat(websocket: WebSocket):
+    """WebSocket endpoint для чата с агентом."""
     await websocket.accept()
+
     try:
-        while True:
-            data = await websocket.receive_json()
-            query = data.get("query", "").strip()
+        # Отправляем начальный статус
+        await websocket.send_json({
+            "type": "status",
+            "status": "Определяю режим..."
+        })
 
-            if not query:
-                await websocket.send_json({"type": "error", "text": "Пустой запрос"})
-                continue
+        # Получаем сообщение от клиента
+        data = await websocket.receive_json()
+        query = data.get("query", "")
 
-            # Callback для отправки статусов через WebSocket
-            async def send_status(text: str):
-                await websocket.send_json({"type": "status", "text": text})
+        # Проверка на пустой запрос
+        if not query or not query.strip():
+            await websocket.send_json({
+                "type": "error",
+                "status": "Запрос не может быть пустым"
+            })
+            return
 
-            # Собираем статусы синхронно, потом отправляем
-            statuses = []
+        # Определяем режим и получаем результат
+        result = interpret_query(query)
 
-            def on_status(text: str):
-                statuses.append(text)
-
-            result = interpret_query(text=query, on_status=on_status)
-
-            # Отправляем все собранные статусы
-            for status_text in statuses:
-                await websocket.send_json({"type": "status", "text": status_text})
+        if result["mode"] == "consultation":
+            # Отправляем статус перед результатом
+            await websocket.send_json({
+                "type": "status",
+                "status": "Формирую ответ..."
+            })
 
             # Отправляем финальный результат
-            response = {"type": "result", "mode": result.get("mode", "consultation")}
-            if result.get("mode") == "search":
-                response["results"] = result.get("results", [])
-            else:
-                response["answer"] = result.get("answer", "")
+            await websocket.send_json({
+                "type": "result",
+                "mode": "consultation",
+                "answer": result.get("answer", "")
+            })
+        else:
+            # Search режим
+            await websocket.send_json({
+                "type": "status",
+                "status": "Ищу на Reverb..."
+            })
 
-            await websocket.send_json(response)
+            await websocket.send_json({
+                "type": "status",
+                "status": "Ранжирую результаты..."
+            })
+
+            # Преобразуем результаты в формат GuitarResult
+            results = []
+            for item in result.get("results", []):
+                results.append(GuitarResult(
+                    id=str(item.get("id", "")),
+                    title=item.get("title", ""),
+                    price=float(item.get("price", 0)),
+                    currency=item.get("currency", "USD"),
+                    image_url=item.get("image_url", ""),
+                    listing_url=item.get("listing_url", "")
+                ))
+
+            # Отправляем финальный результат
+            await websocket.send_json({
+                "type": "result",
+                "mode": "search",
+                "results": [r.model_dump() for r in results]
+            })
 
     except WebSocketDisconnect:
+        # Клиент отключился — это нормально
         pass
+    except Exception as e:
+        # Обрабатываем любые другие ошибки
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "status": f"Произошла ошибка: {str(e)}"
+            })
+        except Exception:
+            # Если не можем отправить ошибку — просто логируем
+            pass
