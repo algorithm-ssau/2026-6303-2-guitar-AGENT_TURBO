@@ -1,68 +1,44 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Message, ChatState } from '../types';
+import React, { useRef, useEffect } from 'react';
+import { Message } from '../types';
 import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
-import { sendMessage } from '../api';
+import { useChat } from '../hooks/useChat';
 
 /**
  * Главный компонент чата
  * Управляет состоянием и рендерингом всего интерфейса
  */
 export const Chat: React.FC = () => {
-  const [state, setState] = useState<ChatState>({
-    messages: [],
-    isLoading: false,
-    error: null,
-  });
+  const {
+    messages,
+    isLoading,
+    error,
+    connectionStatus,
+    currentStatus,
+    sendMessage,
+  } = useChat();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Автоскролл к последнему сообщению
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [state.messages]);
+  }, [messages]);
 
   /**
-   * Отправка сообщения с вызовом API
+   * Отправка сообщения
    */
-  const handleSend = async (content: string) => {
-    const newUserMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content,
-      timestamp: new Date(),
-    };
-
-    setState((prev) => ({
-      ...prev,
-      messages: [...prev.messages, newUserMessage],
-      isLoading: true,
-      error: null,
-    }));
-
-    try {
-      const response = await sendMessage(content);
-      
-      const agentMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'agent',
-        content: response.reply,
-        timestamp: new Date(),
-      };
-
-      setState((prev) => ({
-        ...prev,
-        messages: [...prev.messages, agentMessage],
-        isLoading: false,
-      }));
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Неизвестная ошибка',
-      }));
-    }
+  const handleSend = (content: string) => {
+    sendMessage(content);
   };
+
+  // Текст статуса в зависимости от состояния
+  const statusText = currentStatus || (isLoading ? 'Агент обрабатывает запрос...' : null);
+
+  // Сообщение о статусе соединения
+  const connectionMessage = 
+    connectionStatus === 'connecting' ? 'Подключение...' :
+    connectionStatus === 'disconnected' ? 'Переподключение...' : null;
 
   return (
     <div
@@ -88,6 +64,11 @@ export const Chat: React.FC = () => {
         }}
       >
         🎸 Guitar Agent
+        {connectionMessage && (
+          <span style={{ marginLeft: '12px', fontSize: '12px', opacity: 0.8 }}>
+            ({connectionMessage})
+          </span>
+        )}
       </header>
 
       {/* Область сообщений */}
@@ -98,10 +79,10 @@ export const Chat: React.FC = () => {
           backgroundColor: '#ffffff',
         }}
       >
-        <MessageList messages={state.messages} />
-        
-        {/* Индикатор загрузки */}
-        {state.isLoading && (
+        <MessageList messages={messages} />
+
+        {/* Индикатор загрузки / статуса */}
+        {(isLoading || statusText) && (
           <div
             style={{
               padding: '16px',
@@ -112,7 +93,9 @@ export const Chat: React.FC = () => {
             <div style={{ display: 'inline-block', marginBottom: '8px' }}>
               🤖
             </div>
-            <div style={{ fontSize: '14px' }}>Агент подбирает гитары...</div>
+            <div style={{ fontSize: '14px' }}>
+              {statusText || 'Агент подбирает гитары...'}
+            </div>
             <div
               style={{
                 width: '200px',
@@ -136,7 +119,7 @@ export const Chat: React.FC = () => {
         )}
 
         {/* Сообщение об ошибке */}
-        {state.error && (
+        {error && (
           <div
             style={{
               padding: '16px',
@@ -147,7 +130,7 @@ export const Chat: React.FC = () => {
               fontSize: '14px',
             }}
           >
-            ⚠️ {state.error}
+            ⚠️ {error}
           </div>
         )}
 
@@ -155,7 +138,7 @@ export const Chat: React.FC = () => {
       </main>
 
       {/* Форма ввода */}
-      <InputForm onSend={handleSend} disabled={state.isLoading} />
+      <InputForm onSend={handleSend} disabled={isLoading} />
 
       {/* CSS-анимация для лоадера */}
       <style>{`
