@@ -4,6 +4,7 @@
 Функция используется другими модулями backend для запуска
 поиска объявлений по уже подготовленным параметрам.
 """
+from __future__ import annotations
 
 import json
 import os
