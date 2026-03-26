@@ -1,8 +1,11 @@
+import json
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.models import GuitarResult, WSMessage
 from backend.agent.service import interpret_query
+from backend.search.router import router as chat_router
 
 app = FastAPI(title="Guitar Agent API")
 
@@ -12,6 +15,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(chat_router)
 
 
 @app.get("/")
@@ -23,18 +28,18 @@ def root():
 async def chat(websocket: WebSocket):
     """WebSocket endpoint для чата с агентом."""
     await websocket.accept()
-    
+
     try:
         # Отправляем начальный статус
         await websocket.send_json({
             "type": "status",
             "status": "Определяю режим..."
         })
-        
+
         # Получаем сообщение от клиента
         data = await websocket.receive_json()
         query = data.get("query", "")
-        
+
         # Проверка на пустой запрос
         if not query or not query.strip():
             await websocket.send_json({
@@ -42,17 +47,17 @@ async def chat(websocket: WebSocket):
                 "status": "Запрос не может быть пустым"
             })
             return
-        
+
         # Определяем режим и получаем результат
         result = interpret_query(query)
-        
+
         if result["mode"] == "consultation":
             # Отправляем статус перед результатом
             await websocket.send_json({
                 "type": "status",
                 "status": "Формирую ответ..."
             })
-            
+
             # Отправляем финальный результат
             await websocket.send_json({
                 "type": "result",
@@ -65,12 +70,12 @@ async def chat(websocket: WebSocket):
                 "type": "status",
                 "status": "Ищу на Reverb..."
             })
-            
+
             await websocket.send_json({
                 "type": "status",
                 "status": "Ранжирую результаты..."
             })
-            
+
             # Преобразуем результаты в формат GuitarResult
             results = []
             for item in result.get("results", []):
@@ -82,14 +87,14 @@ async def chat(websocket: WebSocket):
                     image_url=item.get("image_url", ""),
                     listing_url=item.get("listing_url", "")
                 ))
-            
+
             # Отправляем финальный результат
             await websocket.send_json({
                 "type": "result",
                 "mode": "search",
                 "results": [r.model_dump() for r in results]
             })
-            
+
     except WebSocketDisconnect:
         # Клиент отключился — это нормально
         pass

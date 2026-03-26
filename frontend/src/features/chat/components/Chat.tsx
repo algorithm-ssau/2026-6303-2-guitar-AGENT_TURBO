@@ -36,7 +36,7 @@ export const Chat: React.FC = () => {
   const statusText = currentStatus || (isLoading ? 'Агент обрабатывает запрос...' : null);
 
   // Сообщение о статусе соединения
-  const connectionMessage = 
+  const connectionMessage =
     connectionStatus === 'connecting' ? 'Подключение...' :
     connectionStatus === 'disconnected' ? 'Переподключение...' : null;
 
