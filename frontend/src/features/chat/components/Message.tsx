@@ -1,5 +1,6 @@
 import React from 'react';
 import { Message } from '../types';
+import { ModeBadge } from './ModeBadge';
 import { ResultsList } from './ResultsList';
 import { SearchStatus } from './SearchStatus';
 
@@ -48,6 +49,7 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
           }}
         >
           {isUser ? '👤 Вы' : '🤖 Агент'}
+          {!isUser && <ModeBadge mode={message.mode} />}
         </div>
         <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
           {message.content}
