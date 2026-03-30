@@ -12,6 +12,9 @@ from backend.agent.mode_detector import detect_mode
 from backend.agent.param_extractor import extract_params_from_llm_response
 from backend.ranking.ranking import rank_results
 from backend.search.search_reverb import search_reverb
+from backend.utils.logger import get_logger
+
+logger = get_logger("agent.service")
 
 
 def get_system_prompt() -> str:
@@ -62,7 +65,11 @@ def interpret_query(
         dict с ключами mode и params/results (для поиска) или answer (для консультации)
     """
     # Определяем режим
-    mode = detect_mode(text)
+    try:
+        mode = detect_mode(text)
+    except Exception as e:
+        logger.error("Ошибка detect_mode, fallback на consultation: %s", e)
+        mode = "consultation"
     if on_status:
         on_status("Определяю режим...")
 
@@ -132,16 +139,28 @@ def _handle_search(
     if on_status:
         on_status("Ищу на Reverb...")
 
-    results = search_fn(
-        params.get("search_queries", []),
-        params.get("price_min"),
-        params.get("price_max"),
-    )
+    try:
+        results = search_fn(
+            params.get("search_queries", []),
+            params.get("price_min"),
+            params.get("price_max"),
+        )
+    except Exception as e:
+        logger.error("Ошибка search_reverb: %s", e)
+        return {
+            "mode": "search",
+            "results": [],
+            "error": "Не удалось выполнить поиск. Попробуйте позже.",
+        }
 
     # Ранжирование результатов
     if on_status:
         on_status("Ранжирую результаты...")
 
-    ranked = rank_results(results, {"budget_max": params.get("price_max")})
+    try:
+        ranked = rank_results(results, {"budget_max": params.get("price_max")})
+    except Exception as e:
+        logger.error("Ошибка rank_results, возвращаю неранжированные: %s", e)
+        ranked = results[:5]
 
     return {"mode": "search", "results": ranked}
