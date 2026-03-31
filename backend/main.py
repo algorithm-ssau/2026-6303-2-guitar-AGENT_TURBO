@@ -1,11 +1,17 @@
 import json
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.models import GuitarResult, WSMessage
 from backend.agent.service import interpret_query
 from backend.search.router import router as chat_router
+from backend.utils.logger import get_logger
+
+logger = get_logger("main")
 
 app = FastAPI(title="Guitar Agent API")
 
@@ -49,6 +55,7 @@ async def chat(websocket: WebSocket):
             return
 
         # Определяем режим и получаем результат
+        logger.info("WebSocket запрос: %s", query[:100])
         result = interpret_query(query)
 
         if result["mode"] == "consultation":
@@ -96,15 +103,13 @@ async def chat(websocket: WebSocket):
             })
 
     except WebSocketDisconnect:
-        # Клиент отключился — это нормально
-        pass
+        logger.info("WebSocket клиент отключился")
     except Exception as e:
-        # Обрабатываем любые другие ошибки
+        logger.error("Ошибка WebSocket: %s", e)
         try:
             await websocket.send_json({
                 "type": "error",
                 "status": f"Произошла ошибка: {str(e)}"
             })
         except Exception:
-            # Если не можем отправить ошибку — просто логируем
-            pass
+            logger.error("Не удалось отправить ошибку клиенту")

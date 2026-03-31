@@ -47,22 +47,34 @@ requirements.txt
 
 ---
 
-## Запуск
+## Быстрый старт
 
-### Backend
+### 1. Клонирование и настройка окружения
 
 ```bash
-cd backend
+git clone <url-репозитория>
+cd 2026-6303-2-guitar-AGENT_TURBO
+
+# Создаём .env из шаблона
+cp .env.example .env
+# Заполни GROQ_API_KEY в .env (получить: https://console.groq.com/)
+```
+
+### 2. Backend
+
+```bash
 python -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
-pip install -r ../requirements.txt
-cp ../.env.example ../.env    # заполни GROQ_API_KEY
-uvicorn main:app --reload
+pip install -r requirements.txt
+uvicorn backend.main:app --reload
 ```
 
 Сервер: `http://localhost:8000`
 
-### Frontend
+> Без `GROQ_API_KEY` проект запустится, но LLM-ответы будут в degraded-режиме.
+> С `USE_MOCK_REVERB=true` поиск использует мок-данные (не нужен `REVERB_API_TOKEN`).
+
+### 3. Frontend
 
 ```bash
 cd frontend
@@ -71,6 +83,18 @@ npm run dev
 ```
 
 Интерфейс: `http://localhost:5173`
+
+### 4. Проверка
+
+```bash
+# REST API
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Что такое хамбакер?"}'
+
+# Тесты
+pytest tests/ -v
+```
 
 ---
 

@@ -49,4 +49,4 @@ class TestChatRouter:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data["mode"], str)
-        assert data["mode"] in ["search", "chat"]
+        assert data["mode"] in ["search", "consultation"]
