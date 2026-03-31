@@ -53,7 +53,8 @@ export type SearchResult = z.infer<typeof SearchResultSchema>;
 
 /** Схема ответа от API */
 export const ChatResponseSchema = z.object({
-  reply: z.string(),
+  mode: z.enum(['search', 'consultation']),
+  answer: z.string().optional(),
   results: z.array(SearchResultSchema).optional(),
 });
 

@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { Message } from '../types';
 import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
+import { StatusIndicator } from './StatusIndicator';
 import { useChat } from '../hooks/useChat';
 
 /**
@@ -31,9 +32,6 @@ export const Chat: React.FC = () => {
   const handleSend = (content: string) => {
     sendMessage(content);
   };
-
-  // Текст статуса в зависимости от состояния
-  const statusText = currentStatus || (isLoading ? 'Агент обрабатывает запрос...' : null);
 
   // Сообщение о статусе соединения
   const connectionMessage =
@@ -81,42 +79,8 @@ export const Chat: React.FC = () => {
       >
         <MessageList messages={messages} />
 
-        {/* Индикатор загрузки / статуса */}
-        {(isLoading || statusText) && (
-          <div
-            style={{
-              padding: '16px',
-              textAlign: 'center',
-              color: '#6c757d',
-            }}
-          >
-            <div style={{ display: 'inline-block', marginBottom: '8px' }}>
-              🤖
-            </div>
-            <div style={{ fontSize: '14px' }}>
-              {statusText || 'Агент подбирает гитары...'}
-            </div>
-            <div
-              style={{
-                width: '200px',
-                height: '4px',
-                backgroundColor: '#e9ecef',
-                borderRadius: '2px',
-                margin: '12px auto 0',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  width: '50%',
-                  height: '100%',
-                  backgroundColor: '#28a745',
-                  animation: 'loading 1s ease-in-out infinite',
-                }}
-              />
-            </div>
-          </div>
-        )}
+        {/* Индикатор статуса */}
+        <StatusIndicator status={currentStatus} isLoading={isLoading} />
 
         {/* Сообщение об ошибке */}
         {error && (
@@ -145,6 +109,15 @@ export const Chat: React.FC = () => {
         @keyframes loading {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(300%); }
+        }
+        .status-dots {
+          animation: 'dots 1.5s steps(4, end) infinite';
+        }
+        @keyframes dots {
+          0%, 20% { content: ''; }
+          40% { content: '.'; }
+          60% { content: '..'; }
+          80%, 100% { content: '...'; }
         }
       `}</style>
     </div>
