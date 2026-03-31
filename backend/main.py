@@ -10,6 +10,7 @@ from backend.models import GuitarResult, WSMessage
 from backend.agent.service import interpret_query
 from backend.search.router import router as chat_router
 from backend.utils.logger import get_logger
+from backend.utils.serializer import snake_to_camel
 
 logger = get_logger("main")
 
@@ -95,11 +96,14 @@ async def chat(websocket: WebSocket):
                     listing_url=item.get("listing_url", "")
                 ))
 
+            # Преобразуем snake_case в camelCase перед отправкой
+            results_data = snake_to_camel([r.model_dump() for r in results])
+
             # Отправляем финальный результат
             await websocket.send_json({
                 "type": "result",
                 "mode": "search",
-                "results": [r.model_dump() for r in results]
+                "results": results_data
             })
 
     except WebSocketDisconnect:
