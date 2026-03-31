@@ -11,5 +11,6 @@ export { ErrorMessage } from './components/ErrorMessage';
 export { EmptyResults } from './components/EmptyResults';
 export { GuitarCard } from './components/GuitarCard';
 export { ResultsList } from './components/ResultsList';
+export { StatusIndicator } from './components/StatusIndicator';
 
 export type { Message, ChatState, MessageRole, GuitarResult } from './types';
