@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Message, ChatState } from '../types';
+import { Message, ChatState, GuitarResult } from '../types';
 
 const WS_URL = 'ws://localhost:8000/chat';
 
 interface UseChatReturn extends ChatState {
   sendMessage: (text: string) => void;
   connectionStatus: 'connected' | 'disconnected' | 'connecting';
-  currentStatus: string | null;
+  status: string | null;
 }
 
 /**
@@ -17,7 +17,7 @@ export function useChat(): UseChatReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting');
-  const [currentStatus, setCurrentStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -37,10 +37,10 @@ export function useChat(): UseChatReturn {
 
       ws.onclose = () => {
         setConnectionStatus('disconnected');
-        // Автоматический реконнект через 2 секунды
+        // Автоматический реконнект через 3 секунды
         reconnectTimeoutRef.current = setTimeout(() => {
           connect();
-        }, 2000);
+        }, 3000);
       };
 
       ws.onerror = () => {
@@ -51,36 +51,54 @@ export function useChat(): UseChatReturn {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
+
           switch (data.type) {
             case 'status':
-              setCurrentStatus(data.status || null);
+              setStatus(data.status || null);
               break;
-              
+
             case 'result':
-              setCurrentStatus(null);
+              setStatus(null);
               setIsLoading(false);
-              
+
+              let content = '';
+              let results: GuitarResult[] | undefined = undefined;
+
+              if (data.mode === 'consultation') {
+                content = data.answer || '';
+              } else if (data.mode === 'search') {
+                // Маппинг snake_case → camelCase
+                results = (data.results || []).map((item: any) => ({
+                  id: item.id,
+                  title: item.title,
+                  price: item.price,
+                  currency: item.currency,
+                  imageUrl: item.image_url,
+                  listingUrl: item.listing_url,
+                }));
+                content = `Найдено гитар: ${results.length}`;
+              }
+
               // Создаём сообщение от агента
               const agentMessage: Message = {
                 id: Date.now().toString(),
                 role: 'agent',
-                content: data.mode === 'consultation' 
-                  ? (data.answer || '') 
-                  : `Найдено гитар: ${data.results?.length || 0}`,
+                content,
                 timestamp: new Date(),
+                results,
+                mode: data.mode,
               };
-              
+
               setMessages(prev => [...prev, agentMessage]);
-              
+
               // Сохраняем результаты в messageCallbackRef для возможного использования
               if (messageCallbackRef.current) {
                 messageCallbackRef.current(data);
               }
               break;
-              
+
             case 'error':
-              setCurrentStatus(null);
+              setStatus(null);
               setIsLoading(false);
               setError(data.status || 'Произошла ошибка');
               break;
@@ -131,7 +149,7 @@ export function useChat(): UseChatReturn {
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
     setError(null);
-    setCurrentStatus(null);
+    setStatus(null);
 
     // Отправляем через WebSocket
     wsRef.current.send(JSON.stringify({ query: text }));
@@ -142,7 +160,7 @@ export function useChat(): UseChatReturn {
     isLoading,
     error,
     connectionStatus,
-    currentStatus,
+    status,
     sendMessage,
   };
 }
