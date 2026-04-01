@@ -1,4 +1,6 @@
+import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -55,56 +57,113 @@ async def chat(websocket: WebSocket):
             })
             return
 
-        # Определяем режим и получаем результат
-        logger.info("WebSocket запрос: %s", query[:100])
-        result = interpret_query(query)
+        # Создаём очередь для статусов
+        queue = asyncio.Queue()
+        loop = asyncio.get_event_loop()
 
-        if result["mode"] == "consultation":
-            # Отправляем статус перед результатом
+        # Флаги и данные для результата
+        task_done = False
+        result_data = None
+        error_data = None
+
+        def on_status(text: str):
+            """Callback для отправки статусов из синхронного кода."""
+            loop.call_soon_threadsafe(
+                queue.put_nowait,
+                {"type": "status", "status": text}
+            )
+
+        # Функция для запуска в потоке
+        def run_interpret():
+            nonlocal result_data, error_data
+            try:
+                logger.info("WebSocket запрос: %s", query[:100])
+                result_data = interpret_query(query, on_status=on_status)
+            except Exception as e:
+                logger.error("Ошибка в interpret_query: %s", e)
+                error_data = str(e)
+
+        # Запускаем interpret_query в отдельном потоке
+        task = loop.run_in_executor(ThreadPoolExecutor(), run_interpret)
+
+        # Параллельно слушаем очередь статусов
+        while not task_done:
+            try:
+                # Ждём либо статус, либо завершение задачи
+                status_msg = await asyncio.wait_for(queue.get(), timeout=0.1)
+                await websocket.send_json(status_msg)
+            except asyncio.TimeoutError:
+                # Проверяем завершение задачи
+                if task.done():
+                    task_done = True
+                    # Проверяем результат
+                    if error_data:
+                        await websocket.send_json({
+                            "type": "error",
+                            "status": f"Произошла ошибка: {error_data}"
+                        })
+                        return
+                    break
+                continue
+
+        # Добавляем таймаут 30 секунд на выполнение
+        try:
+            await asyncio.wait_for(task, timeout=30)
+        except asyncio.TimeoutError:
+            logger.error("Превышено время ожидания (30 сек) для запроса: %s", query[:100])
             await websocket.send_json({
-                "type": "status",
-                "status": "Формирую ответ..."
+                "type": "error",
+                "status": "Превышено время ожидания (30 сек)"
             })
+            return
 
-            # Отправляем финальный результат
-            await websocket.send_json({
-                "type": "result",
-                "mode": "consultation",
-                "answer": result.get("answer", "")
-            })
-        else:
-            # Search режим
-            await websocket.send_json({
-                "type": "status",
-                "status": "Ищу на Reverb..."
-            })
+        # Отправляем результат
+        if result_data:
+            if result_data["mode"] == "consultation":
+                await websocket.send_json({
+                    "type": "status",
+                    "status": "Формирую ответ..."
+                })
 
-            await websocket.send_json({
-                "type": "status",
-                "status": "Ранжирую результаты..."
-            })
+                # Отправляем финальный результат
+                await websocket.send_json({
+                    "type": "result",
+                    "mode": "consultation",
+                    "answer": result_data.get("answer", "")
+                })
+            else:
+                # Search режим
+                await websocket.send_json({
+                    "type": "status",
+                    "status": "Ищу на Reverb..."
+                })
 
-            # Преобразуем результаты в формат GuitarResult
-            results = []
-            for item in result.get("results", []):
-                results.append(GuitarResult(
-                    id=str(item.get("id", "")),
-                    title=item.get("title", ""),
-                    price=float(item.get("price", 0)),
-                    currency=item.get("currency", "USD"),
-                    image_url=item.get("image_url", ""),
-                    listing_url=item.get("listing_url", "")
-                ))
+                await websocket.send_json({
+                    "type": "status",
+                    "status": "Ранжирую результаты..."
+                })
 
-            # Преобразуем snake_case в camelCase перед отправкой
-            results_data = snake_to_camel([r.model_dump() for r in results])
+                # Преобразуем результаты в формат GuitarResult
+                results = []
+                for item in result_data.get("results", []):
+                    results.append(GuitarResult(
+                        id=str(item.get("id", "")),
+                        title=item.get("title", ""),
+                        price=float(item.get("price", 0)),
+                        currency=item.get("currency", "USD"),
+                        image_url=item.get("image_url", ""),
+                        listing_url=item.get("listing_url", "")
+                    ))
 
-            # Отправляем финальный результат
-            await websocket.send_json({
-                "type": "result",
-                "mode": "search",
-                "results": results_data
-            })
+                # Преобразуем snake_case в camelCase перед отправкой
+                results_data = snake_to_camel([r.model_dump() for r in results])
+
+                # Отправляем финальный результат
+                await websocket.send_json({
+                    "type": "result",
+                    "mode": "search",
+                    "results": results_data
+                })
 
     except WebSocketDisconnect:
         logger.info("WebSocket клиент отключился")
