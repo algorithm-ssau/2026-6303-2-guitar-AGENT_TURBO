@@ -1,10 +1,12 @@
 import React from 'react';
 import { GuitarResult } from '../types';
+import { RelevanceBadge } from './RelevanceBadge';
 
 interface GuitarCardProps {
     result: GuitarResult;
     priceMin?: number;
     priceMax?: number;
+    position?: number;
 }
 
 /**
@@ -31,7 +33,7 @@ const getPriceColor = (price: number, priceMax?: number): 'green' | 'yellow' | '
     return 'red';
 };
 
-export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceMax }) => {
+export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceMax, position }) => {
     const priceColor = getPriceColor(result.price ?? 0, priceMax);
 
     const priceColorStyle = {
@@ -49,47 +51,51 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
                 padding: '16px',
                 margin: '8px 0',
                 display: 'flex',
-                alignItems: 'center',
+                flexDirection: 'column',
+                gap: '12px',
                 backgroundColor: '#fff'
             }}
         >
-            {result.imageUrl && (
-                <img
-                    src={result.imageUrl}
-                    alt={result.title}
-                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px', marginRight: '16px' }}
-                />
-            )}
-            <div style={{ flex: 1 }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>{result.title}</h4>
-                {result.price !== undefined && (
-                    <div style={{
-                        fontWeight: 'bold',
-                        color: priceColorStyle,
-                        fontSize: '15px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        <span
-                            title={
-                                priceColor === 'green'
-                                    ? 'В бюджете'
-                                    : priceColor === 'yellow'
-                                    ? 'Превышает до 20%'
-                                    : 'Превышает более 20%'
-                            }
-                            style={{
-                                display: 'inline-block',
-                                width: '10px',
-                                height: '10px',
-                                borderRadius: '50%',
-                                backgroundColor: priceColorStyle
-                            }}
-                        />
-                        {result.price} {result.currency || 'USD'}
-                    </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {result.imageUrl && (
+                    <img
+                        src={result.imageUrl}
+                        alt={result.title}
+                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px' }}
+                    />
                 )}
+                <div style={{ flex: 1 }}>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>{result.title}</h4>
+                    {result.price !== undefined && (
+                        <div style={{
+                            fontWeight: 'bold',
+                            color: priceColorStyle,
+                            fontSize: '15px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <span
+                                title={
+                                    priceColor === 'green'
+                                        ? 'В бюджете'
+                                        : priceColor === 'yellow'
+                                        ? 'Превышает до 20%'
+                                        : 'Превышает более 20%'
+                                }
+                                style={{
+                                    display: 'inline-block',
+                                    width: '10px',
+                                    height: '10px',
+                                    borderRadius: '50%',
+                                    backgroundColor: priceColorStyle
+                                }}
+                            />
+                            {result.price} {result.currency || 'USD'}
+                        </div>
+                    )}
+                </div>
+                {position && <RelevanceBadge position={position} />}
             </div>
             <a
                 href={result.listingUrl}
@@ -101,7 +107,8 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
                     color: 'white',
                     textDecoration: 'none',
                     borderRadius: '4px',
-                    fontWeight: '500'
+                    fontWeight: '500',
+                    textAlign: 'center'
                 }}
             >
                 Смотреть
