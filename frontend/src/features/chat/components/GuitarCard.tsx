@@ -35,12 +35,44 @@ const getPriceColor = (price: number, priceMax?: number): 'green' | 'yellow' | '
 
 export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceMax, position }) => {
     const priceColor = getPriceColor(result.price ?? 0, priceMax);
+    const [imageError, setImageError] = React.useState(false);
+    const [isHovered, setIsHovered] = React.useState(false);
 
     const priceColorStyle = {
         green: '#28a745',
         yellow: '#ffc107',
         red: '#dc3545',
     }[priceColor];
+
+    const hasImage = result.imageUrl && !imageError;
+
+    // Форматируем цену: "$499" вместо "499 USD"
+    const formatPrice = (price: number, currency: string | undefined): string => {
+        if (currency === 'USD') {
+            return `$${price}`;
+        }
+        return `${price} ${currency || 'USD'}`;
+    };
+
+    // Placeholder для изображения
+    const imagePlaceholder = (
+        <div
+            style={{
+                width: '80px',
+                height: '80px',
+                backgroundColor: '#ccc',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '4px',
+                fontSize: '12px',
+                color: '#666',
+                flexShrink: 0,
+            }}
+        >
+            Нет фото
+        </div>
+    );
 
     return (
         <div
@@ -53,16 +85,29 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '12px',
-                backgroundColor: '#fff'
+                backgroundColor: '#fff',
+                transition: 'box-shadow 0.2s ease',
+                boxShadow: isHovered ? '0 4px 12px rgba(0, 0, 0, 0.15)' : 'none',
             }}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                {result.imageUrl && (
-                    <img
-                        src={result.imageUrl}
-                        alt={result.title}
-                        style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px' }}
-                    />
+                {hasImage ? (
+                    <a
+                        href={result.listingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <img
+                            src={result.imageUrl}
+                            alt={result.title}
+                            onError={() => setImageError(true)}
+                            style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px', display: 'block' }}
+                        />
+                    </a>
+                ) : (
+                    imagePlaceholder
                 )}
                 <div style={{ flex: 1 }}>
                     <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>{result.title}</h4>
@@ -91,7 +136,7 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
                                     backgroundColor: priceColorStyle
                                 }}
                             />
-                            {result.price} {result.currency || 'USD'}
+                            {formatPrice(result.price, result.currency)}
                         </div>
                     )}
                 </div>
