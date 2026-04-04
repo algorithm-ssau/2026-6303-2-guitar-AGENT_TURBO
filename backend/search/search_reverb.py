@@ -86,18 +86,36 @@ def _normalize_reverb_response(listing: dict[str, Any]) -> dict[str, Any]:
     # Извлекаем цену — может быть числом или объектом
     raw_price = listing.get("price", 0)
     if isinstance(raw_price, dict):
-        price_value = raw_price.get("amount", 0)
+        try:
+            price_value = float(raw_price.get("amount", 0))
+        except (ValueError, TypeError):
+            price_value = 0
         currency = raw_price.get("currency", "USD")
     else:
-        price_value = raw_price
+        try:
+            price_value = float(raw_price)
+        except (ValueError, TypeError):
+            price_value = 0
         currency = "USD"
 
-    # Извлекаем изображение — может быть image_url или photos массив
-    image_url = listing.get("image_url", "")
+    # Извлекаем изображение — приоритет: _links.photo.href > image_url > photos[0].url
+    image_url = ""
+    links = listing.get("_links", {})
+    if links and "photo" in links:
+        image_url = links["photo"].get("href", "")
+    if not image_url:
+        image_url = listing.get("image_url", "")
     if not image_url:
         photos = listing.get("photos", [])
         if photos:
             image_url = photos[0].get("url", "")
+
+    # Извлекаем URL листинга — приоритет: _links.web.href > url > web_url
+    listing_url = ""
+    if links and "web" in links:
+        listing_url = links["web"].get("href", "")
+    if not listing_url:
+        listing_url = listing.get("url", listing.get("web_url", ""))
 
     return {
         "id": str(listing.get("id", "")),
@@ -105,8 +123,30 @@ def _normalize_reverb_response(listing: dict[str, Any]) -> dict[str, Any]:
         "price": price_value,
         "currency": currency,
         "image_url": image_url,
-        "listing_url": listing.get("url", listing.get("web_url", "")),
+        "listing_url": listing_url,
     }
+
+
+def _deduplicate_listings(
+    listings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    Удаляет дубликаты объявлений по полю id.
+
+    Args:
+        listings: Список нормализованных объявлений.
+
+    Returns:
+        Список объявлений без дубликатов (первое вхождение сохраняется).
+    """
+    seen_ids: set[str] = set()
+    result = []
+    for item in listings:
+        item_id = item.get("id", "")
+        if item_id not in seen_ids:
+            seen_ids.add(item_id)
+            result.append(item)
+    return result
 
 
 def _search_reverb_api(
@@ -115,7 +155,7 @@ def _search_reverb_api(
     price_max: int | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Выполняет реальный запрос к Reverb API.
+    Выполняет реальный запрос к Reverb API с авторизацией.
 
     Args:
         search_queries: Списком строк, которые нужно отправить в поиск Reverb.
@@ -123,15 +163,29 @@ def _search_reverb_api(
         price_max: Максимальная цена.
 
     Returns:
-        Список нормализованных объявлений.
+        Список нормализованных объявлений (без дедупликации — caller делает её).
     """
-    # TODO: Реализовать реальный запрос к Reverb API
-    # Базовый URL API Reverb
-    base_url = "https://api.reverb.com/api"
+    # Правильный endpoint для поиска
+    url = "https://api.reverb.com/api/listings/all"
+
+    # Читаем токен авторизации из env
+    token = os.getenv("REVERB_API_TOKEN")
+
+    # Формируем заголовки авторизации
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/hal+json",
+        "Accept": "application/hal+json",
+        "Accept-Version": "3.0",
+    }
 
     all_results = []
 
-    for query in search_queries:
+    # Пагинация: не более 3 запросов с разными query
+    max_queries = 3
+    queries_to_use = search_queries[:max_queries] if search_queries else ["guitar"]
+
+    for query in queries_to_use:
         # Формируем параметры запроса
         params = {
             "query": query,
@@ -145,8 +199,9 @@ def _search_reverb_api(
 
         try:
             response = requests.get(
-                f"{base_url}/listings",
+                url,
                 params=params,
+                headers=headers,
                 timeout=10,
             )
             response.raise_for_status()
@@ -160,11 +215,11 @@ def _search_reverb_api(
                     all_results.append(normalized)
 
         except requests.exceptions.RequestException:
-            # Если API недоступен, возвращаем пустой список
-            # (обработчик на верхнем уровне решит что делать)
+            # Если API недоступен, пропускаем запрос
             continue
 
-    return all_results
+    # Дедупликация по id — один лот не должен появляться дважды
+    return _deduplicate_listings(all_results)
 
 
 def search_reverb(
@@ -175,9 +230,10 @@ def search_reverb(
     """
     Выполняет поиск объявлений на Reverb по подготовленным параметрам.
 
-    Поддерживает два режима работы:
+    Поддерживает три режима работы:
     - Мок-режим (USE_MOCK_REVERB=true): возвращает данные из mock_reverb.json
-    - Реальный режим: выполняет запрос к Reverb API
+    - Реальный режим (REVERB_API_TOKEN задан): выполняет запрос к Reverb API
+    - Fallback (токена нет): использует mock-данные
 
     Args:
         search_queries: Список строк, которые нужно отправить в поиск Reverb.
@@ -204,7 +260,15 @@ def search_reverb(
         # Затем фильтруем по цене
         return _filter_by_price(filtered_by_query, price_min, price_max)
 
-    # Реальный режим: делаем запрос к API
+    # Проверяем наличие токена — если нет, fallback на mock
+    api_token = os.getenv("REVERB_API_TOKEN")
+    if not api_token:
+        # Fallback: используем mock-данные как при мок-режиме
+        mock_data = _load_mock_data()
+        filtered_by_query = _filter_by_queries(mock_data, search_queries)
+        return _filter_by_price(filtered_by_query, price_min, price_max)
+
+    # Реальный режим: делаем запрос к API с авторизацией
     results = _search_reverb_api(search_queries, price_min, price_max)
 
     # Фильтруем результаты по цене
