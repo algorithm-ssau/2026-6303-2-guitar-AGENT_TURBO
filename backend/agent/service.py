@@ -158,7 +158,14 @@ def _handle_search(
         on_status("Ранжирую результаты...")
 
     try:
-        ranked = rank_results(results, {"budget_max": params.get("price_max")})
+        rank_params = {
+            "budget_max": params.get("price_max"),
+            "search_queries": params.get("search_queries", []),
+            "type": params.get("type"),
+            "pickups": params.get("pickups"),
+            "brand": params.get("brand"),
+        }
+        ranked = rank_results(results, rank_params)
     except Exception as e:
         logger.error("Ошибка rank_results, возвращаю неранжированные: %s", e)
         ranked = results[:5]

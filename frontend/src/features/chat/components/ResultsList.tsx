@@ -14,11 +14,15 @@ export const ResultsList: React.FC<ResultsListProps> = ({ results }) => {
     return (
         <div className="results-list" style={{ marginTop: '16px', width: '100%' }}>
             <h3 style={{ fontSize: '16px', marginBottom: '12px' }}>
-                Найдено {results.length} вариантов
+                Лучшие совпадения
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {results.map((result, index) => (
-                    <GuitarCard key={result.id || result.listingUrl || index} result={result} />
+                    <GuitarCard 
+                        key={result.id || result.listingUrl || index} 
+                        result={result}
+                        position={index + 1}
+                    />
                 ))}
             </div>
         </div>
