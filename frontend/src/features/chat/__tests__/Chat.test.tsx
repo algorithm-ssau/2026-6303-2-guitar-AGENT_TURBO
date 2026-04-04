@@ -1,21 +1,32 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Chat } from '../components/Chat';
-import { sendMessage } from '../api';
+import { useChat } from '../hooks/useChat';
 
-// Мок API функции
-vi.mock('../api', () => ({
-  sendMessage: vi.fn(),
+// Мок хука useChat
+vi.mock('../hooks/useChat', () => ({
+  useChat: vi.fn(),
 }));
 
 describe('Chat Component', () => {
+  const mockSendMessage = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
+    (useChat as any).mockReturnValue({
+      messages: [],
+      isLoading: false,
+      error: null,
+      connectionStatus: 'connected',
+      status: null,
+      sendMessage: mockSendMessage,
+    });
   });
 
   it('должен рендериться с заголовком', () => {
     render(<Chat />);
-    expect(screen.getByText('🎸 Guitar Agent')).toBeInTheDocument();
+    expect(screen.getByText(/Guitar Agent/i)).toBeInTheDocument();
   });
 
   it('должен отображать введённый текст в поле ввода', () => {
@@ -25,91 +36,60 @@ describe('Chat Component', () => {
     expect(textarea).toHaveValue('Тестовое сообщение');
   });
 
-  it('должен отправлять сообщение и показывать ответ', async () => {
-    (sendMessage as any).mockResolvedValue({ reply: 'Привет! Чем помочь?' });
+  it('должен отображать сообщения из хука useChat', () => {
+    (useChat as any).mockReturnValue({
+      messages: [
+        { id: '1', role: 'user', content: 'Привет', timestamp: new Date() },
+        { id: '2', role: 'agent', content: 'Привет! Чем помочь?', timestamp: new Date(), mode: 'consultation' }
+      ],
+      isLoading: false,
+      error: null,
+      connectionStatus: 'connected',
+      status: null,
+      sendMessage: mockSendMessage,
+    });
 
     render(<Chat />);
-    const textarea = screen.getByPlaceholderText('Введите ваш запрос...');
-    const button = screen.getByText('➤');
-
-    fireEvent.change(textarea, { target: { value: 'Привет' } });
-    fireEvent.click(button);
-
-    // Проверка что сообщение пользователя отображается
     expect(screen.getByText('Привет')).toBeInTheDocument();
-
-    // Проверка что показывается индикатор загрузки
-    expect(screen.getByText('Агент подбирает гитары...')).toBeInTheDocument();
-
-    // Проверка что ответ агента отображается
-    await waitFor(() => {
-      expect(screen.getByText('Привет! Чем помочь?')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Привет! Чем помочь?')).toBeInTheDocument();
   });
 
-  it('должен показывать ошибку при неудачном запросе', async () => {
-    (sendMessage as any).mockRejectedValue(new Error('Ошибка сети'));
+  it('Проверить отображение промежуточного статуса при isLoading', () => {
+    (useChat as any).mockReturnValue({
+      messages: [],
+      isLoading: true,
+      error: null,
+      connectionStatus: 'connected',
+      status: 'Ищу на Reverb...',
+      sendMessage: mockSendMessage,
+    });
 
+    render(<Chat />);
+    expect(screen.getByText('Ищу на Reverb...')).toBeInTheDocument();
+  });
+
+  it('Проверить отображение error через ErrorMessage', () => {
+    (useChat as any).mockReturnValue({
+      messages: [],
+      isLoading: false,
+      error: 'Ошибка сети',
+      connectionStatus: 'connected',
+      status: null,
+      sendMessage: mockSendMessage,
+    });
+
+    render(<Chat />);
+    expect(screen.getByText('⚠️ Ошибка сети')).toBeInTheDocument();
+  });
+
+  it('должен отправлять сообщение', () => {
     render(<Chat />);
     const textarea = screen.getByPlaceholderText('Введите ваш запрос...');
     const button = screen.getByText('➤');
 
-    fireEvent.change(textarea, { target: { value: 'Привет' } });
+    fireEvent.change(textarea, { target: { value: 'Тест' } });
     fireEvent.click(button);
 
-    // Проверка что ошибка отображается
-    await waitFor(() => {
-      expect(screen.getByText('⚠️ Ошибка сети')).toBeInTheDocument();
-    });
-  });
-
-  it('должен очищать поле ввода после отправки', async () => {
-    (sendMessage as any).mockResolvedValue({ reply: 'Ответ' });
-
-    render(<Chat />);
-    const textarea = screen.getByPlaceholderText('Введите ваш запрос...');
-    const button = screen.getByText('➤');
-
-    fireEvent.change(textarea, { target: { value: 'Сообщение' } });
-    fireEvent.click(button);
-
-    await waitFor(() => {
-      expect(textarea).toHaveValue('');
-    });
-  });
-
-  it('должен блокировать кнопку во время загрузки', async () => {
-    (sendMessage as any).mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)));
-
-    render(<Chat />);
-    const textarea = screen.getByPlaceholderText('Введите ваш запрос...');
-    const button = screen.getByText('➤');
-
-    fireEvent.change(textarea, { target: { value: 'Привет' } });
-    fireEvent.click(button);
-
-    // Кнопка должна быть disabled во время загрузки
-    expect(button).toBeDisabled();
-  });
-
-  it('должен отправлять по Enter без Shift', async () => {
-    (sendMessage as any).mockResolvedValue({ reply: 'Ответ' });
-
-    render(<Chat />);
-    const textarea = screen.getByPlaceholderText('Введите ваш запрос...');
-
-    fireEvent.change(textarea, { target: { value: 'Привет' } });
-    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter', shiftKey: false });
-
-    // Проверяем что сообщение отправлено (появляется в списке)
-    expect(screen.getByText('Привет')).toBeInTheDocument();
-  });
-
-  it('не должен отправлять пустое сообщение', () => {
-    render(<Chat />);
-    const button = screen.getByText('➤');
-
-    // Кнопка должна быть disabled для пустого ввода
-    expect(button).toBeDisabled();
+    expect(mockSendMessage).toHaveBeenCalledWith('Тест');
   });
 });

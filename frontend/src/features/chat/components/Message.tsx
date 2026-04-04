@@ -49,20 +49,18 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
           }}
         >
           {isUser ? '👤 Вы' : '🤖 Агент'}
-          {!isUser && <ModeBadge mode={message.mode} />}
+          {!isUser && message.mode && <ModeBadge mode={message.mode} />}
         </div>
-        <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
-          {message.content}
-        </div>
-        {/* Отображаем статус поиска перед результатами */}
-        {message.results && (
-          <SearchStatus
-            isLoading={false}
-            resultsCount={message.results.length}
-          />
+
+        {/* Для consultation mode или fallback показываем content */}
+        {(!message.mode || message.mode === 'consultation' || !message.results || message.results.length === 0) && (
+          <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
+            {message.content}
+          </div>
         )}
+
         {/* Отображаем список результатов */}
-        {message.results && message.results.length > 0 && (
+        {message.mode === 'search' && message.results && message.results.length > 0 && (
           <ResultsList results={message.results} />
         )}
         <div
