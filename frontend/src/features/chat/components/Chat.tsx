@@ -3,6 +3,8 @@ import { Message } from '../types';
 import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
 import { StatusIndicator } from './StatusIndicator';
+import { ErrorMessage } from './ErrorMessage';
+import { EmptyResults } from './EmptyResults';
 import { useChat } from '../hooks/useChat';
 
 /**
@@ -15,7 +17,7 @@ export const Chat: React.FC = () => {
     isLoading,
     error,
     connectionStatus,
-    currentStatus,
+    status,
     sendMessage,
   } = useChat();
 
@@ -33,10 +35,17 @@ export const Chat: React.FC = () => {
     sendMessage(content);
   };
 
+  const handleRetry = () => {
+    const lastUserMessage = messages.slice().reverse().find(m => m.role === 'user')?.content;
+    if (lastUserMessage) {
+      sendMessage(lastUserMessage);
+    }
+  };
+
   // Сообщение о статусе соединения
   const connectionMessage =
     connectionStatus === 'connecting' ? 'Подключение...' :
-    connectionStatus === 'disconnected' ? 'Переподключение...' : null;
+      connectionStatus === 'disconnected' ? 'Переподключение...' : null;
 
   return (
     <div
@@ -79,23 +88,19 @@ export const Chat: React.FC = () => {
       >
         <MessageList messages={messages} />
 
+        {messages.length > 0 &&
+          messages[messages.length - 1].role === 'agent' &&
+          messages[messages.length - 1].mode === 'search' &&
+          (!messages[messages.length - 1].results || messages[messages.length - 1].results?.length === 0) && (
+            <EmptyResults />
+          )}
+
         {/* Индикатор статуса */}
-        <StatusIndicator status={currentStatus} isLoading={isLoading} />
+        <StatusIndicator status={status} isLoading={isLoading} />
 
         {/* Сообщение об ошибке */}
         {error && (
-          <div
-            style={{
-              padding: '16px',
-              margin: '0 16px 16px',
-              backgroundColor: '#f8d7da',
-              color: '#721c24',
-              borderRadius: '8px',
-              fontSize: '14px',
-            }}
-          >
-            ⚠️ {error}
-          </div>
+          <ErrorMessage message={error} onRetry={handleRetry} />
         )}
 
         <div ref={messagesEndRef} />

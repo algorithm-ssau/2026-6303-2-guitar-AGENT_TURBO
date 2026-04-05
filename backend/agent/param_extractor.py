@@ -144,6 +144,8 @@ def build_search_prompt(user_query: str, mapping_table: str) -> str:
 {{"search_queries": ["Fender Stratocaster", "Squier Stratocaster"], "price_min": null, "price_max": 500}}
 {{"search_queries": ["Gibson Les Paul"], "price_min": 1000, "price_max": 2000}}
 {{"search_queries": ["Yamaha F310"], "price_min": null, "price_max": null}}
+{{"search_queries": ["Ibanez RG", "Jackson Soloist"], "price_min": null, "price_max": 500}} # Для "мятал палку за 50к деревянных" -> 50000/100 = 500 USD
+{{"search_queries": ["PRS Custom 24"], "price_min": null, "price_max": null}} # Для "жирную гитару с красивым топом"
 
 Важно: верни ТОЛЬКО JSON, без дополнительного текста."""
 
