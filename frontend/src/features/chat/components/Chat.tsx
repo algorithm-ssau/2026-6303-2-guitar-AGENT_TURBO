@@ -1,15 +1,14 @@
-import React, { useRef, useEffect } from 'react';
-import { Message } from '../types';
+import React, { useRef, useEffect, useState } from 'react';
 import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
 import { StatusIndicator } from './StatusIndicator';
 import { ErrorMessage } from './ErrorMessage';
 import { EmptyResults } from './EmptyResults';
+import { Sidebar } from './Sidebar';
 import { useChat } from '../hooks/useChat';
 
 /**
- * Главный компонент чата
- * Управляет состоянием и рендерингом всего интерфейса
+ * Главный компонент чата с сайдбаром истории
  */
 export const Chat: React.FC = () => {
   const {
@@ -19,18 +18,21 @@ export const Chat: React.FC = () => {
     connectionStatus,
     status,
     sendMessage,
+    sessions,
+    currentSessionId,
+    selectSession,
+    newChat,
+    deleteSession,
+    clearHistory,
   } = useChat();
 
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Автоскролл к последнему сообщению
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  /**
-   * Отправка сообщения
-   */
   const handleSend = (content: string) => {
     sendMessage(content);
   };
@@ -42,89 +44,110 @@ export const Chat: React.FC = () => {
     }
   };
 
-  // Сообщение о статусе соединения
   const connectionMessage =
     connectionStatus === 'connecting' ? 'Подключение...' :
       connectionStatus === 'disconnected' ? 'Переподключение...' : null;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        backgroundColor: '#f5f5f5',
-      }}
-    >
-      {/* Header */}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '60px',
-          backgroundColor: '#1a1a2e',
-          color: '#ffffff',
-          fontSize: '20px',
-          fontWeight: 'bold',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        }}
-      >
-        🎸 Guitar Agent
-        {connectionMessage && (
-          <span style={{ marginLeft: '12px', fontSize: '12px', opacity: 0.8 }}>
-            ({connectionMessage})
-          </span>
-        )}
-      </header>
+    <div style={{ display: 'flex', height: '100vh' }}>
+      {/* Сайдбар истории — слева */}
+      <Sidebar
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        isOpen={sidebarOpen}
+        onSelectSession={selectSession}
+        onNewChat={newChat}
+        onDeleteSession={deleteSession}
+        onClearHistory={clearHistory}
+        onToggle={() => setSidebarOpen(prev => !prev)}
+      />
 
-      {/* Область сообщений */}
-      <main
+      {/* Основная область чата */}
+      <div
         style={{
           flex: 1,
-          overflowY: 'auto',
-          backgroundColor: '#ffffff',
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: '#f5f5f5',
+          minWidth: 0,
         }}
       >
-        <MessageList messages={messages} />
+        {/* Header */}
+        <header
+          style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '60px',
+            backgroundColor: '#1a1a2e',
+            color: '#ffffff',
+            fontSize: '20px',
+            fontWeight: 'bold',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          }}
+        >
+          <button
+            onClick={() => setSidebarOpen(prev => !prev)}
+            style={{
+              position: 'absolute',
+              left: '16px',
+              background: 'transparent',
+              border: 'none',
+              color: '#ffffff',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: '4px 8px',
+            }}
+            title={sidebarOpen ? 'Скрыть сайдбар' : 'Показать сайдбар'}
+          >
+            ☰
+          </button>
+          🎸 Guitar Agent
+          {connectionMessage && (
+            <span style={{ marginLeft: '12px', fontSize: '12px', opacity: 0.8 }}>
+              ({connectionMessage})
+            </span>
+          )}
+        </header>
 
-        {messages.length > 0 &&
-          messages[messages.length - 1].role === 'agent' &&
-          messages[messages.length - 1].mode === 'search' &&
-          (!messages[messages.length - 1].results || messages[messages.length - 1].results?.length === 0) && (
-            <EmptyResults />
+        {/* Область сообщений */}
+        <main
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            backgroundColor: '#ffffff',
+          }}
+        >
+          <MessageList messages={messages} />
+
+          {messages.length > 0 &&
+            messages[messages.length - 1].role === 'agent' &&
+            messages[messages.length - 1].mode === 'search' &&
+            (!messages[messages.length - 1].results || messages[messages.length - 1].results?.length === 0) && (
+              <EmptyResults />
+            )}
+
+          <StatusIndicator status={status} isLoading={isLoading} />
+
+          {error && (
+            <ErrorMessage message={error} onRetry={handleRetry} />
           )}
 
-        {/* Индикатор статуса */}
-        <StatusIndicator status={status} isLoading={isLoading} />
+          <div ref={messagesEndRef} />
+        </main>
 
-        {/* Сообщение об ошибке */}
-        {error && (
-          <ErrorMessage message={error} onRetry={handleRetry} />
-        )}
+        {/* Форма ввода */}
+        <InputForm onSend={handleSend} disabled={isLoading} />
 
-        <div ref={messagesEndRef} />
-      </main>
+        <style>{`
+          @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(300%); }
+          }
+        `}</style>
+      </div>
 
-      {/* Форма ввода */}
-      <InputForm onSend={handleSend} disabled={isLoading} />
-
-      {/* CSS-анимация для лоадера */}
-      <style>{`
-        @keyframes loading {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(300%); }
-        }
-        .status-dots {
-          animation: 'dots 1.5s steps(4, end) infinite';
-        }
-        @keyframes dots {
-          0%, 20% { content: ''; }
-          40% { content: '.'; }
-          60% { content: '..'; }
-          80%, 100% { content: '...'; }
-        }
-      `}</style>
     </div>
   );
 };

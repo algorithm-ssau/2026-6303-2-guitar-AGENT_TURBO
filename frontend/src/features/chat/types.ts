@@ -32,6 +32,14 @@ export interface ChatState {
   error: string | null;
 }
 
+/** Сессия чата */
+export interface Session {
+  id: number;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Схема запроса к API */
 export const ChatRequestSchema = z.object({
   message: z.string().min(1, 'Сообщение не может быть пустым'),
@@ -59,3 +67,36 @@ export const ChatResponseSchema = z.object({
 });
 
 export type ChatResponse = z.infer<typeof ChatResponseSchema>;
+
+/** Схема сессии */
+export const SessionSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+/** Схема ответа GET /api/sessions */
+export const SessionsResponseSchema = z.object({
+  sessions: z.array(SessionSchema),
+});
+
+/** Схема элемента истории */
+export const HistoryItemSchema = z.object({
+  id: z.number(),
+  sessionId: z.number(),
+  userQuery: z.string(),
+  mode: z.enum(['search', 'consultation']),
+  answer: z.string().nullable().optional(),
+  results: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+  createdAt: z.string(),
+});
+
+export type HistoryItem = z.infer<typeof HistoryItemSchema>;
+
+/** Схема ответа GET /api/sessions/{id}/messages */
+export const HistoryResponseSchema = z.object({
+  items: z.array(HistoryItemSchema),
+});
+
+export type HistoryResponse = z.infer<typeof HistoryResponseSchema>;

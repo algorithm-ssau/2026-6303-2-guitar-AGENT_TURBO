@@ -11,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.models import GuitarResult, WSMessage
 from backend.agent.service import interpret_query
 from backend.search.router import router as chat_router
+from backend.history.router import router as history_router
+from backend.history.service import init_db, save_exchange, create_session
 from backend.utils.logger import get_logger
 from backend.utils.serializer import snake_to_camel
 
@@ -26,6 +28,12 @@ app.add_middleware(
 )
 
 app.include_router(chat_router)
+app.include_router(history_router)
+
+
+@app.on_event("startup")
+def startup():
+    init_db()
 
 
 @app.get("/")
@@ -48,6 +56,7 @@ async def chat(websocket: WebSocket):
         # Получаем сообщение от клиента
         data = await websocket.receive_json()
         query = data.get("query", "")
+        session_id = data.get("sessionId")
 
         # Проверка на пустой запрос
         if not query or not query.strip():
@@ -56,6 +65,10 @@ async def chat(websocket: WebSocket):
                 "status": "Запрос не может быть пустым"
             })
             return
+
+        # Создаём сессию, если не передана
+        if not session_id:
+            session_id = create_session(title=query[:100])
 
         # Создаём очередь для статусов
         queue = asyncio.Queue()
@@ -126,11 +139,19 @@ async def chat(websocket: WebSocket):
                 })
 
                 # Отправляем финальный результат
+                consultation_answer = result_data.get("answer", "")
                 await websocket.send_json({
                     "type": "result",
                     "mode": "consultation",
-                    "answer": result_data.get("answer", "")
+                    "answer": consultation_answer,
+                    "sessionId": session_id,
                 })
+
+                # Сохраняем в историю
+                try:
+                    save_exchange(session_id=session_id, user_query=query, mode="consultation", answer=consultation_answer)
+                except Exception as e:
+                    logger.error("Ошибка сохранения истории: %s", e)
             else:
                 # Search режим
                 await websocket.send_json({
@@ -162,8 +183,15 @@ async def chat(websocket: WebSocket):
                 await websocket.send_json({
                     "type": "result",
                     "mode": "search",
-                    "results": results_data
+                    "results": results_data,
+                    "sessionId": session_id,
                 })
+
+                # Сохраняем в историю
+                try:
+                    save_exchange(session_id=session_id, user_query=query, mode="search", results=results_data)
+                except Exception as e:
+                    logger.error("Ошибка сохранения истории: %s", e)
 
     except WebSocketDisconnect:
         logger.info("WebSocket клиент отключился")

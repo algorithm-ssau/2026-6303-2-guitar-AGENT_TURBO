@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Message, ChatState, GuitarResult } from '../types';
+import { Message, ChatState, GuitarResult, Session } from '../types';
+import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession, clearAllHistory } from '../api';
 
 const WS_URL = 'ws://localhost:8000/chat';
 
@@ -7,10 +8,42 @@ interface UseChatReturn extends ChatState {
   sendMessage: (text: string) => void;
   connectionStatus: 'connected' | 'disconnected' | 'connecting';
   status: string | null;
+  sessions: Session[];
+  currentSessionId: number | null;
+  selectSession: (id: number) => void;
+  newChat: () => void;
+  deleteSession: (id: number) => void;
+  clearHistory: () => void;
 }
 
 /**
- * Хук для управления WebSocket соединением чата
+ * Преобразует элементы истории в массив сообщений
+ */
+function historyToMessages(items: any[]): Message[] {
+  const messages: Message[] = [];
+  for (const item of items) {
+    messages.push({
+      id: `hist-user-${item.id}`,
+      role: 'user',
+      content: item.userQuery,
+      timestamp: new Date(item.createdAt),
+    });
+    messages.push({
+      id: `hist-agent-${item.id}`,
+      role: 'agent',
+      content: item.mode === 'consultation'
+        ? (item.answer || '')
+        : `Найдено гитар: ${(item.results || []).length}`,
+      timestamp: new Date(item.createdAt),
+      mode: item.mode as 'search' | 'consultation',
+      results: item.mode === 'search' ? (item.results as GuitarResult[]) : undefined,
+    });
+  }
+  return messages;
+}
+
+/**
+ * Хук для управления чатом с поддержкой сессий
  */
 export function useChat(): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -18,15 +51,33 @@ export function useChat(): UseChatReturn {
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting');
   const [status, setStatus] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const messageCallbackRef = useRef<((data: any) => void) | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentSessionIdRef = useRef<number | null>(null);
 
-  // Функция подключения к WebSocket
+  // Синхронизируем ref с state для доступа из колбэков
+  useEffect(() => {
+    currentSessionIdRef.current = currentSessionId;
+  }, [currentSessionId]);
+
+  // Загрузка списка сессий при монтировании
+  const loadSessions = useCallback(() => {
+    fetchSessions()
+      .then(setSessions)
+      .catch((err) => console.error('Ошибка загрузки сессий:', err));
+  }, []);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
+
+  // Подключение к WebSocket
   const connect = useCallback(() => {
     setConnectionStatus('connecting');
-    
+
     try {
       const ws = new WebSocket(WS_URL);
 
@@ -37,7 +88,6 @@ export function useChat(): UseChatReturn {
 
       ws.onclose = () => {
         setConnectionStatus('disconnected');
-        // Автоматический реконнект через 3 секунды
         reconnectTimeoutRef.current = setTimeout(() => {
           connect();
         }, 3000);
@@ -57,9 +107,15 @@ export function useChat(): UseChatReturn {
               setStatus(data.status || null);
               break;
 
-            case 'result':
+            case 'result': {
               setStatus(null);
               setIsLoading(false);
+
+              // Бэкенд вернул sessionId (новый или существующий)
+              const returnedSessionId = data.sessionId as number | undefined;
+              if (returnedSessionId && !currentSessionIdRef.current) {
+                setCurrentSessionId(returnedSessionId);
+              }
 
               let content = '';
               let results: GuitarResult[] | undefined = undefined;
@@ -67,19 +123,17 @@ export function useChat(): UseChatReturn {
               if (data.mode === 'consultation') {
                 content = data.answer || '';
               } else if (data.mode === 'search') {
-                // Маппинг snake_case → camelCase
                 results = (data.results || []).map((item: any) => ({
                   id: item.id,
                   title: item.title,
                   price: item.price,
                   currency: item.currency,
-                  imageUrl: item.image_url,
-                  listingUrl: item.listing_url,
+                  imageUrl: item.imageUrl || item.image_url,
+                  listingUrl: item.listingUrl || item.listing_url,
                 }));
                 content = `Найдено гитар: ${results.length}`;
               }
 
-              // Создаём сообщение от агента
               const agentMessage: Message = {
                 id: Date.now().toString(),
                 role: 'agent',
@@ -91,11 +145,10 @@ export function useChat(): UseChatReturn {
 
               setMessages(prev => [...prev, agentMessage]);
 
-              // Сохраняем результаты в messageCallbackRef для возможного использования
-              if (messageCallbackRef.current) {
-                messageCallbackRef.current(data);
-              }
+              // Обновляем список сессий
+              loadSessions();
               break;
+            }
 
             case 'error':
               setStatus(null);
@@ -114,20 +167,13 @@ export function useChat(): UseChatReturn {
       setConnectionStatus('disconnected');
       setError('Не удалось подключиться к серверу');
     }
-  }, []);
+  }, [loadSessions]);
 
-  // Подключение при монтировании
   useEffect(() => {
     connect();
-
-    // Очистка при размонтировании
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) wsRef.current.close();
     };
   }, [connect]);
 
@@ -138,7 +184,6 @@ export function useChat(): UseChatReturn {
       return;
     }
 
-    // Добавляем сообщение пользователя
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -151,8 +196,60 @@ export function useChat(): UseChatReturn {
     setError(null);
     setStatus(null);
 
-    // Отправляем через WebSocket
-    wsRef.current.send(JSON.stringify({ query: text }));
+    // Отправляем sessionId если есть текущая сессия
+    wsRef.current.send(JSON.stringify({
+      query: text,
+      sessionId: currentSessionIdRef.current || undefined,
+    }));
+  }, []);
+
+  // Выбрать сессию — загрузить её сообщения
+  const selectSession = useCallback((id: number) => {
+    setCurrentSessionId(id);
+    setError(null);
+    setStatus(null);
+
+    fetchSessionMessages(id)
+      .then((data) => {
+        setMessages(historyToMessages(data.items));
+      })
+      .catch((err) => {
+        console.error('Ошибка загрузки сообщений сессии:', err);
+        setError('Не удалось загрузить сообщения');
+      });
+  }, []);
+
+  // Новый чат
+  const newChat = useCallback(() => {
+    setCurrentSessionId(null);
+    setMessages([]);
+    setError(null);
+    setStatus(null);
+  }, []);
+
+  // Удалить сессию
+  const deleteSessionHandler = useCallback((id: number) => {
+    apiDeleteSession(id)
+      .then(() => {
+        setSessions(prev => prev.filter(s => s.id !== id));
+        // Если удалили текущую — сбрасываем
+        if (currentSessionIdRef.current === id) {
+          setCurrentSessionId(null);
+          setMessages([]);
+        }
+      })
+      .catch((err) => console.error('Ошибка удаления сессии:', err));
+  }, []);
+
+  // Очистить всю историю
+  const clearHistory = useCallback(() => {
+    clearAllHistory()
+      .then(() => {
+        setSessions([]);
+        setCurrentSessionId(null);
+        setMessages([]);
+      })
+      .catch((err) => console.error('Ошибка очистки истории:', err));
   }, []);
 
   return {
@@ -162,5 +259,11 @@ export function useChat(): UseChatReturn {
     connectionStatus,
     status,
     sendMessage,
+    sessions,
+    currentSessionId,
+    selectSession,
+    newChat,
+    deleteSession: deleteSessionHandler,
+    clearHistory,
   };
 }
