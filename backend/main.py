@@ -47,151 +47,144 @@ async def chat(websocket: WebSocket):
     await websocket.accept()
 
     try:
-        # Отправляем начальный статус
-        await websocket.send_json({
-            "type": "status",
-            "status": "Определяю режим..."
-        })
+        while True:
+            # Получаем сообщение от клиента
+            data = await websocket.receive_json()
+            query = data.get("query", "")
+            session_id = data.get("sessionId")
 
-        # Получаем сообщение от клиента
-        data = await websocket.receive_json()
-        query = data.get("query", "")
-        session_id = data.get("sessionId")
-
-        # Проверка на пустой запрос
-        if not query or not query.strip():
+            # Отправляем начальный статус
             await websocket.send_json({
-                "type": "error",
-                "status": "Запрос не может быть пустым"
+                "type": "status",
+                "status": "Определяю режим..."
             })
-            return
 
-        # Создаём сессию, если не передана
-        if not session_id:
-            session_id = create_session(title=query[:100])
-
-        # Создаём очередь для статусов
-        queue = asyncio.Queue()
-        loop = asyncio.get_event_loop()
-
-        # Флаги и данные для результата
-        task_done = False
-        result_data = None
-        error_data = None
-
-        def on_status(text: str):
-            """Callback для отправки статусов из синхронного кода."""
-            loop.call_soon_threadsafe(
-                queue.put_nowait,
-                {"type": "status", "status": text}
-            )
-
-        # Функция для запуска в потоке
-        def run_interpret():
-            nonlocal result_data, error_data
-            try:
-                logger.info("WebSocket запрос: %s", query[:100])
-                result_data = interpret_query(query, on_status=on_status)
-            except Exception as e:
-                logger.error("Ошибка в interpret_query: %s", e)
-                error_data = str(e)
-
-        # Запускаем interpret_query в отдельном потоке
-        task = loop.run_in_executor(ThreadPoolExecutor(), run_interpret)
-
-        # Параллельно слушаем очередь статусов
-        while not task_done:
-            try:
-                # Ждём либо статус, либо завершение задачи
-                status_msg = await asyncio.wait_for(queue.get(), timeout=0.1)
-                await websocket.send_json(status_msg)
-            except asyncio.TimeoutError:
-                # Проверяем завершение задачи
-                if task.done():
-                    task_done = True
-                    # Проверяем результат
-                    if error_data:
-                        await websocket.send_json({
-                            "type": "error",
-                            "status": f"Произошла ошибка: {error_data}"
-                        })
-                        return
-                    break
+            # Проверка на пустой запрос
+            if not query or not query.strip():
+                await websocket.send_json({
+                    "type": "error",
+                    "status": "Запрос не может быть пустым"
+                })
                 continue
 
-        # Добавляем таймаут 30 секунд на выполнение
-        try:
-            await asyncio.wait_for(task, timeout=30)
-        except asyncio.TimeoutError:
-            logger.error("Превышено время ожидания (30 сек) для запроса: %s", query[:100])
-            await websocket.send_json({
-                "type": "error",
-                "status": "Превышено время ожидания (30 сек)"
-            })
-            return
+            # Создаём сессию, если не передана
+            if not session_id:
+                session_id = create_session(title=query[:100])
 
-        # Отправляем результат
-        if result_data:
-            if result_data["mode"] == "consultation":
-                await websocket.send_json({
-                    "type": "status",
-                    "status": "Формирую ответ..."
-                })
+            # Создаём очередь для статусов
+            queue = asyncio.Queue()
+            loop = asyncio.get_event_loop()
 
-                # Отправляем финальный результат
-                consultation_answer = result_data.get("answer", "")
-                await websocket.send_json({
-                    "type": "result",
-                    "mode": "consultation",
-                    "answer": consultation_answer,
-                    "sessionId": session_id,
-                })
+            # Флаги и данные для результата
+            task_done = False
+            result_data = None
+            error_data = None
 
-                # Сохраняем в историю
+            def on_status(text: str):
+                """Callback для отправки статусов из синхронного кода."""
+                loop.call_soon_threadsafe(
+                    queue.put_nowait,
+                    {"type": "status", "status": text}
+                )
+
+            # Функция для запуска в потоке
+            def run_interpret():
+                nonlocal result_data, error_data
                 try:
-                    save_exchange(session_id=session_id, user_query=query, mode="consultation", answer=consultation_answer)
+                    logger.info("WebSocket запрос: %s", query[:100])
+                    result_data = interpret_query(query, on_status=on_status, session_id=session_id)
                 except Exception as e:
-                    logger.error("Ошибка сохранения истории: %s", e)
-            else:
-                # Search режим
-                await websocket.send_json({
-                    "type": "status",
-                    "status": "Ищу на Reverb..."
-                })
+                    logger.error("Ошибка в interpret_query: %s", e)
+                    error_data = str(e)
 
-                await websocket.send_json({
-                    "type": "status",
-                    "status": "Ранжирую результаты..."
-                })
+            # Запускаем interpret_query в отдельном потоке
+            task = loop.run_in_executor(ThreadPoolExecutor(), run_interpret)
 
-                # Преобразуем результаты в формат GuitarResult
-                results = []
-                for item in result_data.get("results", []):
-                    results.append(GuitarResult(
-                        id=str(item.get("id", "")),
-                        title=item.get("title", ""),
-                        price=float(item.get("price", 0)),
-                        currency=item.get("currency", "USD"),
-                        image_url=item.get("image_url", ""),
-                        listing_url=item.get("listing_url", "")
-                    ))
-
-                # Преобразуем snake_case в camelCase перед отправкой
-                results_data = snake_to_camel([r.model_dump() for r in results])
-
-                # Отправляем финальный результат
-                await websocket.send_json({
-                    "type": "result",
-                    "mode": "search",
-                    "results": results_data,
-                    "sessionId": session_id,
-                })
-
-                # Сохраняем в историю
+            # Параллельно слушаем очередь статусов
+            while not task_done:
                 try:
-                    save_exchange(session_id=session_id, user_query=query, mode="search", results=results_data)
-                except Exception as e:
-                    logger.error("Ошибка сохранения истории: %s", e)
+                    status_msg = await asyncio.wait_for(queue.get(), timeout=0.1)
+                    await websocket.send_json(status_msg)
+                except asyncio.TimeoutError:
+                    if task.done():
+                        task_done = True
+                        if error_data:
+                            await websocket.send_json({
+                                "type": "error",
+                                "status": f"Произошла ошибка: {error_data}"
+                            })
+                        break
+                    continue
+
+            if error_data:
+                continue
+
+            # Таймаут 30 секунд
+            try:
+                await asyncio.wait_for(task, timeout=30)
+            except asyncio.TimeoutError:
+                logger.error("Превышено время ожидания (30 сек) для запроса: %s", query[:100])
+                await websocket.send_json({
+                    "type": "error",
+                    "status": "Превышено время ожидания (30 сек)"
+                })
+                continue
+
+            # Отправляем результат
+            if result_data:
+                if result_data["mode"] == "consultation":
+                    await websocket.send_json({
+                        "type": "status",
+                        "status": "Формирую ответ..."
+                    })
+
+                    consultation_answer = result_data.get("answer", "")
+                    await websocket.send_json({
+                        "type": "result",
+                        "mode": "consultation",
+                        "answer": consultation_answer,
+                        "sessionId": session_id,
+                    })
+
+                    try:
+                        save_exchange(session_id=session_id, user_query=query, mode="consultation", answer=consultation_answer)
+                    except Exception as e:
+                        logger.error("Ошибка сохранения истории: %s", e)
+                else:
+                    await websocket.send_json({
+                        "type": "status",
+                        "status": "Ищу на Reverb..."
+                    })
+
+                    await websocket.send_json({
+                        "type": "status",
+                        "status": "Ранжирую результаты..."
+                    })
+
+                    results = []
+                    for item in result_data.get("results", []):
+                        results.append(GuitarResult(
+                            id=str(item.get("id", "")),
+                            title=item.get("title", ""),
+                            price=float(item.get("price", 0)),
+                            currency=item.get("currency", "USD"),
+                            image_url=item.get("image_url", ""),
+                            listing_url=item.get("listing_url", "")
+                        ))
+
+                    results_data = snake_to_camel([r.model_dump() for r in results])
+
+                    await websocket.send_json({
+                        "type": "result",
+                        "mode": "search",
+                        "results": results_data,
+                        "sessionId": session_id,
+                    })
+
+                    try:
+                        save_exchange(session_id=session_id, user_query=query, mode="search", results=results_data)
+                    except Exception as e:
+                        logger.error("Ошибка сохранения истории: %s", e)
 
     except WebSocketDisconnect:
         logger.info("WebSocket клиент отключился")

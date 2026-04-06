@@ -46,23 +46,26 @@
 
 ### Что делать
 
+- Создать `backend/agent/explanation.py` — генерация пояснений в отдельном файле:
+  - Функция `generate_explanation(query: str, results: list, llm_client) -> str`:
+    - Вызывает LLM с коротким промптом: "Напиши 1–2 предложения почему эти гитары подходят под запрос: {query}. Без списков, только текст."
+    - При ошибке LLM или degraded mode → возвращает `""`
+  - Промпт-шаблон — константа в этом же файле
 - Обновить `docs/AGENT_PROMPT.md`:
-  - Добавить инструкцию: при search-режиме генерировать 1–2 предложения пояснения ("Вот варианты с тёплым звуком в вашем бюджете:")
+  - Добавить инструкцию: при search-режиме генерировать пояснение
   - Добавить 2–3 few-shot примера пояснений
-- Обновить `backend/agent/service.py` — в `_handle_search()`:
-  - После получения результатов — вызвать LLM с коротким промптом:
-    "Напиши 1–2 предложения почему эти гитары подходят под запрос: {query}. Без списков, только текст."
-  - Добавить поле `explanation` в ответ: `result["explanation"] = ...`
-  - При ошибке LLM или degraded mode → `explanation = ""`
-- Обновить `backend/models.py` — добавить `explanation: Optional[str] = None` в WSMessage
+- Обновить `backend/main.py` — в WS цикле, после получения search-результатов:
+  - Вызвать `generate_explanation(query, results, llm_client)`
+  - Добавить `explanation` в WS-ответ
+  - **НЕ трогать service.py** — explanation генерируется в main.py перед отправкой
 - Обновить маппинг в `frontend/src/features/chat/hooks/useChat.ts`:
   - Читать `data.explanation`, если есть — использовать как `content` вместо "Найдено гитар: N"
 
 ### Файлы
 
+- Создать: `backend/agent/explanation.py` (основная работа)
 - Изменить: `docs/AGENT_PROMPT.md`
-- Изменить: `backend/agent/service.py`
-- Изменить: `backend/models.py`
+- Изменить: `backend/main.py` (вызов generate_explanation + добавление в ответ)
 - Изменить: `frontend/src/features/chat/hooks/useChat.ts` (маппинг поля)
 
 ### Критерий приёмки
@@ -73,41 +76,56 @@
 
 ### Тест: `tests/test_explanation.py`
 
-- interpret_query search → результат содержит поле "explanation"
-- explanation не пустой при доступном LLM (замокать ответ)
-- explanation пустой в degraded mode — не ломает ответ
+- generate_explanation с замоканным LLM → непустая строка
+- generate_explanation без LLM → пустая строка
+- generate_explanation с пустыми результатами → пустая строка
 
 ### Коммит: `feat: add search result explanation from LLM`
 
 ---
 
-## Задача 3 (Backend): ужесточить off-topic в промптах LLM
+## Задача 3 (Backend): суммаризация контекста диалога при превышении лимита токенов
 
 ### Что делать
 
-- Обновить `docs/CONSULTATION_PROMPT.md`:
-  - Расширить список запрещённых тем: программирование, математика, рецепты, погода, новости, любые не-музыкальные темы
-  - Добавить строгую инструкцию: "Если запрос не связан с гитарами, музыкой, звуком или оборудованием — ответь ТОЛЬКО фразой отказа"
-  - Добавить 3 negative few-shot примера (запрос → отказ)
-- Обновить `docs/AGENT_PROMPT.md` аналогично
-- Ограничение ответа consultation до 300 слов
+- Создать `backend/agent/context_manager.py`:
+  - Функция `build_context(session_id, system_prompt, current_query) -> list[dict]`:
+    - Загружает историю диалога из БД (через `get_session_messages`)
+    - Считает примерное количество токенов (1 токен ≈ 3 символа для русского текста)
+    - Лимит берётся из конфига модели: `MODEL_CONTEXT_LIMIT` из `.env` (по умолчанию 128000 для llama-3.3-70b). Порог суммаризации — 75% от лимита, чтобы оставить место на system prompt + ответ
+    - Если история укладывается в порог — возвращает полную историю как есть
+    - Если НЕ укладывается — вызывает LLM с промптом суммаризации:
+      ```
+      "Сделай краткое summary предыдущего диалога (ключевые предпочтения пользователя, 
+      его имя если представился, что он искал, что ему понравилось). До 200 слов."
+      ```
+    - Формирует новый контекст: system prompt → {"role": "system", "content": summary} → последние 3 пары → текущий вопрос
+  - Функция `estimate_tokens(text: str) -> int`: грубая оценка токенов (`len(text) // 3`)
+  - Лимит читается из `os.getenv("MODEL_CONTEXT_LIMIT", "128000")` — привязан к реальной модели
+- Обновить `backend/agent/service.py`:
+  - Убрать `MAX_HISTORY_PAIRS` и `_load_chat_history()`
+  - В `_handle_consultation()` и `interpret_query()` использовать `build_context()` вместо тупого обрезания
+- Обновить `backend/agent/llm_client.py`:
+  - Метод `summarize(messages: list, prompt: str) -> str` — вызов LLM для суммаризации
 
 ### Файлы
 
-- Изменить: `docs/CONSULTATION_PROMPT.md`
-- Изменить: `docs/AGENT_PROMPT.md`
+- Создать: `backend/agent/context_manager.py`
+- Изменить: `backend/agent/service.py`
+- Изменить: `backend/agent/llm_client.py`
 
 ### Критерий приёмки
 
-- LLM не отвечает на "напиши сортировку пузырьком" (второй рубеж после mode_detector)
-- LLM не отвечает на "какая погода" / "реши уравнение"
-- LLM продолжает нормально отвечать на гитарные вопросы
-- Consultation-ответы ≤ 300 слов
+- Короткий диалог (< 75% контекста модели) → полная история без суммаризации
+- Длинный диалог (> 75% контекста) → summary старых сообщений + последние 3 пары полностью
+- "Меня зовут Антон" → через 20 сообщений "как меня зовут?" → "Антон" (имя сохранено в summary)
+- Без GROQ_API_KEY → graceful fallback (последние 5 пар без суммаризации)
 
-### Тест: `tests/test_prompt_offtopic.py`
+### Тест: `tests/test_context_manager.py`
 
-- Промпт содержит инструкцию об отказе на нерелевантные запросы
-- Промпт содержит negative few-shot примеры
-- Промпт содержит ограничение на 300 слов
+- estimate_tokens возвращает адекватные числа
+- build_context с короткой историей → полная история без суммаризации
+- build_context с длинной историей (замокать > 75% лимита) → вызывает summarize, возвращает summary + последние пары
+- build_context без session_id → пустая история
 
-### Коммит: `feat: harden prompts against off-topic queries`
+### Коммит: `feat: add context summarization for long conversations`

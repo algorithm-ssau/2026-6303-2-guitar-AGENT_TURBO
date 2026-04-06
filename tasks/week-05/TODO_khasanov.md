@@ -11,25 +11,26 @@
 
 ### Что делать
 
+- Создать `backend/agent/clarification.py` — вся логика уточнений в отдельном файле:
+  - Функция `check_needs_clarification(params: dict) -> Optional[str]`:
+    - Принимает извлечённые search_params
+    - Если нет бюджета ИЛИ нет типа гитары ИЛИ пустые search_queries → вернуть текст уточняющего вопроса ("Какой у вас бюджет?", "Какой тип гитары ищете?")
+    - Если всё есть → вернуть `None` (уточнение не нужно)
+  - Константы с шаблонами вопросов
 - Обновить `backend/agent/service.py` — в `_handle_search()`:
-  - Перед вызовом `search_reverb`, проверить что LLM вернул достаточно параметров
-  - Если нет бюджета ИЛИ нет типа гитары ИЛИ пустые search_queries → вернуть уточняющий вопрос:
-    ```python
-    {"mode": "clarification", "question": "Какой у вас бюджет?" }
-    ```
-  - Логика: `extract_search_params` вернул `{}` или нет ключевых полей → уточнение
-- Обновить `backend/main.py` — WebSocket обработка нового типа `mode="clarification"`:
-  - Отправить `{"type": "result", "mode": "clarification", "question": "..."}`
-  - НЕ закрывать сессию — ждать следующее сообщение от клиента
-- Обновить `backend/models.py`:
-  - Добавить `question: Optional[str] = None` в WSMessage
-  - Добавить `"clarification"` в Literal mode
+  - После `extract_search_params` вызвать `check_needs_clarification(params)`
+  - Если вернулся вопрос → `return {"mode": "clarification", "question": question}`
+  - Если `None` → продолжить поиск как раньше
+  - Это 4 строки изменений: import + вызов + early return
+- Обновить `backend/main.py` — в WS цикле обработка `mode="clarification"`:
+  - Отправить `{"type": "result", "mode": "clarification", "question": "...", "sessionId": session_id}`
+  - Сохранить в историю с mode="clarification", answer=question
 
 ### Файлы
 
-- Изменить: `backend/agent/service.py`
-- Изменить: `backend/main.py`
-- Изменить: `backend/models.py`
+- Создать: `backend/agent/clarification.py` (основная работа)
+- Изменить: `backend/agent/service.py` (4 строки: import + вызов + return)
+- Изменить: `backend/main.py` (добавить блок `elif result_data["mode"] == "clarification"`)
 
 ### Критерий приёмки
 
@@ -39,9 +40,9 @@
 
 ### Тест: `tests/test_clarification.py`
 
-- Запрос без бюджета → mode="clarification"
-- Запрос с полными данными → mode="search" (не clarification)
-- extract_search_params вернул пустой dict → clarification
+- Запрос без бюджета → check_needs_clarification возвращает вопрос
+- Запрос с полными данными → возвращает None
+- extract_search_params вернул пустой dict → вопрос
 
 ### Коммит: `feat: add clarification mode for incomplete search queries`
 
@@ -62,8 +63,8 @@
 
 ### Файлы
 
-- Изменить: `frontend/src/features/chat/hooks/useChat.ts`
-- Изменить: `frontend/src/features/chat/types.ts`
+- Изменить: `frontend/src/features/chat/hooks/useChat.ts` (5 строк в switch/case)
+- Изменить: `frontend/src/features/chat/types.ts` (1 строка)
 - Изменить: `frontend/src/features/chat/components/ModeBadge.tsx`
 
 ### Критерий приёмки
@@ -87,16 +88,18 @@
 - Обновить `frontend/src/features/chat/components/RelevanceBadge.tsx`:
   - Стилизация по мокапу: компактный бейдж, цвет по уровню
 - Создать `frontend/src/features/chat/components/BudgetHint.tsx`:
-  - Если в ответе агента есть информация о бюджете — показать бейдж "Бюджет: до $600" над карточками
-  - Карточки в рамках бюджета — нормальные, выше бюджета — приглушённый стиль (opacity 0.6)
-- Обновить `frontend/src/features/chat/components/Message.tsx`:
-  - Подключить BudgetHint перед ResultsList (если есть данные о бюджете)
+  - Самостоятельный компонент: принимает `budget` и `results` через props
+  - Если budget передан — показать бейдж "Бюджет: до $600" над карточками
+  - Карточки дороже бюджета — приглушённый стиль (opacity 0.6)
+- Обновить `frontend/src/features/chat/components/ResultsList.tsx`:
+  - Подключить BudgetHint перед списком карточек
+  - **НЕ трогать Message.tsx** — BudgetHint рендерится внутри ResultsList
 
 ### Файлы
 
 - Изменить: `frontend/src/features/chat/components/RelevanceBadge.tsx`
 - Создать: `frontend/src/features/chat/components/BudgetHint.tsx`
-- Изменить: `frontend/src/features/chat/components/Message.tsx`
+- Изменить: `frontend/src/features/chat/components/ResultsList.tsx`
 
 ### Критерий приёмки
 

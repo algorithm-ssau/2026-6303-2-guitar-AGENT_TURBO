@@ -11,27 +11,20 @@
 
 ### Что делать
 
-- Обновить `backend/agent/service.py` — в `_handle_search()`:
-  - После ранжирования — обрезать до `MAX_RESULTS = 5`
-  - Замерить время выполнения `interpret_query`:
-    ```python
-    import time
-    start = time.time()
-    # ... pipeline ...
-    elapsed = time.time() - start
-    logger.info("Время ответа: %.2f сек", elapsed)
-    ```
-  - Добавить `elapsed_seconds` в ответ: `result["elapsed"] = round(elapsed, 2)`
+- Создать `backend/agent/pipeline_middleware.py` — обёртка над пайплайном:
+  - Функция-декоратор `with_timing(fn)` — замеряет время выполнения, логирует, добавляет `elapsed` в результат
+  - Функция `limit_results(result: dict, max_results: int = 5) -> dict` — обрезает results до max_results
   - Если elapsed > 10 сек → `logger.warning` (PRD: < 10 сек)
-- Обновить `backend/main.py` — передать `elapsed` в WebSocket result:
-  - `{"type": "result", "mode": "search", "results": [...], "elapsed": 3.14}`
-- Обновить `backend/models.py` — добавить `elapsed: Optional[float] = None`
+- Обновить `backend/main.py` — в WS цикле обернуть вызов `interpret_query`:
+  - Замер времени вокруг вызова (в main.py, а не в service.py)
+  - Вызов `limit_results()` перед отправкой search-результатов
+  - Добавить `elapsed` в WS-ответ: `{"type": "result", ..., "elapsed": 3.14}`
+- **НЕ трогать `service.py`** — вся логика лимитов и таймингов в middleware и main.py
 
 ### Файлы
 
-- Изменить: `backend/agent/service.py`
-- Изменить: `backend/main.py`
-- Изменить: `backend/models.py`
+- Создать: `backend/agent/pipeline_middleware.py` (основная работа)
+- Изменить: `backend/main.py` (обёртка вызова + limit_results перед отправкой)
 
 ### Критерий приёмки
 
@@ -42,9 +35,9 @@
 
 ### Тест: `tests/test_result_limits.py`
 
-- 20 результатов → после pipeline остаётся ≤ 5
-- elapsed присутствует и > 0
-- Пустой результат → elapsed всё равно есть
+- limit_results с 20 результатами → 5
+- limit_results с 3 результатами → 3 (не добавляет лишние)
+- with_timing возвращает elapsed > 0
 
 ### Коммит: `feat: limit results to 5 and add response time tracking`
 
@@ -61,20 +54,21 @@
 - Создать `frontend/src/shared/components/ConfirmDialog.tsx`:
   - Модальное окно: "Вы уверены?" + кнопки "Да" / "Отмена"
   - Затемнение фона (overlay)
-- Обновить `frontend/src/features/chat/components/Sidebar.tsx`:
-  - Удаление сессии → ConfirmDialog перед удалением
-  - "Очистить всё" → ConfirmDialog
-  - После удаления → Toast "Чат удалён"
+- Создать хук `frontend/src/shared/hooks/useToast.ts`:
+  - `useToast()` → `{ showToast(text, type), ToastContainer }`
+  - Позволяет любому компоненту показать тост без прямого импорта
 - Обновить `frontend/src/features/chat/components/Chat.tsx`:
+  - Подключить `useToast` и `<ToastContainer />`
   - При потере WS-соединения → Toast "Потеряно соединение, переподключаю..."
   - При восстановлении → Toast "Соединение восстановлено"
+- **НЕ трогать Sidebar.tsx** — интеграцию confirm-диалогов в сайдбар делает Сидоров (он владеет этим файлом)
 
 ### Файлы
 
 - Создать: `frontend/src/shared/components/Toast.tsx`
 - Создать: `frontend/src/shared/components/ConfirmDialog.tsx`
-- Изменить: `frontend/src/features/chat/components/Sidebar.tsx` (вызов confirm/toast)
-- Изменить: `frontend/src/features/chat/components/Chat.tsx` (toast при переподключении)
+- Создать: `frontend/src/shared/hooks/useToast.ts`
+- Изменить: `frontend/src/features/chat/components/Chat.tsx` (только подключение ToastContainer + WS-тосты)
 
 ### Критерий приёмки
 

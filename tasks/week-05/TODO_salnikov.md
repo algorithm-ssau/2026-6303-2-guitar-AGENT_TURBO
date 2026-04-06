@@ -81,17 +81,18 @@
 - Добавить третий режим `"off_topic"` в `backend/agent/mode_detector.py`:
   - Паттерны НЕ про гитары: программирование ("напиши код", "сортировка", "функция", "python", "javascript"), математика ("реши", "посчитай", "уравнение", "интеграл"), бытовое ("погода", "рецепт", "борщ", "новости")
   - Если запрос попадает в off_topic — вернуть `"off_topic"` до вызова LLM
-- Обновить `backend/agent/service.py` — в `interpret_query()`:
-  - Если `detect_mode` вернул `"off_topic"` → сразу вернуть:
-    ```python
-    {"mode": "consultation", "answer": "Я специализируюсь на гитарах и музыкальном оборудовании. Спросите меня о подборе гитары, звукоснимателях, усилителях или технике игры!"}
-    ```
-  - Не вызывать LLM, не тратить токены
+  - Фиксированный ответ-отказ — константа `OFF_TOPIC_ANSWER` прямо в `mode_detector.py`
+- **НЕ трогать `service.py`** — `interpret_query()` уже вызывает `detect_mode()`, достаточно чтобы `detect_mode` возвращал `"off_topic"`, а в `service.py` добавить 3 строки:
+  ```python
+  if mode == "off_topic":
+      return {"mode": "consultation", "answer": OFF_TOPIC_ANSWER}
+  ```
+  Это единственное изменение в service.py — добавить `import OFF_TOPIC_ANSWER` и 2 строки early return перед существующим `if mode == "consultation"`
 
 ### Файлы
 
-- Изменить: `backend/agent/mode_detector.py`
-- Изменить: `backend/agent/service.py`
+- Изменить: `backend/agent/mode_detector.py` (основная работа)
+- Изменить: `backend/agent/service.py` (только 3 строки: import + early return)
 
 ### Критерий приёмки
 

@@ -11,11 +11,14 @@ class LLMClient:
         self.client = Groq(api_key=self.api_key)
         self.model = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
 
-    def ask(self, user_message: str, system_prompt: str) -> str:
+    def ask(self, user_message: str, system_prompt: str, history: list = None) -> str:
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
         ]
+        # Добавляем историю диалога (если есть)
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": user_message})
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
