@@ -88,6 +88,7 @@
       return {"mode": "consultation", "answer": OFF_TOPIC_ANSWER}
   ```
   Это единственное изменение в service.py — добавить `import OFF_TOPIC_ANSWER` и 2 строки early return перед существующим `if mode == "consultation"`
+- **Важно:** сигнатура `detect_mode` теперь `detect_mode(text: str, has_previous_search: bool = False)` — off-topic проверку нужно выполнять **до** проверки `_RESEARCH_PATTERNS`, чтобы off-topic срабатывал даже при наличии предыдущего поиска в сессии
 
 ### Файлы
 

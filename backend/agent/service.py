@@ -74,6 +74,20 @@ def create_llm_client() -> Optional[LLMClient]:
         return None
 
 
+def _get_last_search_query(session_id: Optional[int]) -> Optional[str]:
+    """Возвращает user_query последнего поискового запроса в сессии (или None)."""
+    if not session_id:
+        return None
+    try:
+        items = get_session_messages(session_id)
+        for item in reversed(items):
+            if item.get("mode") == "search":
+                return item.get("user_query")
+    except Exception as e:
+        logger.error("Ошибка поиска предыдущего запроса: %s", e)
+    return None
+
+
 def interpret_query(
     text: str,
     llm_client=None,
@@ -96,9 +110,12 @@ def interpret_query(
     Returns:
         dict с ключами mode и params/results (для поиска) или answer (для консультации)
     """
+    # Проверяем наличие предыдущего поиска в сессии (для контекстного пере-поиска)
+    last_search_query = _get_last_search_query(session_id)
+
     # Определяем режим
     try:
-        mode = detect_mode(text)
+        mode = detect_mode(text, has_previous_search=last_search_query is not None)
     except Exception as e:
         logger.error("Ошибка detect_mode, fallback на consultation: %s", e)
         mode = "consultation"
@@ -118,7 +135,16 @@ def interpret_query(
     if mode == "consultation":
         return _handle_consultation(text, llm_client, on_status, history)
     else:
-        return _handle_search(text, llm_client, actual_search_fn, on_status)
+        # Проверяем: это пере-поиск или новый запрос?
+        # Если без контекста сессии режим был бы consultation — значит пере-поиск
+        is_research = (
+            last_search_query
+            and detect_mode(text, has_previous_search=False) != "search"
+        )
+        search_text = last_search_query if is_research else text
+        if is_research:
+            logger.info("Пере-поиск: используем запрос из истории: %s", search_text)
+        return _handle_search(search_text, llm_client, actual_search_fn, on_status)
 
 
 def _handle_consultation(
