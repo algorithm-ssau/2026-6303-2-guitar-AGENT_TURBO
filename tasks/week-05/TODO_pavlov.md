@@ -105,6 +105,7 @@
 - Обновить `backend/agent/service.py`:
   - Убрать `MAX_HISTORY_PAIRS` и `_load_chat_history()`
   - В `_handle_consultation()` и `interpret_query()` использовать `build_context()` вместо тупого обрезания
+  - **Важно:** при рефакторинге сохранить логику форматирования search-результатов в историю (сейчас в `_load_chat_history` для mode="search" результаты форматируются как "Я нашёл следующие гитары:\n- Title, $price" — без этого LLM теряет контекст предыдущих поисков)
 - Обновить `backend/agent/llm_client.py`:
   - Метод `summarize(messages: list, prompt: str) -> str` — вызов LLM для суммаризации
 

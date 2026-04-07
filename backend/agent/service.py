@@ -49,7 +49,16 @@ def _load_chat_history(session_id: Optional[int]) -> list:
         history = []
         for item in items:
             history.append({"role": "user", "content": item["user_query"]})
-            answer = item.get("answer") or ""
+            # Формируем ответ ассистента: для search — описание найденных гитар
+            if item.get("mode") == "search" and item.get("results"):
+                parts = ["Я нашёл следующие гитары:"]
+                for r in item["results"]:
+                    title = r.get("title", "")
+                    price = r.get("price", "")
+                    parts.append(f"- {title}, ${price}")
+                answer = "\n".join(parts)
+            else:
+                answer = item.get("answer") or ""
             history.append({"role": "assistant", "content": answer})
         return history
     except Exception as e:

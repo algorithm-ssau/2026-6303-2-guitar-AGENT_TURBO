@@ -46,15 +46,18 @@ def _filter_by_queries(
     if not search_queries:
         return listings
     
-    # Нормализуем запросы к нижнему регистру
+    # Нормализуем запросы к нижнему регистру и разбиваем на отдельные слова
     queries_lower = [q.lower() for q in search_queries]
-    
-    # Оставляем только те объявления, где title содержит хотя бы один запрос
+
+    # Оставляем объявления, где title содержит ВСЕ слова хотя бы одного запроса
     result = []
     for item in listings:
         title_lower = item.get("title", "").lower()
-        if any(query in title_lower for query in queries_lower):
-            result.append(item)
+        for query in queries_lower:
+            words = query.split()
+            if all(word in title_lower for word in words):
+                result.append(item)
+                break
     
     return result
 
