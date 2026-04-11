@@ -4,12 +4,13 @@ from fastapi import APIRouter
 
 from backend.history.models import (
     SessionsResponse, Session, CreateSessionRequest, CreateSessionResponse,
-    HistoryResponse, HistoryItem, ClearResponse,
+    HistoryResponse, HistoryItem, ClearResponse, StatsResponse,
 )
 from backend.history.service import (
     get_sessions, create_session, get_session_messages,
     delete_session, clear_history,
 )
+from backend.history.stats import get_stats
 
 router = APIRouter(prefix="/api", tags=["history"])
 
@@ -47,3 +48,10 @@ async def delete_all_history():
     """Очистить всю историю."""
     count = clear_history()
     return ClearResponse(deleted=count)
+
+
+@router.get("/stats", response_model=StatsResponse)
+async def get_usage_stats():
+    """Получить статистику использования."""
+    stats = get_stats()
+    return StatsResponse(**stats)
