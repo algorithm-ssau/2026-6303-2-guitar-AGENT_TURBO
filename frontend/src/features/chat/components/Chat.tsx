@@ -6,6 +6,7 @@ import { ErrorMessage } from './ErrorMessage';
 import { EmptyResults } from './EmptyResults';
 import { Sidebar } from './Sidebar';
 import { useChat } from '../hooks/useChat';
+import { SkeletonCard } from './SkeletonCard';
 
 /**
  * Главный компонент чата с сайдбаром истории
@@ -127,6 +128,18 @@ export const Chat: React.FC = () => {
             (!messages[messages.length - 1].results || messages[messages.length - 1].results?.length === 0) && (
               <EmptyResults />
             )}
+
+          {/* Скелетоны при ожидании search-результатов */}
+          {isLoading && !status && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '12px',
+              padding: '16px',
+            }}>
+              <SkeletonCard count={3} />
+            </div>
+          )}
 
           <StatusIndicator status={status} isLoading={isLoading} />
 
