@@ -131,7 +131,7 @@ export function useChat(): UseChatReturn {
                   imageUrl: item.imageUrl || item.image_url,
                   listingUrl: item.listingUrl || item.listing_url,
                 }));
-                content = `Найдено гитар: ${results.length}`;
+                content = data.explanation ? data.explanation : `Найдено гитар: ${results?.length ?? 0}`;
               }
 
               const agentMessage: Message = {

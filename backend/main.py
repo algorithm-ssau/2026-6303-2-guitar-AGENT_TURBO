@@ -174,10 +174,16 @@ async def chat(websocket: WebSocket):
 
                     results_data = snake_to_camel([r.model_dump() for r in results])
 
+                    from backend.agent.service import create_llm_client
+                    from backend.agent.explanation import generate_explanation
+                    llm_client_inst = create_llm_client()
+                    explanation = generate_explanation(query, results_data, llm_client_inst)
+
                     await websocket.send_json({
                         "type": "result",
                         "mode": "search",
                         "results": results_data,
+                        "explanation": explanation,
                         "sessionId": session_id,
                     })
 
