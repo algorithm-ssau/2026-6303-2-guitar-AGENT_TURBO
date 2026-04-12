@@ -29,6 +29,22 @@ class LLMClient:
         except Exception as e:
             return f"Error: {str(e)}"
 
+    def summarize(self, messages: list, prompt: str) -> str:
+        """Делает суммаризацию переданных сообщений."""
+        transcript = "\n".join([f"{msg['role']}: {msg['content']}" for msg in messages])
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": transcript}
+                ],
+                temperature=0.0
+            )
+            return response.choices[0].message.content
+        except Exception:
+            return ""
+
     def extract_search_params(self, user_message: str) -> dict:
         mapping_path = os.path.join(os.path.dirname(__file__), "../../docs/MAPPING.md")
         mapping_table = ""
