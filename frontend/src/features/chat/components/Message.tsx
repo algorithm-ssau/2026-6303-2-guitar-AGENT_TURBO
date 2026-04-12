@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Message } from '../types';
 import { ModeBadge } from './ModeBadge';
 import { ResultsList } from './ResultsList';
@@ -14,11 +15,21 @@ interface MessageProps {
  */
 export const MessageItem: React.FC<MessageProps> = ({ message }) => {
   const isUser = message.role === 'user';
+  const [copied, setCopied] = useState(false);
 
   const formattedTime = message.timestamp.toLocaleTimeString('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  const isConsultation = !message.mode || message.mode === 'consultation';
+  const showContent = isConsultation || !message.results || message.results.length === 0;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div
@@ -46,16 +57,69 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
             fontWeight: 'bold',
             marginBottom: '4px',
             opacity: 0.8,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
           }}
         >
-          {isUser ? '👤 Вы' : '🤖 Агент'}
-          {!isUser && message.mode && <ModeBadge mode={message.mode} />}
+          <div>
+            {isUser ? '👤 Вы' : '🤖 Агент'}
+            {!isUser && message.mode && <ModeBadge mode={message.mode} />}
+          </div>
+          {!isUser && isConsultation && (
+            <button
+              onClick={handleCopy}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#6c757d',
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
+            >
+              {copied ? '✅ Скопировано!' : '📋 Копировать'}
+            </button>
+          )}
         </div>
 
         {/* Для consultation mode или fallback показываем content */}
-        {(!message.mode || message.mode === 'consultation' || !message.results || message.results.length === 0) && (
+        {showContent && (
           <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
-            {message.content}
+            {(!isUser && isConsultation) ? (
+              <ReactMarkdown
+                components={{
+                  code(props) {
+                    const { children, className, node, ...rest } = props;
+                    return (
+                      <code
+                        {...rest}
+                        style={{
+                          backgroundColor: '#2b2b2b',
+                          color: '#f8f9fa',
+                          padding: '2px 4px',
+                          borderRadius: '4px',
+                          fontFamily: 'monospace'
+                        }}
+                      >
+                        {children}
+                      </code>
+                    );
+                  },
+                  a(props) {
+                    const { children, node, ...rest } = props;
+                    return (
+                      <a {...rest} style={{ color: '#007bff', textDecoration: 'underline' }}>
+                        {children}
+                      </a>
+                    );
+                  }
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            ) : (
+              message.content
+            )}
           </div>
         )}
 
