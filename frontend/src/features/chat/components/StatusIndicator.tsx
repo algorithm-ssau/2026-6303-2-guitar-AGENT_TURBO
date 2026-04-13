@@ -1,8 +1,11 @@
 import React from 'react';
+import { SkeletonCard } from './SkeletonCard';
 
 export interface StatusIndicatorProps {
   status: string | null;
   isLoading: boolean;
+  mode?: 'search' | 'consultation';
+  showSkeletons?: boolean;
 }
 
 /**

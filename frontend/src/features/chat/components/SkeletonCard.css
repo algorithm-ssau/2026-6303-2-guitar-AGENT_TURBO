@@ -1,0 +1,64 @@
+/* SkeletonCard — анимированный скелетон карточки гитары */
+
+.skeleton-card {
+    background: var(--bg-card, #1e1e1e);
+    border: 1px solid var(--border, #2a2a2a);
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.skeleton-card__image {
+    height: 100px;
+    background: linear-gradient(
+        90deg,
+        var(--bg-card, #1e1e1e) 25%,
+        var(--border, #2a2a2a) 50%,
+        var(--bg-card, #1e1e1e) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.skeleton-card__title {
+    height: 13px;
+    background: linear-gradient(
+        90deg,
+        var(--bg-card, #1e1e1e) 25%,
+        var(--border, #2a2a2a) 50%,
+        var(--bg-card, #1e1e1e) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 6px;
+    margin-bottom: 4px;
+}
+
+.skeleton-card__title--line2 {
+    width: 60%;
+}
+
+.skeleton-card__price {
+    height: 14px;
+    width: 40%;
+    background: linear-gradient(
+        90deg,
+        var(--bg-card, #1e1e1e) 25%,
+        var(--border, #2a2a2a) 50%,
+        var(--bg-card, #1e1e1e) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 6px;
+    margin-top: 5px;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
