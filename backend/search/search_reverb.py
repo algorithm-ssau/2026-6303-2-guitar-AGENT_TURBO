@@ -13,6 +13,8 @@ from typing import Any
 
 import requests
 
+from backend.search.synonyms import expand_queries
+
 
 def _get_mock_data_path() -> Path:
     """Возвращает путь к файлу с мок-данными."""
@@ -252,6 +254,9 @@ def search_reverb(
         - image_url: ссылка на изображение
         - listing_url: ссылка на карточку товара
     """
+    # Расширяем запросы синонимами (работает для обоих режимов)
+    search_queries = expand_queries(search_queries)
+
     # Проверяем режим работы
     use_mock = os.getenv("USE_MOCK_REVERB", "false").lower() == "true"
 
