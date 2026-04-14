@@ -152,6 +152,9 @@ export function useChat(): UseChatReturn {
 
               if (data.mode === 'consultation') {
                 content = data.answer || '';
+              } else if (data.mode === 'clarification') {
+                // Уточняющий вопрос — продолжаем диалог в той же сессии
+                content = data.question || '';
               } else if (data.mode === 'search') {
                 results = (data.results || []).map((item: any) => ({
                   id: item.id,
