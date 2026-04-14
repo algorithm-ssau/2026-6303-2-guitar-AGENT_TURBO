@@ -13,9 +13,9 @@ describe('BudgetHint компонент', () => {
     expect(screen.getByText(/\$300.*\$800/)).toBeInTheDocument();
   });
 
-  it('без бюджета → "не ограничен"', () => {
-    render(<BudgetHint resultsCount={2} />);
-    expect(screen.getByText(/не ограничен/)).toBeInTheDocument();
+  it('без бюджета → компонент не рендерится', () => {
+    const { container } = render(<BudgetHint resultsCount={2} />);
+    expect(container.firstChild).toBeNull();
   });
 
   it('показывает количество результатов', () => {

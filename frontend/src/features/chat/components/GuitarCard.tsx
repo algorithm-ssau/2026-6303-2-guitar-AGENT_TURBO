@@ -46,11 +46,18 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
     const hasImage = result.imageUrl && !imageError;
     const priceColor = getPriceColor(result.price ?? 0, priceMax);
 
+    // Карточка дороже бюджета более чем на 20% — приглушённый стиль
+    const isOverBudget = priceMax !== undefined && priceMax !== null
+        && result.price !== undefined
+        && result.price > priceMax * 1.2;
+
     return (
         <div
             className="guitar-card-wrapper"
             style={{
                 position: 'relative',
+                opacity: isOverBudget ? 0.6 : 1,
+                transition: 'opacity 0.2s',
             }}
         >
             {/* Номер позиции и бейдж релевантности */}
