@@ -113,6 +113,10 @@ def _normalize_reverb_response(listing: dict[str, Any]) -> dict[str, Any]:
         if photos:
             image_url = photos[0].get("url", "")
 
+    # Fallback: если image_url пустой или невалидный — подставляем плейсхолдер
+    if not image_url or not image_url.startswith("http"):
+        image_url = "https://placehold.co/400x300?text=No+Image"
+
     # Извлекаем URL листинга — приоритет: _links.web.href > url > web_url
     listing_url = ""
     if links and "web" in links:
