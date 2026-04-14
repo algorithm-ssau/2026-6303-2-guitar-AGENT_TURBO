@@ -1,0 +1,76 @@
+/* InputForm styles */
+
+.input-form {
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  background-color: var(--bg-sidebar);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.input-form-textarea {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  resize: none;
+  outline: none;
+  font-family: inherit;
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  transition: border-color 0.2s;
+}
+
+.input-form-textarea:focus {
+  border-color: var(--accent);
+}
+
+.input-form-textarea:disabled {
+  opacity: 0.5;
+}
+
+.input-form-submit {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--text-main);
+  background-color: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.input-form-submit:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.input-form-submit:disabled {
+  background-color: var(--border);
+  cursor: not-allowed;
+}
+
+/* ===== Адаптивная вёрстка ===== */
+
+/* Мобилка (≤480px): инпут прилипает к низ, полная ширина */
+@media (max-width: 480px) {
+  .input-form {
+    padding: 8px;
+    position: sticky;
+    bottom: 0;
+    background-color: var(--bg-sidebar);
+    z-index: 100;
+  }
+
+  .input-form-textarea {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .input-form-submit {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+}
