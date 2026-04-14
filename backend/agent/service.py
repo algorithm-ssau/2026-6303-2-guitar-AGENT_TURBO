@@ -36,34 +36,7 @@ def get_consultation_prompt() -> str:
     return "Ты консультант по гитарам. Помогаешь понять, как параметры инструмента влияют на звук."
 
 
-def _load_chat_history(session_id: Optional[int]) -> list:
-    """Загружает историю диалога из БД в формат messages для LLM.
 
-    TODO (неделя 5, Павлов): заменить на context_manager с суммаризацией
-    при превышении лимита токенов. Сейчас передаётся полная история.
-    """
-    if not session_id:
-        return []
-    try:
-        items = get_session_messages(session_id)
-        history = []
-        for item in items:
-            history.append({"role": "user", "content": item["user_query"]})
-            # Формируем ответ ассистента: для search — описание найденных гитар
-            if item.get("mode") == "search" and item.get("results"):
-                parts = ["Я нашёл следующие гитары:"]
-                for r in item["results"]:
-                    title = r.get("title", "")
-                    price = r.get("price", "")
-                    parts.append(f"- {title}, ${price}")
-                answer = "\n".join(parts)
-            else:
-                answer = item.get("answer") or ""
-            history.append({"role": "assistant", "content": answer})
-        return history
-    except Exception as e:
-        logger.error("Ошибка загрузки истории для LLM: %s", e)
-        return []
 
 
 def create_llm_client() -> Optional[LLMClient]:
@@ -129,8 +102,9 @@ def interpret_query(
     # Выбираем функцию поиска
     actual_search_fn = search_fn or search_reverb
 
-    # Загружаем историю диалога для контекста LLM
-    history = _load_chat_history(session_id)
+    from backend.agent.context_manager import build_context
+    system_prompt = get_consultation_prompt() if mode == "consultation" else get_system_prompt()
+    history = build_context(session_id, system_prompt, text, llm_client)
 
     if mode == "consultation":
         return _handle_consultation(text, llm_client, on_status, history)
