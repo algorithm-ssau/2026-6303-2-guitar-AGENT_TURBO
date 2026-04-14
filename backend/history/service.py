@@ -65,13 +65,23 @@ def create_session(title: str) -> int:
     return cursor.lastrowid
 
 
-def get_sessions() -> list[dict]:
-    """Получить список сессий (от новых к старым)."""
+def get_sessions(offset: int = 0, limit: int = 20) -> tuple[list[dict], int]:
+    """Получить список сессий с пагинацией (от новых к старым).
+    
+    Возвращает кортеж: (список сессий, общее количество).
+    """
     conn = _get_connection()
+    # Считаем общее количество
+    total_row = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()
+    total = total_row[0]
+
+    # Выбираем с пагинацией
     rows = conn.execute(
-        "SELECT id, title, created_at, updated_at FROM sessions ORDER BY updated_at DESC"
+        "SELECT id, title, created_at, updated_at FROM sessions "
+        "ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+        (limit, offset),
     ).fetchall()
-    return [dict(row) for row in rows]
+    return [dict(row) for row in rows], total
 
 
 def get_session_messages(session_id: int) -> list[dict]:

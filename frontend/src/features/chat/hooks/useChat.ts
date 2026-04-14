@@ -3,6 +3,7 @@ import { Message, ChatState, GuitarResult, Session } from '../types';
 import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession, clearAllHistory } from '../api';
 
 const WS_URL = 'ws://localhost:8000/chat';
+const PAGE_SIZE = 20;
 
 interface UseChatReturn extends ChatState {
   sendMessage: (text: string) => void;
@@ -14,6 +15,9 @@ interface UseChatReturn extends ChatState {
   newChat: () => void;
   deleteSession: (id: number) => void;
   clearHistory: () => void;
+  loadMoreSessions: () => void;
+  hasMoreSessions: boolean;
+  isLoadingMoreSessions: boolean;
 }
 
 /**
@@ -43,7 +47,7 @@ function historyToMessages(items: any[]): Message[] {
 }
 
 /**
- * Хук для управления чатом с поддержкой сессий
+ * Хук для управления чатом с поддержкой сессий и пагинацией
  */
 export function useChat(): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -54,6 +58,11 @@ export function useChat(): UseChatReturn {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
 
+  // Пагинация сессий
+  const [hasMoreSessions, setHasMoreSessions] = useState(true);
+  const [isLoadingMoreSessions, setIsLoadingMoreSessions] = useState(false);
+  const loadedCountRef = useRef(0);
+
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentSessionIdRef = useRef<number | null>(null);
@@ -63,12 +72,33 @@ export function useChat(): UseChatReturn {
     currentSessionIdRef.current = currentSessionId;
   }, [currentSessionId]);
 
-  // Загрузка списка сессий при монтировании
+  // Загрузка первой страницы сессий
   const loadSessions = useCallback(() => {
-    fetchSessions()
-      .then(setSessions)
+    loadedCountRef.current = 0;
+    setSessions([]);
+    fetchSessions(0, PAGE_SIZE)
+      .then(({ sessions: newSessions, total }) => {
+        setSessions(newSessions);
+        loadedCountRef.current = newSessions.length;
+        setHasMoreSessions(loadedCountRef.current < total);
+      })
       .catch((err) => console.error('Ошибка загрузки сессий:', err));
   }, []);
+
+  // Подгрузка следующей страницы при скролле
+  const loadMoreSessions = useCallback(() => {
+    if (isLoadingMoreSessions || !hasMoreSessions) return;
+    setIsLoadingMoreSessions(true);
+
+    fetchSessions(loadedCountRef.current, PAGE_SIZE)
+      .then(({ sessions: newSessions, total }) => {
+        setSessions(prev => [...prev, ...newSessions]);
+        loadedCountRef.current += newSessions.length;
+        setHasMoreSessions(loadedCountRef.current < total);
+      })
+      .catch((err) => console.error('Ошибка подгрузки сессий:', err))
+      .finally(() => setIsLoadingMoreSessions(false));
+  }, [hasMoreSessions, isLoadingMoreSessions]);
 
   useEffect(() => {
     loadSessions();
@@ -145,7 +175,7 @@ export function useChat(): UseChatReturn {
 
               setMessages(prev => [...prev, agentMessage]);
 
-              // Обновляем список сессий
+              // Обновляем список сессий (сбрасываем пагинацию)
               loadSessions();
               break;
             }
@@ -232,6 +262,7 @@ export function useChat(): UseChatReturn {
     apiDeleteSession(id)
       .then(() => {
         setSessions(prev => prev.filter(s => s.id !== id));
+        loadedCountRef.current = Math.max(0, loadedCountRef.current - 1);
         // Если удалили текущую — сбрасываем
         if (currentSessionIdRef.current === id) {
           setCurrentSessionId(null);
@@ -248,6 +279,8 @@ export function useChat(): UseChatReturn {
         setSessions([]);
         setCurrentSessionId(null);
         setMessages([]);
+        loadedCountRef.current = 0;
+        setHasMoreSessions(true);
       })
       .catch((err) => console.error('Ошибка очистки истории:', err));
   }, []);
@@ -265,5 +298,8 @@ export function useChat(): UseChatReturn {
     newChat,
     deleteSession: deleteSessionHandler,
     clearHistory,
+    loadMoreSessions,
+    hasMoreSessions,
+    isLoadingMoreSessions,
   };
 }

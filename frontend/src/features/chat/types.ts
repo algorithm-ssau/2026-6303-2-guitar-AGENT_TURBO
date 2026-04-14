@@ -79,6 +79,7 @@ export const SessionSchema = z.object({
 /** Схема ответа GET /api/sessions */
 export const SessionsResponseSchema = z.object({
   sessions: z.array(SessionSchema),
+  total: z.number(),
 });
 
 /** Схема элемента истории */
