@@ -8,7 +8,7 @@ import os
 from typing import Callable, Optional
 
 from backend.agent.llm_client import LLMClient
-from backend.agent.mode_detector import detect_mode
+from backend.agent.mode_detector import detect_mode, OFF_TOPIC_ANSWER
 from backend.agent.param_extractor import extract_params_from_llm_response
 from backend.ranking.ranking import rank_results
 from backend.search.search_reverb import search_reverb
@@ -94,6 +94,10 @@ def interpret_query(
         mode = "consultation"
     if on_status:
         on_status("Определяю режим...")
+
+    # Off-topic — сразу возвращаем отказ, без вызова LLM
+    if mode == "off_topic":
+        return {"mode": "consultation", "answer": OFF_TOPIC_ANSWER}
 
     # Получаем LLM-клиент
     if llm_client is None:
