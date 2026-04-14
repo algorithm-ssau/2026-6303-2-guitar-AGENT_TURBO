@@ -13,5 +13,6 @@ export { GuitarCard } from './components/GuitarCard';
 export { ResultsList } from './components/ResultsList';
 export { StatusIndicator } from './components/StatusIndicator';
 export { RelevanceBadge } from './components/RelevanceBadge';
+export { BudgetHint } from './components/BudgetHint';
 
 export type { Message, ChatState, MessageRole, GuitarResult } from './types';
