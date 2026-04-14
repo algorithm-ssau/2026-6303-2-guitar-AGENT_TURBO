@@ -3,6 +3,7 @@
 .chat-layout {
   display: flex;
   height: 100vh;
+  position: relative;
 }
 
 .chat-main {
@@ -24,6 +25,7 @@
   font-size: 20px;
   font-weight: bold;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
 }
 
 .chat-header-toggle {
@@ -63,4 +65,39 @@
 @keyframes loading {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(300%); }
+}
+
+/* ===== Адаптивная вёрстка ===== */
+
+/* Планшет (≤768px): сайдбар — оверлей поверх чата */
+@media (max-width: 768px) {
+  .chat-layout {
+    overflow: hidden;
+  }
+
+  .chat-main {
+    width: 100%;
+  }
+
+  .chat-header {
+    height: 52px;
+    font-size: 18px;
+  }
+}
+
+/* Мобилка (≤480px): компактный хедер, инлип прилипает к низ */
+@media (max-width: 480px) {
+  .chat-header {
+    height: 44px;
+    font-size: 16px;
+  }
+
+  .chat-header-toggle {
+    font-size: 18px;
+    left: 12px;
+  }
+
+  .chat-header-status {
+    font-size: 10px;
+  }
 }
