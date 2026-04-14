@@ -1,36 +1,44 @@
 import React from 'react';
 
 interface BudgetHintProps {
-  priceMin?: number;
-  priceMax?: number;
+  budgetMin?: number;
+  budgetMax?: number;
   resultsCount: number;
 }
 
-export const BudgetHint: React.FC<BudgetHintProps> = ({
-  priceMin,
-  priceMax,
-  resultsCount,
-}) => {
-  const getBudgetText = () => {
-    if (!priceMin && !priceMax) {
-      return 'не ограничен';
-    }
-    if (priceMin !== undefined && priceMax !== undefined) {
-      return `$${priceMin} – $${priceMax}`;
-    }
-    if (priceMax !== undefined) {
-      return `до $${priceMax}`;
-    }
-    if (priceMin !== undefined) {
-      return `от $${priceMin}`;
-    }
-    return 'не ограничен';
-  };
+/**
+ * Компонент подсказки бюджета.
+ *
+ * Показывает "Бюджет: до $500" или "$300 – $800"
+ * + количество результатов.
+ *
+ * Если бюджет не передан — компонент не рендерится.
+ */
+export const BudgetHint: React.FC<BudgetHintProps> = ({ budgetMin, budgetMax, resultsCount }) => {
+  // Если бюджет не указан — компонент не рендерится
+  if (
+    (budgetMin === undefined || budgetMin === null || budgetMin <= 0) &&
+    (budgetMax === undefined || budgetMax === null || budgetMax <= 0)
+  ) {
+    return null;
+  }
+
+  // Формируем текст подсказки
+  let budgetText: string;
+  if (budgetMin !== undefined && budgetMin > 0 && budgetMax !== undefined && budgetMax > 0) {
+    budgetText = `Бюджет: $${budgetMin.toLocaleString()} – $${budgetMax.toLocaleString()}`;
+  } else if (budgetMax !== undefined && budgetMax > 0) {
+    budgetText = `Бюджет: до $${budgetMax.toLocaleString()}`;
+  } else {
+    budgetText = `Бюджет: от $${budgetMin!.toLocaleString()}`;
+  }
 
   return (
-    <div className="budget-hint text-sm text-gray-600 mb-2">
-      <span>Бюджет: {getBudgetText()}</span>
-      <span className="ml-2">({resultsCount} результатов)</span>
+    <div className="budget-hint">
+      <span className="budget-hint__text">{budgetText}</span>
+      <span className="budget-hint__count">
+        {resultsCount} {resultsCount === 1 ? 'результат' : resultsCount < 5 ? 'результата' : 'результатов'}
+      </span>
     </div>
   );
 };

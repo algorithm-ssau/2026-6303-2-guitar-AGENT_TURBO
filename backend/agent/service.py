@@ -10,6 +10,7 @@ from typing import Callable, Optional
 from backend.agent.llm_client import LLMClient
 from backend.agent.mode_detector import detect_mode, OFF_TOPIC_ANSWER
 from backend.agent.param_extractor import extract_params_from_llm_response
+from backend.agent.clarification import check_needs_clarification
 from backend.ranking.ranking import rank_results
 from backend.search.search_reverb import search_reverb
 from backend.history.service import get_session_messages
@@ -174,6 +175,11 @@ def _handle_search(
     else:
         # Без API-ключа: используем текст запроса как search_queries
         params = {"search_queries": [text], "price_min": None, "price_max": None}
+
+    # Проверяем, нужно ли задать уточняющий вопрос
+    clarification_question = check_needs_clarification(params)
+    if clarification_question:
+        return {"mode": "clarification", "question": clarification_question}
 
     # Поиск на Reverb
     if on_status:

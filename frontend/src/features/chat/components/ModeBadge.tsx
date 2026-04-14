@@ -1,18 +1,25 @@
 import React from 'react';
 
 interface ModeBadgeProps {
-  mode?: 'search' | 'consultation';
+  mode?: 'search' | 'consultation' | 'clarification';
 }
 
 /**
  * Бейдж режима работы агента
  * search → зелёный "Поиск"
  * consultation → синий "Консультация"
+ * clarification → оранжевый "Уточнение"
  */
 export const ModeBadge: React.FC<ModeBadgeProps> = ({ mode }) => {
   if (!mode) return null;
 
-  const isSearch = mode === 'search';
+  const colorMap = {
+    search: { bg: '#d4edda', text: '#155724', label: 'Поиск' },
+    consultation: { bg: '#cce5ff', text: '#004085', label: 'Консультация' },
+    clarification: { bg: '#fff3cd', text: '#856404', label: 'Уточнение' },
+  };
+
+  const colors = colorMap[mode];
 
   return (
     <span
@@ -23,11 +30,11 @@ export const ModeBadge: React.FC<ModeBadgeProps> = ({ mode }) => {
         fontSize: '11px',
         fontWeight: 'bold',
         marginLeft: '6px',
-        backgroundColor: isSearch ? '#d4edda' : '#cce5ff',
-        color: isSearch ? '#155724' : '#004085',
+        backgroundColor: colors.bg,
+        color: colors.text,
       }}
     >
-      {isSearch ? 'Поиск' : 'Консультация'}
+      {colors.label}
     </span>
   );
 };

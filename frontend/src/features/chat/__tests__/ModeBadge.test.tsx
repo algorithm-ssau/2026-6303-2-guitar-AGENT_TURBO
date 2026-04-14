@@ -13,6 +13,11 @@ describe('ModeBadge компонент', () => {
     expect(screen.getByText('Консультация')).toBeInTheDocument();
   });
 
+  it('mode="clarification" → текст "Уточнение"', () => {
+    render(<ModeBadge mode="clarification" />);
+    expect(screen.getByText('Уточнение')).toBeInTheDocument();
+  });
+
   it('без mode → бейдж не показывается', () => {
     const { container } = render(<ModeBadge />);
     expect(container.firstChild).toBeNull();

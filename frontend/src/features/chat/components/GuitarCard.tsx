@@ -1,5 +1,6 @@
 import React from 'react';
 import { GuitarResult } from '../types';
+import { RelevanceBadge } from './RelevanceBadge';
 
 interface GuitarCardProps {
     result: GuitarResult;
@@ -40,95 +41,128 @@ const formatPrice = (price: number, currency: string | undefined): string => {
     return `${price} ${currency || 'USD'}`;
 };
 
-export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceMax }) => {
+export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceMax, position }) => {
     const [imageError, setImageError] = React.useState(false);
     const hasImage = result.imageUrl && !imageError;
     const priceColor = getPriceColor(result.price ?? 0, priceMax);
 
+    // Карточка дороже бюджета более чем на 20% — приглушённый стиль
+    const isOverBudget = priceMax !== undefined && priceMax !== null
+        && result.price !== undefined
+        && result.price > priceMax * 1.2;
+
     return (
-        <a
-            href={result.listingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="guitar-card"
+        <div
+            className="guitar-card-wrapper"
             style={{
-                display: 'block',
-                textDecoration: 'none',
-                color: 'inherit',
-                backgroundColor: 'var(--bg-card, #1e1e1e)',
-                border: '1px solid var(--border, #2a2a2a)',
-                borderRadius: '12px',
-                padding: '12px',
-                transition: 'border-color 0.2s, transform 0.2s',
-                cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--accent, #4d88ff)';
-                e.currentTarget.style.transform = 'translateY(-3px)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border, #2a2a2a)';
-                e.currentTarget.style.transform = 'translateY(0)';
+                position: 'relative',
+                opacity: isOverBudget ? 0.6 : 1,
+                transition: 'opacity 0.2s',
             }}
         >
-            {/* Изображение / плейсхолдер */}
-            <div
-                style={{
-                    height: '100px',
-                    backgroundColor: hasImage ? 'transparent' : '#252525',
-                    borderRadius: '8px',
-                    marginBottom: '10px',
+            {/* Номер позиции и бейдж релевантности */}
+            {position !== undefined && (
+                <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                }}
-            >
-                {hasImage ? (
-                    <img
-                        src={result.imageUrl}
-                        alt={result.title}
-                        onError={() => setImageError(true)}
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            borderRadius: '8px',
-                            display: 'block',
-                        }}
-                    />
-                ) : (
-                    <span style={{ fontSize: '10px', color: '#555' }}>PHOTO</span>
-                )}
-            </div>
-
-            {/* Название */}
-            <div style={{
-                fontSize: '13px',
-                fontWeight: 600,
-                marginBottom: '4px',
-                color: 'var(--text-main, #ececec)',
-                lineHeight: 1.3,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-            }}>
-                {result.title}
-            </div>
-
-            {/* Цена */}
-            {result.price !== undefined && (
-                <div style={{
-                    color: priceColor,
-                    fontWeight: 700,
-                    fontSize: '14px',
-                    marginTop: '5px',
+                    gap: '8px',
+                    marginBottom: '8px',
                 }}>
-                    {formatPrice(result.price, result.currency)}
+                    <span style={{
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        color: 'var(--text-secondary, #888)',
+                    }}>
+                        #{position}
+                    </span>
+                    <RelevanceBadge position={position} />
                 </div>
             )}
-        </a>
+
+            <a
+                href={result.listingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="guitar-card"
+                style={{
+                    display: 'block',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    backgroundColor: 'var(--bg-card, #1e1e1e)',
+                    border: '1px solid var(--border, #2a2a2a)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    transition: 'border-color 0.2s, transform 0.2s',
+                    cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--accent, #4d88ff)';
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border, #2a2a2a)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                }}
+            >
+                {/* Изображение / плейсхолдер */}
+                <div
+                    style={{
+                        height: '100px',
+                        backgroundColor: hasImage ? 'transparent' : '#252525',
+                        borderRadius: '8px',
+                        marginBottom: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                    }}
+                >
+                    {hasImage ? (
+                        <img
+                            src={result.imageUrl}
+                            alt={result.title}
+                            onError={() => setImageError(true)}
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                borderRadius: '8px',
+                                display: 'block',
+                            }}
+                        />
+                    ) : (
+                        <span style={{ fontSize: '10px', color: '#555' }}>PHOTO</span>
+                    )}
+                </div>
+
+                {/* Название */}
+                <div style={{
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    marginBottom: '4px',
+                    color: 'var(--text-main, #ececec)',
+                    lineHeight: 1.3,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                }}>
+                    {result.title}
+                </div>
+
+                {/* Цена */}
+                {result.price !== undefined && (
+                    <div style={{
+                        color: priceColor,
+                        fontWeight: 700,
+                        fontSize: '14px',
+                        marginTop: '5px',
+                    }}>
+                        {formatPrice(result.price, result.currency)}
+                    </div>
+                )}
+            </a>
+        </div>
     );
 };

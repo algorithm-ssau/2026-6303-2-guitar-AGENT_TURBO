@@ -150,6 +150,20 @@ async def chat(websocket: WebSocket):
                         save_exchange(session_id=session_id, user_query=query, mode="consultation", answer=consultation_answer)
                     except Exception as e:
                         logger.error("Ошибка сохранения истории: %s", e)
+                elif result_data["mode"] == "clarification":
+                    # Уточняющий вопрос — недостаточно данных для поиска
+                    clarification_question = result_data.get("question", "")
+                    await websocket.send_json({
+                        "type": "result",
+                        "mode": "clarification",
+                        "question": clarification_question,
+                        "sessionId": session_id,
+                    })
+
+                    try:
+                        save_exchange(session_id=session_id, user_query=query, mode="clarification", answer=clarification_question)
+                    except Exception as e:
+                        logger.error("Ошибка сохранения истории: %s", e)
                 else:
                     await websocket.send_json({
                         "type": "status",

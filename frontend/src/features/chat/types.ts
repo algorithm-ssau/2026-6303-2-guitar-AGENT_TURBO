@@ -22,7 +22,7 @@ export interface Message {
   content: string;
   timestamp: Date;
   results?: GuitarResult[];
-  mode?: 'search' | 'consultation';
+  mode?: 'search' | 'consultation' | 'clarification';
 }
 
 /** Состояние чата */

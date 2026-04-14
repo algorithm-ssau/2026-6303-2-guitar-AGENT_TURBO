@@ -15,6 +15,28 @@
     gap: 12px;
 }
 
+/* BudgetHint стили */
+.budget-hint {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    background-color: var(--bg-secondary, #2a2a2a);
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.budget-hint__text {
+    color: var(--text-secondary, #aaa);
+    font-weight: 500;
+}
+
+.budget-hint__count {
+    color: var(--text-secondary, #888);
+    font-size: 12px;
+}
+
 @media (max-width: 480px) {
     .results-list__grid {
         grid-template-columns: 1fr;
