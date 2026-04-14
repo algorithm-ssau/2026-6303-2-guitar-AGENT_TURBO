@@ -26,6 +26,9 @@ export const Chat: React.FC = () => {
     newChat,
     deleteSession,
     clearHistory,
+    loadMoreSessions,
+    hasMoreSessions,
+    isLoadingMoreSessions,
   } = useChat();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -46,6 +49,15 @@ export const Chat: React.FC = () => {
     }
   };
 
+  // Обработчик скролла сайдбара — подгрузка сессий при приближении к низу
+  const handleSidebarScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const isNearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 50;
+    if (isNearBottom && hasMoreSessions && !isLoadingMoreSessions) {
+      loadMoreSessions();
+    }
+  };
+
   const connectionMessage =
     connectionStatus === 'connecting' ? 'Подключение...' :
       connectionStatus === 'disconnected' ? 'Переподключение...' : null;
@@ -62,6 +74,8 @@ export const Chat: React.FC = () => {
         onDeleteSession={deleteSession}
         onClearHistory={clearHistory}
         onToggle={() => setSidebarOpen(prev => !prev)}
+        onScroll={handleSidebarScroll}
+        isLoadingMore={isLoadingMoreSessions}
       />
 
       {/* Основная область чата */}

@@ -1,6 +1,6 @@
 """REST-эндпоинты для истории чата."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from backend.history.models import (
     SessionsResponse, Session, CreateSessionRequest, CreateSessionResponse,
@@ -16,10 +16,13 @@ router = APIRouter(prefix="/api", tags=["history"])
 
 
 @router.get("/sessions", response_model=SessionsResponse)
-async def list_sessions():
-    """Получить список сессий (от новых к старым)."""
-    sessions = get_sessions()
-    return SessionsResponse(sessions=[Session(**s) for s in sessions])
+async def list_sessions(offset: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=100)):
+    """Получить список сессий с пагинацией (от новых к старым)."""
+    sessions_data, total = get_sessions(offset=offset, limit=limit)
+    return SessionsResponse(
+        sessions=[Session(**s) for s in sessions_data],
+        total=total,
+    )
 
 
 @router.post("/sessions", response_model=CreateSessionResponse)

@@ -43,10 +43,15 @@ export async function sendMessage(text: string): Promise<ChatResponse> {
 }
 
 /**
- * Получить список сессий
+ * Получить список сессий с пагинацией
  */
-export async function fetchSessions(): Promise<Session[]> {
-  const response = await fetch(`${API_BASE_URL}/sessions`);
+export async function fetchSessions(
+  offset = 0,
+  limit = 20,
+): Promise<{ sessions: Session[]; total: number }> {
+  const response = await fetch(
+    `${API_BASE_URL}/sessions?offset=${offset}&limit=${limit}`,
+  );
   if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
 
   const data = await response.json();
@@ -56,7 +61,7 @@ export async function fetchSessions(): Promise<Session[]> {
     throw new Error('Сервер вернул невалидные данные');
   }
 
-  return parseResult.data.sessions;
+  return { sessions: parseResult.data.sessions, total: parseResult.data.total };
 }
 
 /**

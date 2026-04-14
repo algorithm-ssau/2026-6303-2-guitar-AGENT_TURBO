@@ -20,6 +20,7 @@ class SessionsResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
     sessions: List[Session]
+    total: int
 
 
 class CreateSessionRequest(BaseModel):
