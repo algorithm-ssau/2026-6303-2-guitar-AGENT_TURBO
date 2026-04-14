@@ -5,7 +5,9 @@
     "price": 849,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/fender-player-stratocaster.jpg",
-    "listing_url": "https://reverb.com/item/10000001-fender-player-stratocaster-hss-plus-top-2021-aged-cherry-burst"
+    "listing_url": "https://reverb.com/item/10000001-fender-player-stratocaster-hss-plus-top-2021-aged-cherry-burst",
+    "year": 2021,
+    "condition": "excellent"
   },
   {
     "id": "rev_mock_002",
@@ -13,7 +15,9 @@
     "price": 379,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/ibanez-rg421ex.jpg",
-    "listing_url": "https://reverb.com/item/10000002-ibanez-rg421ex-2022-black-flat"
+    "listing_url": "https://reverb.com/item/10000002-ibanez-rg421ex-2022-black-flat",
+    "year": 2022,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_003",
@@ -21,7 +25,9 @@
     "price": 699,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/prs-se-custom-24.jpg",
-    "listing_url": "https://reverb.com/item/10000003-prs-se-custom-24-2023-faded-blue"
+    "listing_url": "https://reverb.com/item/10000003-prs-se-custom-24-2023-faded-blue",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_004",
@@ -29,7 +35,9 @@
     "price": 999,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/gibson-les-paul-studio.jpg",
-    "listing_url": "https://reverb.com/item/10000004-gibson-les-paul-studio-2016-wine-red"
+    "listing_url": "https://reverb.com/item/10000004-gibson-les-paul-studio-2016-wine-red",
+    "year": 2016,
+    "condition": "very good"
   },
   {
     "id": "rev_mock_005",
@@ -37,7 +45,9 @@
     "price": 429,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/squier-classic-vibe-telecaster.jpg",
-    "listing_url": "https://reverb.com/item/10000005-squier-classic-vibe-50s-telecaster-2024-butterscotch-blonde"
+    "listing_url": "https://reverb.com/item/10000005-squier-classic-vibe-50s-telecaster-2024-butterscotch-blonde",
+    "year": 2024,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_006",
@@ -45,7 +55,9 @@
     "price": 2899,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/martin-d28-acoustic.jpg",
-    "listing_url": "https://reverb.com/item/10000006-martin-d-28-acoustic-guitar-2020-natural"
+    "listing_url": "https://reverb.com/item/10000006-martin-d-28-acoustic-guitar-2020-natural",
+    "year": 2020,
+    "condition": "excellent"
   },
   {
     "id": "rev_mock_007",
@@ -53,7 +65,9 @@
     "price": 1199,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/taylor-214ce-acoustic.jpg",
-    "listing_url": "https://reverb.com/item/10000007-taylor-214ce-acoustic-electric-guitar-2021-sunburst"
+    "listing_url": "https://reverb.com/item/10000007-taylor-214ce-acoustic-electric-guitar-2021-sunburst",
+    "year": 2021,
+    "condition": "excellent"
   },
   {
     "id": "rev_mock_008",
@@ -61,7 +75,9 @@
     "price": 249,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/yamaha-fg830-acoustic.jpg",
-    "listing_url": "https://reverb.com/item/10000008-yamaha-fg830-acoustic-guitar-2023-natural"
+    "listing_url": "https://reverb.com/item/10000008-yamaha-fg830-acoustic-guitar-2023-natural",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_009",
@@ -69,7 +85,9 @@
     "price": 749,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/fender-precision-bass.jpg",
-    "listing_url": "https://reverb.com/item/10000009-fender-precision-bass-2019-olympic-white"
+    "listing_url": "https://reverb.com/item/10000009-fender-precision-bass-2019-olympic-white",
+    "year": 2019,
+    "condition": "very good"
   },
   {
     "id": "rev_mock_010",
@@ -77,7 +95,9 @@
     "price": 1299,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/gibson-thunderbird-bass.jpg",
-    "listing_url": "https://reverb.com/item/10000010-gibson-thunderbird-bass-2018-heritage-cherry"
+    "listing_url": "https://reverb.com/item/10000010-gibson-thunderbird-bass-2018-heritage-cherry",
+    "year": 2018,
+    "condition": "very good"
   },
   {
     "id": "rev_mock_011",
@@ -85,7 +105,9 @@
     "price": 549,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/ibanez-sr505-bass.jpg",
-    "listing_url": "https://reverb.com/item/10000011-ibanez-sr505-bass-guitar-2022-brown-mahogany"
+    "listing_url": "https://reverb.com/item/10000011-ibanez-sr505-bass-guitar-2022-brown-mahogany",
+    "year": 2022,
+    "condition": "excellent"
   },
   {
     "id": "rev_mock_012",
@@ -93,7 +115,9 @@
     "price": 499,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/ibanez-rg7421-7string.jpg",
-    "listing_url": "https://reverb.com/item/10000012-ibanez-rg7421-7-string-electric-guitar-2021-black-flat"
+    "listing_url": "https://reverb.com/item/10000012-ibanez-rg7421-7-string-electric-guitar-2021-black-flat",
+    "year": 2021,
+    "condition": "excellent"
   },
   {
     "id": "rev_mock_013",
@@ -101,7 +125,9 @@
     "price": 899,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/schecter-hellraiser-c7.jpg",
-    "listing_url": "https://reverb.com/item/10000013-schecter-hellraiser-c-7-7-string-with-emg-active-pickups-2020-black-cherry"
+    "listing_url": "https://reverb.com/item/10000013-schecter-hellraiser-c-7-7-string-with-emg-active-pickups-2020-black-cherry",
+    "year": 2020,
+    "condition": "very good"
   },
   {
     "id": "rev_mock_014",
@@ -109,7 +135,9 @@
     "price": 1099,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/esp-ltd-ec1000-7string.jpg",
-    "listing_url": "https://reverb.com/item/10000014-esp-ltd-ec-1000-7-string-metal-guitar-2022-see-thru-black"
+    "listing_url": "https://reverb.com/item/10000014-esp-ltd-ec-1000-7-string-metal-guitar-2022-see-thru-black",
+    "year": 2022,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_015",
@@ -117,7 +145,9 @@
     "price": 2499,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/fender-stratocaster-1978-vintage.jpg",
-    "listing_url": "https://reverb.com/item/10000015-fender-stratocaster-1978-vintage-sunburst"
+    "listing_url": "https://reverb.com/item/10000015-fender-stratocaster-1978-vintage-sunburst",
+    "year": 1978,
+    "condition": "good"
   },
   {
     "id": "rev_mock_016",
@@ -125,7 +155,9 @@
     "price": 1899,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/gibson-sg-1980-vintage.jpg",
-    "listing_url": "https://reverb.com/item/10000016-gibson-sg-standard-1980-vintage-walnut"
+    "listing_url": "https://reverb.com/item/10000016-gibson-sg-standard-1980-vintage-walnut",
+    "year": 1980,
+    "condition": "good"
   },
   {
     "id": "rev_mock_017",
@@ -133,7 +165,9 @@
     "price": 2799,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/prs-custom-22-1987-vintage.jpg",
-    "listing_url": "https://reverb.com/item/10000017-prs-custom-22-1987-vintage-tobacco-sunburst"
+    "listing_url": "https://reverb.com/item/10000017-prs-custom-22-1987-vintage-tobacco-sunburst",
+    "year": 1987,
+    "condition": "very good"
   },
   {
     "id": "rev_mock_018",
@@ -141,7 +175,9 @@
     "price": 599,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/epiphone-les-paul-standard.jpg",
-    "listing_url": "https://reverb.com/item/10000018-epiphone-les-paul-standard-2023-heritage-cherry-sunburst"
+    "listing_url": "https://reverb.com/item/10000018-epiphone-les-paul-standard-2023-heritage-cherry-sunburst",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_019",
@@ -149,7 +185,9 @@
     "price": 299,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/jackson-js32-dinky.jpg",
-    "listing_url": "https://reverb.com/item/10000019-jackson-js-series-dinky-js32-2022-metallic-blue"
+    "listing_url": "https://reverb.com/item/10000019-jackson-js-series-dinky-js32-2022-metallic-blue",
+    "year": 2022,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_020",
@@ -157,7 +195,9 @@
     "price": 649,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/gretsch-g5422t-hollow.jpg",
-    "listing_url": "https://reverb.com/item/10000020-gretsch-g5422t-electromatic-hollow-body-2021-vintage-sunburst"
+    "listing_url": "https://reverb.com/item/10000020-gretsch-g5422t-electromatic-hollow-body-2021-vintage-sunburst",
+    "year": 2021,
+    "condition": "excellent"
   },
   {
     "id": "rev_mock_021",
@@ -165,7 +205,9 @@
     "price": 799,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/fender-player-telecaster.jpg",
-    "listing_url": "https://reverb.com/item/10000021-fender-player-telecaster-2022-butterscotch-blonde"
+    "listing_url": "https://reverb.com/item/10000021-fender-player-telecaster-2022-butterscotch-blonde",
+    "year": 2022,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_022",
@@ -173,7 +215,9 @@
     "price": 899,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/fender-telecaster-deluxe-nashville.jpg",
-    "listing_url": "https://reverb.com/item/10000022-fender-telecaster-deluxe-nashville-2021-daphne-blue"
+    "listing_url": "https://reverb.com/item/10000022-fender-telecaster-deluxe-nashville-2021-daphne-blue",
+    "year": 2021,
+    "condition": "excellent"
   },
   {
     "id": "rev_mock_023",
@@ -181,7 +225,9 @@
     "price": 249,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/squier-affinity-telecaster.jpg",
-    "listing_url": "https://reverb.com/item/10000023-squier-affinity-telecaster-2023-olympic-white"
+    "listing_url": "https://reverb.com/item/10000023-squier-affinity-telecaster-2023-olympic-white",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_024",
@@ -189,7 +235,9 @@
     "price": 1499,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/fender-am-pro-ii-telecaster.jpg",
-    "listing_url": "https://reverb.com/item/10000024-fender-american-professional-ii-telecaster-2023-dark-night"
+    "listing_url": "https://reverb.com/item/10000024-fender-american-professional-ii-telecaster-2023-dark-night",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_025",
@@ -197,7 +245,9 @@
     "price": 799,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/fender-player-strat-sss.jpg",
-    "listing_url": "https://reverb.com/item/10000025-fender-player-stratocaster-sss-2023-3-color-sunburst"
+    "listing_url": "https://reverb.com/item/10000025-fender-player-stratocaster-sss-2023-3-color-sunburst",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_026",
@@ -205,7 +255,9 @@
     "price": 259,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/squier-affinity-strat-hss.jpg",
-    "listing_url": "https://reverb.com/item/10000026-squier-affinity-stratocaster-hss-2023-charcoal-frost-metallic"
+    "listing_url": "https://reverb.com/item/10000026-squier-affinity-stratocaster-hss-2023-charcoal-frost-metallic",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_027",
@@ -213,7 +265,9 @@
     "price": 1999,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/fender-am-ultra-stratocaster.jpg",
-    "listing_url": "https://reverb.com/item/10000027-fender-american-ultra-stratocaster-2022-ultraburst"
+    "listing_url": "https://reverb.com/item/10000027-fender-american-ultra-stratocaster-2022-ultraburst",
+    "year": 2022,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_028",
@@ -221,7 +275,9 @@
     "price": 2499,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/gibson-les-paul-standard-50s.jpg",
-    "listing_url": "https://reverb.com/item/10000028-gibson-les-paul-standard-50s-2023-gold-top"
+    "listing_url": "https://reverb.com/item/10000028-gibson-les-paul-standard-50s-2023-gold-top",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_029",
@@ -229,7 +285,9 @@
     "price": 449,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/epiphone-les-paul-classic.jpg",
-    "listing_url": "https://reverb.com/item/10000029-epiphone-les-paul-classic-2022-ebony"
+    "listing_url": "https://reverb.com/item/10000029-epiphone-les-paul-classic-2022-ebony",
+    "year": 2022,
+    "condition": "excellent"
   },
   {
     "id": "rev_mock_030",
@@ -237,7 +295,9 @@
     "price": 1599,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/gibson-sg-standard-2023.jpg",
-    "listing_url": "https://reverb.com/item/10000030-gibson-sg-standard-2023-heritage-cherry"
+    "listing_url": "https://reverb.com/item/10000030-gibson-sg-standard-2023-heritage-cherry",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_031",
@@ -245,7 +305,9 @@
     "price": 399,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/epiphone-sg-standard.jpg",
-    "listing_url": "https://reverb.com/item/10000031-epiphone-sg-standard-2023-vintage-cherry"
+    "listing_url": "https://reverb.com/item/10000031-epiphone-sg-standard-2023-vintage-cherry",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_032",
@@ -253,7 +315,9 @@
     "price": 849,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/prs-se-silver-sky.jpg",
-    "listing_url": "https://reverb.com/item/10000032-prs-se-silver-sky-2023-stone-blue"
+    "listing_url": "https://reverb.com/item/10000032-prs-se-silver-sky-2023-stone-blue",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_033",
@@ -261,7 +325,9 @@
     "price": 399,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/esp-ltd-ec256.jpg",
-    "listing_url": "https://reverb.com/item/10000033-esp-ltd-ec-256-2023-black-satin"
+    "listing_url": "https://reverb.com/item/10000033-esp-ltd-ec-256-2023-black-satin",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_034",
@@ -269,7 +335,9 @@
     "price": 349,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/schecter-c6-deluxe.jpg",
-    "listing_url": "https://reverb.com/item/10000034-schecter-c-6-deluxe-2022-satin-black"
+    "listing_url": "https://reverb.com/item/10000034-schecter-c-6-deluxe-2022-satin-black",
+    "year": 2022,
+    "condition": "excellent"
   },
   {
     "id": "rev_mock_035",
@@ -277,7 +345,9 @@
     "price": 199,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/ibanez-grx70qa.jpg",
-    "listing_url": "https://reverb.com/item/10000035-ibanez-grx70qa-electric-guitar-2023-transparent-blue-burst"
+    "listing_url": "https://reverb.com/item/10000035-ibanez-grx70qa-electric-guitar-2023-transparent-blue-burst",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_036",
@@ -285,7 +355,9 @@
     "price": 299,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/yamaha-pacifica-112v.jpg",
-    "listing_url": "https://reverb.com/item/10000036-yamaha-pacifica-pac112v-2023-sonic-blue"
+    "listing_url": "https://reverb.com/item/10000036-yamaha-pacifica-pac112v-2023-sonic-blue",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_037",
@@ -293,7 +365,9 @@
     "price": 159,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/harley-benton-sc450.jpg",
-    "listing_url": "https://reverb.com/item/10000037-harley-benton-sc-450-les-paul-style-2023-cherry-burst"
+    "listing_url": "https://reverb.com/item/10000037-harley-benton-sc-450-les-paul-style-2023-cherry-burst",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_038",
@@ -301,7 +375,9 @@
     "price": 999,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/fender-vintera-60s-telecaster.jpg",
-    "listing_url": "https://reverb.com/item/10000038-fender-vintera-60s-telecaster-modified-2021-surf-green"
+    "listing_url": "https://reverb.com/item/10000038-fender-vintera-60s-telecaster-modified-2021-surf-green",
+    "year": 2021,
+    "condition": "excellent"
   },
   {
     "id": "rev_mock_039",
@@ -309,7 +385,9 @@
     "price": 3299,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/gibson-es335.jpg",
-    "listing_url": "https://reverb.com/item/10000039-gibson-es-335-semi-hollow-2022-vintage-burst"
+    "listing_url": "https://reverb.com/item/10000039-gibson-es-335-semi-hollow-2022-vintage-burst",
+    "year": 2022,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_040",
@@ -317,7 +395,9 @@
     "price": 499,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/epiphone-es335.jpg",
-    "listing_url": "https://reverb.com/item/10000040-epiphone-es-335-semi-hollow-2023-cherry"
+    "listing_url": "https://reverb.com/item/10000040-epiphone-es-335-semi-hollow-2023-cherry",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_041",
@@ -325,7 +405,9 @@
     "price": 849,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/fender-player-jazz-bass.jpg",
-    "listing_url": "https://reverb.com/item/10000041-fender-player-jazz-bass-2023-3-color-sunburst"
+    "listing_url": "https://reverb.com/item/10000041-fender-player-jazz-bass-2023-3-color-sunburst",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_042",
@@ -333,7 +415,9 @@
     "price": 429,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/squier-cv-jazz-bass.jpg",
-    "listing_url": "https://reverb.com/item/10000042-squier-classic-vibe-70s-jazz-bass-2023-natural"
+    "listing_url": "https://reverb.com/item/10000042-squier-classic-vibe-70s-jazz-bass-2023-natural",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_043",
@@ -341,7 +425,9 @@
     "price": 549,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/taylor-gs-mini.jpg",
-    "listing_url": "https://reverb.com/item/10000043-taylor-gs-mini-acoustic-guitar-2023-natural-spruce"
+    "listing_url": "https://reverb.com/item/10000043-taylor-gs-mini-acoustic-guitar-2023-natural-spruce",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_044",
@@ -349,7 +435,9 @@
     "price": 329,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/yamaha-apx600.jpg",
-    "listing_url": "https://reverb.com/item/10000044-yamaha-apx600-acoustic-electric-guitar-2023-old-violin-sunburst"
+    "listing_url": "https://reverb.com/item/10000044-yamaha-apx600-acoustic-electric-guitar-2023-old-violin-sunburst",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_045",
@@ -357,7 +445,9 @@
     "price": 219,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/fender-cd60s.jpg",
-    "listing_url": "https://reverb.com/item/10000045-fender-cd-60s-acoustic-guitar-2022-natural"
+    "listing_url": "https://reverb.com/item/10000045-fender-cd-60s-acoustic-guitar-2022-natural",
+    "year": 2022,
+    "condition": "excellent"
   },
   {
     "id": "rev_mock_046",
@@ -365,7 +455,9 @@
     "price": 999,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/jackson-pro-soloist.jpg",
-    "listing_url": "https://reverb.com/item/10000046-jackson-pro-series-soloist-sl2-2023-metallic-black"
+    "listing_url": "https://reverb.com/item/10000046-jackson-pro-series-soloist-sl2-2023-metallic-black",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_047",
@@ -373,7 +465,9 @@
     "price": 1799,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/ibanez-az2204n.jpg",
-    "listing_url": "https://reverb.com/item/10000047-ibanez-az2204n-prestige-2023-antique-turquoise"
+    "listing_url": "https://reverb.com/item/10000047-ibanez-az2204n-prestige-2023-antique-turquoise",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_048",
@@ -381,7 +475,9 @@
     "price": 149,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/squier-bullet-strat.jpg",
-    "listing_url": "https://reverb.com/item/10000048-squier-bullet-stratocaster-ht-2023-black"
+    "listing_url": "https://reverb.com/item/10000048-squier-bullet-stratocaster-ht-2023-black",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_049",
@@ -389,7 +485,9 @@
     "price": 1299,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/gibson-lp-junior.jpg",
-    "listing_url": "https://reverb.com/item/10000049-gibson-les-paul-junior-2023-vintage-tobacco-burst"
+    "listing_url": "https://reverb.com/item/10000049-gibson-les-paul-junior-2023-vintage-tobacco-burst",
+    "year": 2023,
+    "condition": "mint"
   },
   {
     "id": "rev_mock_050",
@@ -397,6 +495,158 @@
     "price": 449,
     "currency": "USD",
     "image_url": "https://images.reverb.com/image/upload/mock/epiphone-telecaster.jpg",
-    "listing_url": "https://reverb.com/item/10000050-epiphone-telecaster-inspired-by-gibson-2023-vintage-cream"
+    "listing_url": "https://reverb.com/item/10000050-epiphone-telecaster-inspired-by-gibson-2023-vintage-cream",
+    "year": 2023,
+    "condition": "mint"
+  },
+  {
+    "id": "rev_mock_051",
+    "title": "Rickenbacker 330 Electric Guitar 2020 - Jetglo",
+    "price": 2199,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/rickenbacker-330.jpg",
+    "listing_url": "https://reverb.com/item/10000051-rickenbacker-330-electric-guitar-2020-jetglo",
+    "year": 2020,
+    "condition": "excellent"
+  },
+  {
+    "id": "rev_mock_052",
+    "title": "Music Man StingRay Special Bass 2022 - Vintage Tobacco",
+    "price": 2299,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/music-man-stingray.jpg",
+    "listing_url": "https://reverb.com/item/10000052-music-man-stingray-special-bass-2022-vintage-tobacco",
+    "year": 2022,
+    "condition": "mint"
+  },
+  {
+    "id": "rev_mock_053",
+    "title": "G&L Tribute Legacy 2023 - Blue Burst",
+    "price": 649,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/gl-tribute-legacy.jpg",
+    "listing_url": "https://reverb.com/item/10000053-gl-tribute-legacy-2023-blue-burst",
+    "year": 2023,
+    "condition": "mint"
+  },
+  {
+    "id": "rev_mock_054",
+    "title": "Martin 000-15M Acoustic Parlor Guitar 2019 - Satin Mahogany",
+    "price": 1599,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/martin-000-15m.jpg",
+    "listing_url": "https://reverb.com/item/10000054-martin-000-15m-acoustic-parlor-guitar-2019-satin-mahogany",
+    "year": 2019,
+    "condition": "very good"
+  },
+  {
+    "id": "rev_mock_055",
+    "title": "Taylor 314ce V-Class Acoustic-Electric 2021 - Natural",
+    "price": 2099,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/taylor-314ce.jpg",
+    "listing_url": "https://reverb.com/item/10000055-taylor-314ce-v-class-acoustic-electric-2021-natural",
+    "year": 2021,
+    "condition": "excellent"
+  },
+  {
+    "id": "rev_mock_056",
+    "title": "Martin D-15M Dreadnought Acoustic Guitar 2023 - Satin",
+    "price": 1899,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/martin-d15m.jpg",
+    "listing_url": "https://reverb.com/item/10000056-martin-d-15m-dreadnought-acoustic-guitar-2023-satin",
+    "year": 2023,
+    "condition": "mint"
+  },
+  {
+    "id": "rev_mock_057",
+    "title": "Yamaha C40 Classical Guitar 2023 - Natural",
+    "price": 159,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/yamaha-c40-classical.jpg",
+    "listing_url": "https://reverb.com/item/10000057-yamaha-c40-classical-guitar-2023-natural",
+    "year": 2023,
+    "condition": "mint"
+  },
+  {
+    "id": "rev_mock_058",
+    "title": "Fender Vintage Modified Telecaster 1972 - Olympic White",
+    "price": 3999,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/fender-vintage-72-tele.jpg",
+    "listing_url": "https://reverb.com/item/10000058-fender-vintage-modified-telecaster-1972-olympic-white",
+    "year": 1972,
+    "condition": "fair"
+  },
+  {
+    "id": "rev_mock_059",
+    "title": "Gibson J-45 Standard Acoustic Jumbo 2020 - Vintage Burst",
+    "price": 2699,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/gibson-j45.jpg",
+    "listing_url": "https://reverb.com/item/10000059-gibson-j-45-standard-acoustic-jumbo-2020-vintage-burst",
+    "year": 2020,
+    "condition": "excellent"
+  },
+  {
+    "id": "rev_mock_060",
+    "title": "Sterling by Music Man StingRay Bass 2021 - Charcoal Sparkle",
+    "price": 399,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/sterling-stingray-bass.jpg",
+    "listing_url": "https://reverb.com/item/10000060-sterling-by-music-man-stingray-bass-2021-charcoal-sparkle",
+    "year": 2021,
+    "condition": "very good"
+  },
+  {
+    "id": "rev_mock_061",
+    "title": "G&L ASAT Classic 2022 - Butterscotch Blonde",
+    "price": 799,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/gl-asat-classic.jpg",
+    "listing_url": "https://reverb.com/item/10000061-gl-asat-classic-2022-butterscotch-blonde",
+    "year": 2022,
+    "condition": "excellent"
+  },
+  {
+    "id": "rev_mock_062",
+    "title": "Rickenbacker 4003 Bass Guitar 2018 - Fireglo",
+    "price": 2499,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/rickenbacker-4003-bass.jpg",
+    "listing_url": "https://reverb.com/item/10000062-rickenbacker-4003-bass-guitar-2018-fireglo",
+    "year": 2018,
+    "condition": "very good"
+  },
+  {
+    "id": "rev_mock_063",
+    "title": "Martin 00-18 Authentic 1931 Vintage Acoustic 1981 - Natural",
+    "price": 3499,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/martin-00-18-vintage.jpg",
+    "listing_url": "https://reverb.com/item/10000063-martin-00-18-authentic-1931-vintage-acoustic-1981-natural",
+    "year": 1981,
+    "condition": "good"
+  },
+  {
+    "id": "rev_mock_064",
+    "title": "PRS McCarty SC594 2015 - Black Gold",
+    "price": 2399,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/prs-mccarty-sc594.jpg",
+    "listing_url": "https://reverb.com/item/10000064-prs-mccarty-sc594-2015-black-gold",
+    "year": 2015,
+    "condition": "very good"
+  },
+  {
+    "id": "rev_mock_065",
+    "title": "Gretsch G6120 Nashville Hollow Body 1969 - Orange",
+    "price": 4200,
+    "currency": "USD",
+    "image_url": "https://images.reverb.com/image/upload/mock/gretsch-6120-vintage.jpg",
+    "listing_url": "https://reverb.com/item/10000065-gretsch-g6120-nashville-hollow-body-1969-orange",
+    "year": 1969,
+    "condition": "fair"
   }
 ]
