@@ -7,6 +7,7 @@ import { EmptyResults } from './EmptyResults';
 import { Sidebar } from './Sidebar';
 import { useChat } from '../hooks/useChat';
 import { SkeletonCard } from './SkeletonCard';
+import './Chat.css';
 
 /**
  * Главный компонент чата с сайдбаром истории
@@ -62,7 +63,7 @@ export const Chat: React.FC = () => {
       connectionStatus === 'disconnected' ? 'Переподключение...' : null;
 
   return (
-    <div style={{ display: 'flex', height: '100vh' }}>
+    <div className="chat-layout">
       {/* Сайдбар истории — слева */}
       <Sidebar
         sessions={sessions}
@@ -78,62 +79,26 @@ export const Chat: React.FC = () => {
       />
 
       {/* Основная область чата */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: '#f5f5f5',
-          minWidth: 0,
-        }}
-      >
+      <div className="chat-main">
         {/* Header */}
-        <header
-          style={{
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '60px',
-            backgroundColor: '#1a1a2e',
-            color: '#ffffff',
-            fontSize: '20px',
-            fontWeight: 'bold',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          }}
-        >
+        <header className="chat-header">
           <button
+            className="chat-header-toggle"
             onClick={() => setSidebarOpen(prev => !prev)}
-            style={{
-              position: 'absolute',
-              left: '16px',
-              background: 'transparent',
-              border: 'none',
-              color: '#ffffff',
-              fontSize: '20px',
-              cursor: 'pointer',
-              padding: '4px 8px',
-            }}
             title={sidebarOpen ? 'Скрыть сайдбар' : 'Показать сайдбар'}
           >
             ☰
           </button>
           🎸 Guitar Agent
           {connectionMessage && (
-            <span style={{ marginLeft: '12px', fontSize: '12px', opacity: 0.8 }}>
+            <span className="chat-header-status">
               ({connectionMessage})
             </span>
           )}
         </header>
 
         {/* Область сообщений */}
-        <main
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            backgroundColor: '#ffffff',
-          }}
-        >
+        <main className="chat-messages">
           <MessageList messages={messages} />
 
           {messages.length > 0 &&
@@ -145,12 +110,7 @@ export const Chat: React.FC = () => {
 
           {/* Скелетоны при ожидании search-результатов */}
           {isLoading && !status && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '12px',
-              padding: '16px',
-            }}>
+            <div className="chat-skeleton-grid">
               <SkeletonCard count={3} />
             </div>
           )}
@@ -166,15 +126,7 @@ export const Chat: React.FC = () => {
 
         {/* Форма ввода */}
         <InputForm onSend={handleSend} disabled={isLoading} />
-
-        <style>{`
-          @keyframes loading {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(300%); }
-          }
-        `}</style>
       </div>
-
     </div>
   );
 };
