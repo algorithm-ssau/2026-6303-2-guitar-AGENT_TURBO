@@ -72,7 +72,7 @@ uvicorn backend.main:app --reload
 Сервер: `http://localhost:8000`
 
 > Без `GROQ_API_KEY` проект запустится, но LLM-ответы будут в degraded-режиме.
-> С `USE_MOCK_REVERB=true` поиск использует мок-данные (не нужен `REVERB_API_TOKEN`).
+> С `USE_MOCK_REVERB=true` поиск использует локальный набор мок-данных вместо обращения к Reverb.
 
 ### 3. Frontend
 

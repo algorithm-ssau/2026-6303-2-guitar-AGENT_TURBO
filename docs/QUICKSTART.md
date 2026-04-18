@@ -23,7 +23,7 @@ cp .env.example .env
 
 Откройте `.env` и заполните:
 - `GROQ_API_KEY` — получить на [console.groq.com](https://console.groq.com/) (обязательно)
-- `USE_MOCK_REVERB=true` — для работы без реального Reverb API
+- `USE_MOCK_REVERB=true` — для работы без обращения к Reverb (используются локальные мок-данные)
 
 > Без `GROQ_API_KEY` проект запустится, но LLM-ответы будут в ограниченном режиме.
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI-powered guitar recommendation agent with Reverb marketplace integration. Two modes: **search** (find guitars on Reverb) and **consultation** (answer guitar-related questions). Communication via WebSocket (primary) and REST API (fallback).
+AI-powered guitar recommendation agent that scrapes the Reverb marketplace (own HTML scraper, no official Reverb API). Two modes: **search** (find guitars on Reverb) and **consultation** (answer guitar-related questions). Communication via WebSocket (primary) and REST API (fallback).
 
 ## Commands
 
@@ -38,7 +38,7 @@ npm run test         # Vitest (watch mode)
 
 ### Environment
 
-Copy `.env.example` to `.env` and set `GROQ_API_KEY`. With `USE_MOCK_REVERB=true`, Reverb search uses mock data (no `REVERB_API_TOKEN` needed).
+Copy `.env.example` to `.env` and set `GROQ_API_KEY`. With `USE_MOCK_REVERB=true`, Reverb search uses local mock data instead of hitting the live site (recommended for tests and demo).
 
 ## Architecture
 
@@ -56,7 +56,7 @@ Entry point: `backend/agent/service.py:interpret_query()` — orchestrates the f
 
 - `backend/main.py` — app setup, WebSocket `/chat` endpoint, includes REST router
 - `backend/agent/` — mode detection (regex-based), LLM client (Groq SDK), parameter extraction from LLM JSON
-- `backend/search/` — Reverb API integration (with mock fallback), REST router (`/api/chat`), Pydantic models
+- `backend/search/` — Reverb HTML scraper integration (with mock fallback for tests/demo), REST router (`/api/chat`), Pydantic models
 - `backend/ranking/` — scoring algorithm (budget weight + title/type/pickups/brand matching)
 - `backend/utils/` — logger, snake_case↔camelCase serializer
 
