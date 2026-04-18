@@ -1,8 +1,9 @@
 import {
   ChatRequestSchema, ChatResponseSchema, ChatResponse,
   SessionsResponseSchema, HistoryResponseSchema, HistoryResponse,
-  Session,
+  Session, ParsedParams
 } from './types';
+import { z } from 'zod';
 
 const API_BASE_URL = '/api';
 
@@ -95,4 +96,30 @@ export async function deleteSession(sessionId: number): Promise<void> {
 export async function clearAllHistory(): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/history`, { method: 'DELETE' });
   if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+}
+
+
+export const ParsedParamsSchema = z.object({
+  type: z.string().optional().nullable(),
+  budget: z.string().optional().nullable(),
+  brand: z.string().optional().nullable(),
+  tags: z.array(z.string()).default([]),
+});
+
+/**
+ * Парсинг параметров через backend без LLM
+ */
+export async function parseQuery(query: string): Promise<any> {
+  const response = await fetch('/api/query/parse', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Ошибка парсинга');
+  }
+  
+  const data = await response.json();
+  return ParsedParamsSchema.parse(data);
 }
