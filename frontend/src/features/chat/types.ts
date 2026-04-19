@@ -23,6 +23,7 @@ export interface Message {
   timestamp: Date;
   results?: GuitarResult[];
   mode?: 'search' | 'consultation' | 'clarification';
+  parsedParams?: ParsedParams | null;
 }
 
 /** Состояние чата */
@@ -101,3 +102,10 @@ export const HistoryResponseSchema = z.object({
 });
 
 export type HistoryResponse = z.infer<typeof HistoryResponseSchema>;
+
+export interface ParsedParams {
+  type?: string;
+  budget?: string;
+  brand?: string;
+  tags?: string[];
+}

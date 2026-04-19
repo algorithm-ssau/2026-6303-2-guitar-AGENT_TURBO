@@ -49,8 +49,8 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
 
   return (
     <div style={{ padding: '16px' }}>
-      {messages.map((message) => (
-        <MessageItem key={message.id} message={message} />
+      {messages.map((message, index) => (
+        <MessageItem key={message.id} message={message} previousMessage={index > 0 ? messages[index - 1] : undefined}  />
       ))}
     </div>
   );

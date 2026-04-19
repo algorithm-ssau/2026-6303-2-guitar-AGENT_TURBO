@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-
-from backend.search.models import ChatRequest, ChatResponse
+from ..agent.params_echo import parse_query_simple, format_params_for_display
+from backend.search.models import ChatRequest, ChatResponse,ParseQueryResponse
 from backend.agent.service import interpret_query
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -26,3 +26,10 @@ async def chat(request: ChatRequest) -> ChatResponse:
             mode="consultation",
             answer=result.get("answer", "")
         )
+
+@router.post("/query/parse", response_model=ParseQueryResponse)
+async def parse_query(request: ChatRequest):
+    # Никаких LLM и сайд-эффектов, только чистые регулярки
+    params = parse_query_simple(request.query)
+    formatted = format_params_for_display(params)
+    return ParseQueryResponse(**formatted)

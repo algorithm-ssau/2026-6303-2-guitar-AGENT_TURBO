@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Message, ChatState, GuitarResult, Session } from '../types';
 import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession, clearAllHistory } from '../api';
+import { parseQuery } from '../api';
 
 const WS_URL = 'ws://localhost:8000/chat';
 const PAGE_SIZE = 20;
@@ -225,6 +226,14 @@ export function useChat(): UseChatReturn {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    
+    parseQuery(text).then(params => {
+      setMessages(currentMsgs => currentMsgs.map(m => 
+        m.id === userMessage.id ? { ...m, parsedParams: params } : m
+      ));
+    }).catch(err => console.error("Ошибка парсинга параметров", err));
+    
+    setIsLoading(true);
     setIsLoading(true);
     setError(null);
     setStatus(null);

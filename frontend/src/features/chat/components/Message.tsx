@@ -3,17 +3,19 @@ import ReactMarkdown from 'react-markdown';
 import { Message } from '../types';
 import { ModeBadge } from './ModeBadge';
 import { ResultsList } from './ResultsList';
+import { SearchParamsPanel } from './SearchParamsPanel';
 import { SearchStatus } from './SearchStatus';
 
 interface MessageProps {
   message: Message;
+  previousMessage?: Message; 
 }
 
 /**
  * Компонент одного сообщения в чате
  * Отображает сообщение от пользователя или агента
  */
-export const MessageItem: React.FC<MessageProps> = ({ message }) => {
+export const MessageItem: React.FC<MessageProps> = ({ message, previousMessage }) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
 
@@ -121,6 +123,10 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
               message.content
             )}
           </div>
+        )}
+
+        {!isUser && message.mode === 'search' && previousMessage?.parsedParams && (
+          <SearchParamsPanel params={previousMessage.parsedParams} />
         )}
 
         {/* Отображаем список результатов */}
