@@ -1,5 +1,4 @@
 import React from 'react';
-import { SkeletonCard } from './SkeletonCard';
 
 export interface StatusIndicatorProps {
   status: string | null;
@@ -25,7 +24,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, isLoad
         style={{
           padding: '16px',
           textAlign: 'center',
-          color: '#6c757d',
+          color: 'var(--text-dim)',
         }}
       >
         <div style={{ display: 'inline-block', marginBottom: '8px' }}>
@@ -39,7 +38,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, isLoad
           style={{
             width: '200px',
             height: '4px',
-            backgroundColor: '#e9ecef',
+            backgroundColor: 'var(--surface-hover)',
             borderRadius: '2px',
             margin: '12px auto 0',
             overflow: 'hidden',
@@ -49,7 +48,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, isLoad
             style={{
               width: '50%',
               height: '100%',
-              backgroundColor: '#28a745',
+              backgroundColor: 'var(--success)',
               animation: 'loading 1s ease-in-out infinite',
             }}
           />
@@ -64,7 +63,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, isLoad
       style={{
         padding: '16px',
         textAlign: 'center',
-        color: '#6c757d',
+        color: 'var(--text-dim)',
       }}
     >
       <div style={{ display: 'inline-block', marginBottom: '8px' }}>
@@ -78,7 +77,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, isLoad
         style={{
           width: '200px',
           height: '4px',
-          backgroundColor: '#e9ecef',
+          backgroundColor: 'var(--surface-hover)',
           borderRadius: '2px',
           margin: '12px auto 0',
           overflow: 'hidden',
@@ -88,7 +87,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, isLoad
           style={{
             width: '50%',
             height: '100%',
-            backgroundColor: '#28a745',
+            backgroundColor: 'var(--success)',
             animation: 'loading 1s ease-in-out infinite',
           }}
         />

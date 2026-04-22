@@ -6,11 +6,24 @@ import { parseQuery } from '../api';
 const WS_URL = 'ws://localhost:8000/chat';
 const PAGE_SIZE = 20;
 
+function normalizeResult(item: any): GuitarResult {
+  return {
+    id: item.id,
+    title: item.title,
+    price: item.price,
+    currency: item.currency,
+    imageUrl: item.imageUrl || item.image_url,
+    listingUrl: item.listingUrl || item.listing_url,
+  };
+}
+
 interface UseChatReturn extends ChatState {
   sendMessage: (text: string) => void;
   connectionStatus: 'connected' | 'disconnected' | 'connecting';
   status: string | null;
   sessions: Session[];
+  isLoadingSessions: boolean;
+  latestLiveMessageId: string | null;
   currentSessionId: number | null;
   selectSession: (id: number) => void;
   newChat: () => void;
@@ -19,6 +32,7 @@ interface UseChatReturn extends ChatState {
   loadMoreSessions: () => void;
   hasMoreSessions: boolean;
   isLoadingMoreSessions: boolean;
+  isLoadingSessionMessages: boolean;
 }
 
 /**
@@ -27,6 +41,10 @@ interface UseChatReturn extends ChatState {
 function historyToMessages(items: any[]): Message[] {
   const messages: Message[] = [];
   for (const item of items) {
+    const normalizedResults = item.mode === 'search'
+      ? (item.results || []).map((result: any) => normalizeResult(result))
+      : undefined;
+
     messages.push({
       id: `hist-user-${item.id}`,
       role: 'user',
@@ -36,12 +54,12 @@ function historyToMessages(items: any[]): Message[] {
     messages.push({
       id: `hist-agent-${item.id}`,
       role: 'agent',
-      content: item.mode === 'consultation'
+      content: item.mode !== 'search'
         ? (item.answer || '')
-        : `Найдено гитар: ${(item.results || []).length}`,
+        : (item.answer || `Найдено гитар: ${(normalizedResults || []).length}`),
       timestamp: new Date(item.createdAt),
-      mode: item.mode as 'search' | 'consultation',
-      results: item.mode === 'search' ? (item.results as GuitarResult[]) : undefined,
+      mode: item.mode as 'search' | 'consultation' | 'clarification',
+      results: normalizedResults,
     });
   }
   return messages;
@@ -57,7 +75,10 @@ export function useChat(): UseChatReturn {
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting');
   const [status, setStatus] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [latestLiveMessageId, setLatestLiveMessageId] = useState<string | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
+  const [isLoadingSessionMessages, setIsLoadingSessionMessages] = useState(false);
 
   // Пагинация сессий
   const [hasMoreSessions, setHasMoreSessions] = useState(true);
@@ -67,6 +88,8 @@ export function useChat(): UseChatReturn {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentSessionIdRef = useRef<number | null>(null);
+  const requestedSessionIdRef = useRef<number | null>(null);
+  const sessionsRequestIdRef = useRef(0);
 
   // Синхронизируем ref с state для доступа из колбэков
   useEffect(() => {
@@ -75,15 +98,25 @@ export function useChat(): UseChatReturn {
 
   // Загрузка первой страницы сессий
   const loadSessions = useCallback(() => {
+    const requestId = sessionsRequestIdRef.current + 1;
+    sessionsRequestIdRef.current = requestId;
     loadedCountRef.current = 0;
-    setSessions([]);
+    setIsLoadingSessions(true);
     fetchSessions(0, PAGE_SIZE)
       .then(({ sessions: newSessions, total }) => {
+        if (sessionsRequestIdRef.current !== requestId) {
+          return;
+        }
         setSessions(newSessions);
         loadedCountRef.current = newSessions.length;
         setHasMoreSessions(loadedCountRef.current < total);
       })
-      .catch((err) => console.error('Ошибка загрузки сессий:', err));
+      .catch((err) => console.error('Ошибка загрузки сессий:', err))
+      .finally(() => {
+        if (sessionsRequestIdRef.current === requestId) {
+          setIsLoadingSessions(false);
+        }
+      });
   }, []);
 
   // Подгрузка следующей страницы при скролле
@@ -145,6 +178,7 @@ export function useChat(): UseChatReturn {
               // Бэкенд вернул sessionId (новый или существующий)
               const returnedSessionId = data.sessionId as number | undefined;
               if (returnedSessionId && !currentSessionIdRef.current) {
+                currentSessionIdRef.current = returnedSessionId;
                 setCurrentSessionId(returnedSessionId);
               }
 
@@ -157,14 +191,7 @@ export function useChat(): UseChatReturn {
                 // Уточняющий вопрос — продолжаем диалог в той же сессии
                 content = data.question || '';
               } else if (data.mode === 'search') {
-                results = (data.results || []).map((item: any) => ({
-                  id: item.id,
-                  title: item.title,
-                  price: item.price,
-                  currency: item.currency,
-                  imageUrl: item.imageUrl || item.image_url,
-                  listingUrl: item.listingUrl || item.listing_url,
-                }));
+                results = (data.results || []).map((item: any) => normalizeResult(item));
                 content = data.explanation ? data.explanation : `Найдено гитар: ${results?.length ?? 0}`;
               }
 
@@ -178,6 +205,7 @@ export function useChat(): UseChatReturn {
               };
 
               setMessages(prev => [...prev, agentMessage]);
+              setLatestLiveMessageId(agentMessage.id);
 
               // Обновляем список сессий (сбрасываем пагинацию)
               loadSessions();
@@ -237,6 +265,7 @@ export function useChat(): UseChatReturn {
     setIsLoading(true);
     setError(null);
     setStatus(null);
+    setLatestLiveMessageId(null);
 
     // Отправляем sessionId если есть текущая сессия
     wsRef.current.send(JSON.stringify({
@@ -247,26 +276,46 @@ export function useChat(): UseChatReturn {
 
   // Выбрать сессию — загрузить её сообщения
   const selectSession = useCallback((id: number) => {
+    requestedSessionIdRef.current = id;
+    currentSessionIdRef.current = id;
     setCurrentSessionId(id);
     setError(null);
     setStatus(null);
+    setMessages([]);
+    setLatestLiveMessageId(null);
+    setIsLoadingSessionMessages(true);
 
     fetchSessionMessages(id)
       .then((data) => {
+        if (requestedSessionIdRef.current !== id) {
+          return;
+        }
         setMessages(historyToMessages(data.items));
       })
       .catch((err) => {
+        if (requestedSessionIdRef.current !== id) {
+          return;
+        }
         console.error('Ошибка загрузки сообщений сессии:', err);
         setError('Не удалось загрузить сообщения');
+      })
+      .finally(() => {
+        if (requestedSessionIdRef.current === id) {
+          setIsLoadingSessionMessages(false);
+        }
       });
   }, []);
 
   // Новый чат
   const newChat = useCallback(() => {
+    requestedSessionIdRef.current = null;
+    currentSessionIdRef.current = null;
     setCurrentSessionId(null);
     setMessages([]);
     setError(null);
     setStatus(null);
+    setLatestLiveMessageId(null);
+    setIsLoadingSessionMessages(false);
   }, []);
 
   // Удалить сессию
@@ -277,8 +326,11 @@ export function useChat(): UseChatReturn {
         loadedCountRef.current = Math.max(0, loadedCountRef.current - 1);
         // Если удалили текущую — сбрасываем
         if (currentSessionIdRef.current === id) {
+          requestedSessionIdRef.current = null;
           setCurrentSessionId(null);
           setMessages([]);
+          setLatestLiveMessageId(null);
+          setIsLoadingSessionMessages(false);
         }
       })
       .catch((err) => console.error('Ошибка удаления сессии:', err));
@@ -291,8 +343,11 @@ export function useChat(): UseChatReturn {
         setSessions([]);
         setCurrentSessionId(null);
         setMessages([]);
+        setLatestLiveMessageId(null);
+        requestedSessionIdRef.current = null;
         loadedCountRef.current = 0;
         setHasMoreSessions(true);
+        setIsLoadingSessionMessages(false);
       })
       .catch((err) => console.error('Ошибка очистки истории:', err));
   }, []);
@@ -305,6 +360,8 @@ export function useChat(): UseChatReturn {
     status,
     sendMessage,
     sessions,
+    isLoadingSessions,
+    latestLiveMessageId,
     currentSessionId,
     selectSession,
     newChat,
@@ -313,5 +370,6 @@ export function useChat(): UseChatReturn {
     loadMoreSessions,
     hasMoreSessions,
     isLoadingMoreSessions,
+    isLoadingSessionMessages,
   };
 }

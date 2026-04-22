@@ -14,12 +14,12 @@ interface RelevanceBadgeProps {
 export const RelevanceBadge: React.FC<RelevanceBadgeProps> = ({ position }) => {
     const getBadgeConfig = (pos: number) => {
         if (pos === 1) {
-            return { text: 'Лучшее совпадение', color: '#28a745', bgColor: '#d4edda' };
+            return { text: 'Лучшее совпадение', color: 'var(--success-text)', bgColor: 'var(--success-bg)' };
         }
         if (pos <= 3) {
-            return { text: 'Отличный вариант', color: '#17a2b8', bgColor: '#d1ecf1' };
+            return { text: 'Отличный вариант', color: 'var(--info-text)', bgColor: 'var(--info-bg)' };
         }
-        return { text: 'Подходит', color: '#6c757d', bgColor: '#e2e3e5' };
+        return { text: 'Подходит', color: 'var(--text-subtle)', bgColor: 'var(--surface-hover)' };
     };
 
     const { text, color, bgColor } = getBadgeConfig(position);
@@ -35,7 +35,7 @@ export const RelevanceBadge: React.FC<RelevanceBadgeProps> = ({ position }) => {
                 fontWeight: '600',
                 color: color,
                 backgroundColor: bgColor,
-                border: `1px solid ${color}`,
+                border: '1px solid var(--border)',
             }}
         >
             {text}

@@ -1,6 +1,6 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { Chat } from '../components/Chat';
 import { useChat } from '../hooks/useChat';
 
@@ -14,6 +14,7 @@ describe('Chat Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
     (useChat as any).mockReturnValue({
       messages: [],
       isLoading: false,
@@ -21,17 +22,38 @@ describe('Chat Component', () => {
       connectionStatus: 'connected',
       status: null,
       sendMessage: mockSendMessage,
+      sessions: [],
+      isLoadingSessions: false,
+      latestLiveMessageId: null,
+      currentSessionId: null,
+      selectSession: vi.fn(),
+      newChat: vi.fn(),
+      deleteSession: vi.fn(),
+      clearHistory: vi.fn(),
+      loadMoreSessions: vi.fn(),
+      hasMoreSessions: false,
+      isLoadingMoreSessions: false,
+      isLoadingSessionMessages: false,
     });
+    window.matchMedia = vi.fn().mockImplementation(() => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('должен рендериться с заголовком', () => {
     render(<Chat />);
-    expect(screen.getByText(/Guitar Agent/i)).toBeInTheDocument();
+    expect(screen.getByText(/REVERB AGENT/i)).toBeInTheDocument();
   });
 
   it('должен отображать введённый текст в поле ввода', () => {
     render(<Chat />);
-    const textarea = screen.getByPlaceholderText('Введите ваш запрос...');
+    const textarea = screen.getByPlaceholderText('Опишите звук или модель гитары...');
     fireEvent.change(textarea, { target: { value: 'Тестовое сообщение' } });
     expect(textarea).toHaveValue('Тестовое сообщение');
   });
@@ -47,6 +69,18 @@ describe('Chat Component', () => {
       connectionStatus: 'connected',
       status: null,
       sendMessage: mockSendMessage,
+      sessions: [],
+      isLoadingSessions: false,
+      latestLiveMessageId: null,
+      currentSessionId: null,
+      selectSession: vi.fn(),
+      newChat: vi.fn(),
+      deleteSession: vi.fn(),
+      clearHistory: vi.fn(),
+      loadMoreSessions: vi.fn(),
+      hasMoreSessions: false,
+      isLoadingMoreSessions: false,
+      isLoadingSessionMessages: false,
     });
 
     render(<Chat />);
@@ -62,10 +96,23 @@ describe('Chat Component', () => {
       connectionStatus: 'connected',
       status: 'Ищу на Reverb...',
       sendMessage: mockSendMessage,
+      sessions: [],
+      isLoadingSessions: false,
+      latestLiveMessageId: null,
+      currentSessionId: null,
+      selectSession: vi.fn(),
+      newChat: vi.fn(),
+      deleteSession: vi.fn(),
+      clearHistory: vi.fn(),
+      loadMoreSessions: vi.fn(),
+      hasMoreSessions: false,
+      isLoadingMoreSessions: false,
+      isLoadingSessionMessages: false,
     });
 
     render(<Chat />);
     expect(screen.getByText('Ищу на Reverb...')).toBeInTheDocument();
+    expect(screen.getByText('Думаю над ответом')).toBeInTheDocument();
   });
 
   it('Проверить отображение error через ErrorMessage', () => {
@@ -76,6 +123,18 @@ describe('Chat Component', () => {
       connectionStatus: 'connected',
       status: null,
       sendMessage: mockSendMessage,
+      sessions: [],
+      isLoadingSessions: false,
+      latestLiveMessageId: null,
+      currentSessionId: null,
+      selectSession: vi.fn(),
+      newChat: vi.fn(),
+      deleteSession: vi.fn(),
+      clearHistory: vi.fn(),
+      loadMoreSessions: vi.fn(),
+      hasMoreSessions: false,
+      isLoadingMoreSessions: false,
+      isLoadingSessionMessages: false,
     });
 
     render(<Chat />);
@@ -84,12 +143,47 @@ describe('Chat Component', () => {
 
   it('должен отправлять сообщение', () => {
     render(<Chat />);
-    const textarea = screen.getByPlaceholderText('Введите ваш запрос...');
-    const button = screen.getByText('➤');
+    const textarea = screen.getByPlaceholderText('Опишите звук или модель гитары...');
+    const button = screen.getByText('Отправить');
 
     fireEvent.change(textarea, { target: { value: 'Тест' } });
     fireEvent.click(button);
 
     expect(mockSendMessage).toHaveBeenCalledWith('Тест');
+  });
+
+  it('скрывает transient состояние после завершения reveal', () => {
+    (useChat as any).mockReturnValue({
+      messages: [
+        { id: '1', role: 'user', content: 'Привет', timestamp: new Date() },
+        { id: '2', role: 'agent', content: 'Готовый ответ', timestamp: new Date(), mode: 'consultation' }
+      ],
+      isLoading: false,
+      error: null,
+      connectionStatus: 'connected',
+      status: null,
+      sendMessage: mockSendMessage,
+      sessions: [],
+      isLoadingSessions: false,
+      latestLiveMessageId: '2',
+      currentSessionId: null,
+      selectSession: vi.fn(),
+      newChat: vi.fn(),
+      deleteSession: vi.fn(),
+      clearHistory: vi.fn(),
+      loadMoreSessions: vi.fn(),
+      hasMoreSessions: false,
+      isLoadingMoreSessions: false,
+      isLoadingSessionMessages: false,
+    });
+
+    render(<Chat />);
+
+    act(() => {
+      vi.runAllTimers();
+    });
+
+    expect(screen.getByText('Готовый ответ')).toBeInTheDocument();
+    expect(screen.getByText('📋 Копировать')).toBeInTheDocument();
   });
 });

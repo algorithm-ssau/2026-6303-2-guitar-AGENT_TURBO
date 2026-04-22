@@ -1,15 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import { Session } from '../types';
+import { Theme } from '../../../shared/theme/useTheme';
 import './Sidebar.css';
 
 interface SidebarProps {
-  sessions: Session[];
-  currentSessionId: number | null;
+  sessions?: Session[];
+  isLoadingSessions?: boolean;
+  currentSessionId?: number | null;
   isOpen: boolean;
-  onSelectSession: (id: number) => void;
-  onNewChat: () => void;
-  onDeleteSession: (id: number) => void;
-  onClearHistory: () => void;
+  theme: Theme;
+  onSelectSession?: (id: number) => void;
+  onNewChat?: () => void;
+  onDeleteSession?: (id: number) => void;
+  onClearHistory?: () => void;
+  onToggleTheme?: () => void;
   onToggle: () => void;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
   isLoadingMore?: boolean;
@@ -20,13 +24,16 @@ interface SidebarProps {
  * Тёмная тема, hover-эффекты, поиск, анимации, CSS-классы из design system
  */
 export const Sidebar: React.FC<SidebarProps> = ({
-  sessions,
-  currentSessionId,
+  sessions = [],
+  isLoadingSessions = false,
+  currentSessionId = null,
   isOpen,
-  onSelectSession,
-  onNewChat,
-  onDeleteSession,
-  onClearHistory,
+  theme,
+  onSelectSession = () => {},
+  onNewChat = () => {},
+  onDeleteSession = () => {},
+  onClearHistory = () => {},
+  onToggleTheme = () => {},
   onToggle,
   onScroll,
   isLoadingMore,
@@ -45,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Overlay для мобильных */}
       {isOpen && <div className="sidebar-overlay" onClick={onToggle} />}
-      <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
+      <aside className={`sidebar ${isOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
         {/* Заголовок */}
         <div className="sidebar-logo">GUITAR AI</div>
 
@@ -72,7 +79,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Список сессий */}
         <div className="sidebar-sessions" onScroll={onScroll}>
-          {filteredSessions.length === 0 && (
+          {isLoadingSessions && sessions.length === 0 && (
+            <div className="sidebar-skeleton-list" aria-hidden="true">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="sidebar-skeleton-item" />
+              ))}
+            </div>
+          )}
+
+          {!isLoadingSessions && filteredSessions.length === 0 && (
             <div className="sidebar-empty">
               {searchQuery ? 'Ничего не найдено' : 'Нет сохранённых чатов'}
             </div>
@@ -113,21 +128,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Кнопка очистить всё */}
-        {sessions.length > 0 && (
-          <div className="sidebar-footer">
-            <button
-              className="sidebar-clear-btn"
-              onClick={() => {
-                if (window.confirm('Удалить всю историю?')) {
-                  onClearHistory();
-                }
-              }}
-            >
-              🗑 Очистить всё
-            </button>
+        <div className="sidebar-footer">
+          <button
+            className="sidebar-clear-btn"
+            onClick={() => {
+              if (window.confirm('Удалить всю историю?')) {
+                onClearHistory();
+              }
+            }}
+            disabled={isLoadingSessions || sessions.length === 0}
+          >
+            🗑 Очистить всё
+          </button>
+          <button className="sidebar-theme-btn" onClick={onToggleTheme}>
+            🌓 {theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+          </button>
+          <div className="sidebar-footer-note">
+            {isLoadingSessions && sessions.length === 0 ? 'Загружаем историю...' : '\u00A0'}
           </div>
-        )}
+        </div>
       </aside>
     </>
   );

@@ -36,7 +36,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSend, disabled = false }
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Введите ваш запрос..."
+        placeholder="Опишите звук или модель гитары..."
         disabled={disabled}
         rows={1}
       />
@@ -45,7 +45,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSend, disabled = false }
         type="submit"
         disabled={disabled || !input.trim()}
       >
-        ➤
+        Отправить
       </button>
     </form>
   );

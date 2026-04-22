@@ -15,6 +15,13 @@ export interface GuitarResult {
   listingUrl: string;
 }
 
+export interface ParsedParams {
+  type?: string;
+  budget?: string;
+  brand?: string;
+  tags?: string[];
+}
+
 /** Сообщение в чате */
 export interface Message {
   id: string;
@@ -23,6 +30,10 @@ export interface Message {
   timestamp: Date;
   results?: GuitarResult[];
   mode?: 'search' | 'consultation' | 'clarification';
+  transient?: {
+    phase: 'thinking' | 'revealing';
+    status?: string | null;
+  };
   parsedParams?: ParsedParams | null;
 }
 
@@ -88,7 +99,7 @@ export const HistoryItemSchema = z.object({
   id: z.number(),
   sessionId: z.number(),
   userQuery: z.string(),
-  mode: z.enum(['search', 'consultation']),
+  mode: z.enum(['search', 'consultation', 'clarification']),
   answer: z.string().nullable().optional(),
   results: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
   createdAt: z.string(),
@@ -102,10 +113,3 @@ export const HistoryResponseSchema = z.object({
 });
 
 export type HistoryResponse = z.infer<typeof HistoryResponseSchema>;
-
-export interface ParsedParams {
-  type?: string;
-  budget?: string;
-  brand?: string;
-  tags?: string[];
-}

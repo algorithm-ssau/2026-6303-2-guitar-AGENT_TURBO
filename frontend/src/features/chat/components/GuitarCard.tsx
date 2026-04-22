@@ -17,20 +17,20 @@ interface GuitarCardProps {
  */
 const getPriceColor = (price: number, priceMax?: number): string => {
     if (priceMax === undefined || priceMax === null) {
-        return '#2ecc71';
+        return 'var(--success)';
     }
 
     if (price <= priceMax) {
-        return '#2ecc71';
+        return 'var(--success)';
     }
 
     const threshold20Percent = priceMax * 1.2;
 
     if (price <= threshold20Percent) {
-        return '#f1c40f';
+        return 'var(--warning)';
     }
 
-    return '#e74c3c';
+    return 'var(--danger)';
 };
 
 /** Форматируем цену: "$499" вместо "499 USD" */
@@ -71,7 +71,7 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
                     <span style={{
                         fontSize: '16px',
                         fontWeight: 'bold',
-                        color: 'var(--text-secondary, #888)',
+                        color: 'var(--text-dim)',
                     }}>
                         #{position}
                     </span>
@@ -88,19 +88,19 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
                     display: 'block',
                     textDecoration: 'none',
                     color: 'inherit',
-                    backgroundColor: 'var(--bg-card, #1e1e1e)',
-                    border: '1px solid var(--border, #2a2a2a)',
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
                     borderRadius: '12px',
                     padding: '12px',
                     transition: 'border-color 0.2s, transform 0.2s',
                     cursor: 'pointer',
                 }}
                 onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--accent, #4d88ff)';
+                    e.currentTarget.style.borderColor = 'var(--accent)';
                     e.currentTarget.style.transform = 'translateY(-3px)';
                 }}
                 onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border, #2a2a2a)';
+                    e.currentTarget.style.borderColor = 'var(--border)';
                     e.currentTarget.style.transform = 'translateY(0)';
                 }}
             >
@@ -108,7 +108,7 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
                 <div
                     style={{
                         height: '100px',
-                        backgroundColor: hasImage ? 'transparent' : '#252525',
+                        backgroundColor: hasImage ? 'transparent' : 'var(--code-bg)',
                         borderRadius: '8px',
                         marginBottom: '10px',
                         display: 'flex',
@@ -131,7 +131,7 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
                             }}
                         />
                     ) : (
-                        <span style={{ fontSize: '10px', color: '#555' }}>PHOTO</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>PHOTO</span>
                     )}
                 </div>
 
@@ -140,7 +140,7 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
                     fontSize: '13px',
                     fontWeight: 600,
                     marginBottom: '4px',
-                    color: 'var(--text-main, #ececec)',
+                    color: 'var(--text-main)',
                     lineHeight: 1.3,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',

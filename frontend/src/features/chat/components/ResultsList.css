@@ -6,12 +6,12 @@
 .results-list__title {
     font-size: 16px;
     margin-bottom: 12px;
-    color: var(--text-main, #ececec);
+    color: var(--text-main);
 }
 
 .results-list__grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 12px;
 }
 
@@ -22,18 +22,19 @@
     align-items: center;
     padding: 8px 12px;
     margin-bottom: 12px;
-    background-color: var(--bg-secondary, #2a2a2a);
+    background-color: var(--bg-bubble-ai);
+    border: 1px solid var(--border);
     border-radius: 8px;
     font-size: 13px;
 }
 
 .budget-hint__text {
-    color: var(--text-secondary, #aaa);
+    color: var(--text-subtle);
     font-weight: 500;
 }
 
 .budget-hint__count {
-    color: var(--text-secondary, #888);
+    color: var(--text-dim);
     font-size: 12px;
 }
 

@@ -2,6 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useChat } from '../hooks/useChat';
 
+const mockFetchSessions = vi.fn();
+const mockFetchSessionMessages = vi.fn();
+const mockDeleteSession = vi.fn();
+const mockClearAllHistory = vi.fn();
+
+vi.mock('../api', () => ({
+  fetchSessions: (...args: unknown[]) => mockFetchSessions(...args),
+  fetchSessionMessages: (...args: unknown[]) => mockFetchSessionMessages(...args),
+  deleteSession: (...args: unknown[]) => mockDeleteSession(...args),
+  clearAllHistory: (...args: unknown[]) => mockClearAllHistory(...args),
+}));
+
 // Мок отправки WebSocket
 const mockSend = vi.fn();
 const mockClose = vi.fn();
@@ -41,6 +53,10 @@ describe('useChat hook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    mockFetchSessions.mockResolvedValue({ sessions: [], total: 0 });
+    mockFetchSessionMessages.mockResolvedValue({ items: [] });
+    mockDeleteSession.mockResolvedValue(undefined);
+    mockClearAllHistory.mockResolvedValue(undefined);
     // Устанавливаем мок WebSocket
     (window as any).WebSocket = MockWebSocket;
   });
@@ -90,6 +106,97 @@ describe('useChat hook', () => {
 
     // Проверяем что сообщение было отправлено через WebSocket
     expect(mockSend).toHaveBeenCalledWith(JSON.stringify({ query: 'Нужна гитара для метала' }));
+  });
+
+  it('должен открывать history с clarification сообщениями', async () => {
+    mockFetchSessionMessages.mockResolvedValueOnce({
+      items: [
+        {
+          id: 1,
+          sessionId: 19,
+          userQuery: 'телекастер',
+          mode: 'clarification',
+          answer: 'Уточните бюджет',
+          results: null,
+          createdAt: '2026-04-22T10:39:09Z',
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.selectSession(19);
+    });
+
+    expect(result.current.isLoadingSessionMessages).toBe(true);
+
+    await waitFor(() => {
+      expect(result.current.isLoadingSessionMessages).toBe(false);
+      expect(result.current.messages).toHaveLength(2);
+    });
+
+    expect(result.current.messages[0].content).toBe('телекастер');
+    expect(result.current.messages[1].content).toBe('Уточните бюджет');
+    expect(result.current.messages[1].mode).toBe('clarification');
+  });
+
+  it('должен игнорировать устаревший ответ при быстром переключении между чатами', async () => {
+    let resolveFirst!: (value: { items: any[] }) => void;
+    let resolveSecond!: (value: { items: any[] }) => void;
+
+    mockFetchSessionMessages
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; }));
+
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.selectSession(1);
+      result.current.selectSession(2);
+    });
+
+    act(() => {
+      resolveSecond({
+        items: [
+          {
+            id: 20,
+            sessionId: 2,
+            userQuery: 'второй чат',
+            mode: 'consultation',
+            answer: 'история второго чата',
+            results: null,
+            createdAt: '2026-04-22T10:40:49Z',
+          },
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.messages[0].content).toBe('второй чат');
+    });
+
+    act(() => {
+      resolveFirst({
+        items: [
+          {
+            id: 10,
+            sessionId: 1,
+            userQuery: 'первый чат',
+            mode: 'consultation',
+            answer: 'история первого чата',
+            results: null,
+            createdAt: '2026-04-22T10:38:52Z',
+          },
+        ],
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.messages[0].content).toBe('второй чат');
+      expect(result.current.currentSessionId).toBe(2);
+      expect(result.current.isLoadingSessionMessages).toBe(false);
+    });
   });
 
   it('должен обновлять status при получении type="status"', async () => {
