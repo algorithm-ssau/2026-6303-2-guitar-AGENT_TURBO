@@ -44,8 +44,8 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
     >
       <div
         style={{
-          maxWidth: isUser ? '70%' : '90%',
-          padding: '14px 20px',
+          maxWidth: isUser ? '72%' : '82%',
+          padding: '12px 16px',
           borderRadius: '20px',
           backgroundColor: isUser ? 'var(--bg-bubble-user)' : 'var(--bg-bubble-ai)',
           color: isUser ? 'var(--message-user-text)' : 'var(--message-ai-text)',

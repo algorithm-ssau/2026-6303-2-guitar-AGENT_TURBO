@@ -4,6 +4,39 @@ import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession,
 
 const WS_URL = 'ws://localhost:8000/chat';
 const PAGE_SIZE = 20;
+const SESSION_QUERY_PARAM = 'session';
+
+interface SessionSelectionOptions {
+  syncUrl?: boolean;
+  replaceUrl?: boolean;
+}
+
+function readSessionIdFromUrl(): { sessionId: number | null; error: string | null } {
+  const rawSessionId = new URLSearchParams(window.location.search).get(SESSION_QUERY_PARAM);
+  if (!rawSessionId) {
+    return { sessionId: null, error: null };
+  }
+
+  if (!/^\d+$/.test(rawSessionId)) {
+    return { sessionId: null, error: 'Некорректная ссылка на чат' };
+  }
+
+  return { sessionId: Number(rawSessionId), error: null };
+}
+
+function updateSessionUrl(sessionId: number | null, replace = false) {
+  const url = new URL(window.location.href);
+
+  if (sessionId === null) {
+    url.searchParams.delete(SESSION_QUERY_PARAM);
+  } else {
+    url.searchParams.set(SESSION_QUERY_PARAM, String(sessionId));
+  }
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const writeHistory = replace ? window.history.replaceState : window.history.pushState;
+  writeHistory.call(window.history, {}, '', nextUrl);
+}
 
 function normalizeResult(item: any): GuitarResult {
   return {
@@ -89,6 +122,7 @@ export function useChat(): UseChatReturn {
   const currentSessionIdRef = useRef<number | null>(null);
   const requestedSessionIdRef = useRef<number | null>(null);
   const sessionsRequestIdRef = useRef(0);
+  const isUnmountingRef = useRef(false);
 
   // Синхронизируем ref с state для доступа из колбэков
   useEffect(() => {
@@ -150,6 +184,9 @@ export function useChat(): UseChatReturn {
       };
 
       ws.onclose = () => {
+        if (isUnmountingRef.current) {
+          return;
+        }
         setConnectionStatus('disconnected');
         reconnectTimeoutRef.current = setTimeout(() => {
           connect();
@@ -179,6 +216,7 @@ export function useChat(): UseChatReturn {
               if (returnedSessionId && !currentSessionIdRef.current) {
                 currentSessionIdRef.current = returnedSessionId;
                 setCurrentSessionId(returnedSessionId);
+                updateSessionUrl(returnedSessionId);
               }
 
               let content = '';
@@ -233,10 +271,26 @@ export function useChat(): UseChatReturn {
   useEffect(() => {
     connect();
     return () => {
+      isUnmountingRef.current = true;
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (wsRef.current) wsRef.current.close();
     };
   }, [connect]);
+
+  const resetToNewChat = useCallback((options?: SessionSelectionOptions) => {
+    requestedSessionIdRef.current = null;
+    currentSessionIdRef.current = null;
+    setCurrentSessionId(null);
+    setMessages([]);
+    setError(null);
+    setStatus(null);
+    setLatestLiveMessageId(null);
+    setIsLoadingSessionMessages(false);
+
+    if (options?.syncUrl ?? true) {
+      updateSessionUrl(null, options?.replaceUrl ?? false);
+    }
+  }, []);
 
   // Отправка сообщения
   const sendMessage = useCallback((text: string) => {
@@ -266,7 +320,7 @@ export function useChat(): UseChatReturn {
   }, []);
 
   // Выбрать сессию — загрузить её сообщения
-  const selectSession = useCallback((id: number) => {
+  const selectSession = useCallback((id: number, options?: SessionSelectionOptions) => {
     requestedSessionIdRef.current = id;
     currentSessionIdRef.current = id;
     setCurrentSessionId(id);
@@ -275,6 +329,10 @@ export function useChat(): UseChatReturn {
     setMessages([]);
     setLatestLiveMessageId(null);
     setIsLoadingSessionMessages(true);
+
+    if (options?.syncUrl ?? true) {
+      updateSessionUrl(id, options?.replaceUrl ?? false);
+    }
 
     fetchSessionMessages(id)
       .then((data) => {
@@ -288,26 +346,65 @@ export function useChat(): UseChatReturn {
           return;
         }
         console.error('Ошибка загрузки сообщений сессии:', err);
-        setError('Не удалось загрузить сообщения');
+        setIsLoadingSessionMessages(false);
+
+        requestedSessionIdRef.current = null;
+        currentSessionIdRef.current = null;
+        setCurrentSessionId(null);
+        setMessages([]);
+
+        if (err instanceof Error && 'status' in err && err.status === 404) {
+          setError('Чат по этой ссылке не найден');
+        } else {
+          setError('Не удалось загрузить сообщения');
+        }
+
+        updateSessionUrl(null, true);
       })
       .finally(() => {
         if (requestedSessionIdRef.current === id) {
           setIsLoadingSessionMessages(false);
+          requestedSessionIdRef.current = null;
         }
       });
   }, []);
 
   // Новый чат
   const newChat = useCallback(() => {
-    requestedSessionIdRef.current = null;
-    currentSessionIdRef.current = null;
-    setCurrentSessionId(null);
-    setMessages([]);
-    setError(null);
-    setStatus(null);
-    setLatestLiveMessageId(null);
-    setIsLoadingSessionMessages(false);
-  }, []);
+    resetToNewChat();
+  }, [resetToNewChat]);
+
+  useEffect(() => {
+    const syncSessionFromUrl = () => {
+      const { sessionId, error: urlError } = readSessionIdFromUrl();
+
+      if (urlError) {
+        resetToNewChat({ syncUrl: true, replaceUrl: true });
+        setError(urlError);
+        return;
+      }
+
+      if (sessionId === null) {
+        if (currentSessionIdRef.current !== null) {
+          resetToNewChat({ syncUrl: false });
+        }
+        return;
+      }
+
+      if (currentSessionIdRef.current === sessionId) {
+        return;
+      }
+
+      selectSession(sessionId, { syncUrl: false });
+    };
+
+    syncSessionFromUrl();
+    window.addEventListener('popstate', syncSessionFromUrl);
+
+    return () => {
+      window.removeEventListener('popstate', syncSessionFromUrl);
+    };
+  }, [resetToNewChat, selectSession]);
 
   // Удалить сессию
   const deleteSessionHandler = useCallback((id: number) => {
@@ -317,31 +414,23 @@ export function useChat(): UseChatReturn {
         loadedCountRef.current = Math.max(0, loadedCountRef.current - 1);
         // Если удалили текущую — сбрасываем
         if (currentSessionIdRef.current === id) {
-          requestedSessionIdRef.current = null;
-          setCurrentSessionId(null);
-          setMessages([]);
-          setLatestLiveMessageId(null);
-          setIsLoadingSessionMessages(false);
+          resetToNewChat();
         }
       })
       .catch((err) => console.error('Ошибка удаления сессии:', err));
-  }, []);
+  }, [resetToNewChat]);
 
   // Очистить всю историю
   const clearHistory = useCallback(() => {
     clearAllHistory()
       .then(() => {
         setSessions([]);
-        setCurrentSessionId(null);
-        setMessages([]);
-        setLatestLiveMessageId(null);
-        requestedSessionIdRef.current = null;
+        resetToNewChat();
         loadedCountRef.current = 0;
         setHasMoreSessions(true);
-        setIsLoadingSessionMessages(false);
       })
       .catch((err) => console.error('Ошибка очистки истории:', err));
-  }, []);
+  }, [resetToNewChat]);
 
   return {
     messages,

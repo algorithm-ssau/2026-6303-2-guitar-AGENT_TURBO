@@ -3,6 +3,7 @@ import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
 import { ErrorMessage } from './ErrorMessage';
 import { EmptyResults } from './EmptyResults';
+import { LoadingIndicator } from './LoadingIndicator';
 import { Sidebar } from './Sidebar';
 import { useChat } from '../hooks/useChat';
 import { Theme } from '../../../shared/theme/useTheme';
@@ -205,6 +206,7 @@ export const Chat: React.FC<Partial<ChatProps>> = ({ theme = 'dark', onToggleThe
   }
 
   const lastDisplayMessage = displayMessages[displayMessages.length - 1];
+  const canRetryLastMessage = Boolean(messages.slice().reverse().find((message) => message.role === 'user')?.content);
 
   return (
     <div className="chat-page">
@@ -254,31 +256,29 @@ export const Chat: React.FC<Partial<ChatProps>> = ({ theme = 'dark', onToggleThe
           </header>
 
           <main className="chat-messages">
-            {isLoadingSessionMessages ? (
-              <div className="chat-history-skeleton" aria-hidden="true">
-                <div className="chat-history-skeleton-message chat-history-skeleton-message-user" />
-                <div className="chat-history-skeleton-message chat-history-skeleton-message-agent" />
-                <div className="chat-history-skeleton-message chat-history-skeleton-message-agent chat-history-skeleton-message-wide" />
-              </div>
-            ) : (
-              <>
-                <MessageList messages={displayMessages} />
+            <div className="chat-content-shell">
+              {isLoadingSessionMessages ? (
+                <LoadingIndicator />
+              ) : (
+                <>
+                  <MessageList messages={displayMessages} />
 
-                {lastDisplayMessage &&
-                  !lastDisplayMessage.transient &&
-                  lastDisplayMessage.role === 'agent' &&
-                  lastDisplayMessage.mode === 'search' &&
-                  (!lastDisplayMessage.results || lastDisplayMessage.results.length === 0) && (
-                    <EmptyResults />
+                  {lastDisplayMessage &&
+                    !lastDisplayMessage.transient &&
+                    lastDisplayMessage.role === 'agent' &&
+                    lastDisplayMessage.mode === 'search' &&
+                    (!lastDisplayMessage.results || lastDisplayMessage.results.length === 0) && (
+                      <EmptyResults />
+                    )}
+
+                  {error && (
+                    <ErrorMessage message={error} onRetry={canRetryLastMessage ? handleRetry : undefined} />
                   )}
+                </>
+              )}
 
-                {error && (
-                  <ErrorMessage message={error} onRetry={handleRetry} />
-                )}
-              </>
-            )}
-
-            <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} />
+            </div>
           </main>
 
           <InputForm onSend={handleSend} disabled={isLoading || isLoadingSessionMessages} />
