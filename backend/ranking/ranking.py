@@ -2,9 +2,25 @@
 Модуль ранжирования результатов поиска гитар.
 
 Поддерживает два режима:
-- Упрощённый: бюджет (55%) + совпадение названия (45%) — когда нет type/pickups/brand
-- Полный: бюджет (30%) + тип (25%) + датчики (20%) + бренд (10%) + название (15%)
+- Упрощённый: бюджет (55%) + совпадение названия (45%) — когда нет фильтров кроме query/budget
+- Расширенный: бюджет + тип + датчики + бренд + sound/style + название
 """
+
+
+def _keyword_score(title: str, strong_keywords: list[str], soft_keywords: list[str]) -> float:
+    """Возвращает score по эвристикам ключевых слов в title."""
+    strong_hits = sum(1 for keyword in strong_keywords if keyword in title)
+    soft_hits = sum(1 for keyword in soft_keywords if keyword in title)
+
+    if strong_hits >= 2:
+        return 100.0
+    if strong_hits == 1:
+        return 85.0
+    if soft_hits >= 2:
+        return 70.0
+    if soft_hits == 1:
+        return 60.0
+    return 25.0
 
 
 def score_budget(result: dict, params: dict) -> float:
@@ -195,6 +211,72 @@ def score_brand(result: dict, params: dict) -> float:
     return 40.0
 
 
+def score_sound(result: dict, params: dict) -> float:
+    """Оценивает соответствие характера звука по эвристикам названия."""
+    requested_sound = str(params.get('sound') or '').strip().lower()
+    if not requested_sound:
+        return 50.0
+
+    title = result.get('title', '').lower()
+    sound_profiles = {
+        'bright': {
+            'strong': ['telecaster', 'stratocaster', 'single-coil', 'single coil', 'sss'],
+            'soft': ['tele', 'strat', 'maple', 'ash', 'twang'],
+        },
+        'warm': {
+            'strong': ['les paul', 'semi-hollow', 'semi hollow', 'humbucker', 'hh'],
+            'soft': ['mahogany', 'p90', 'es-335', 'jazzmaster'],
+        },
+        'fat': {
+            'strong': ['les paul', 'humbucker', 'hh', 'baritone'],
+            'soft': ['mahogany', 'p90', 'sg'],
+        },
+        'clean': {
+            'strong': ['stratocaster', 'telecaster', 'single-coil', 'single coil'],
+            'soft': ['strat', 'tele', 'semi-hollow', 'semi hollow'],
+        },
+    }
+
+    profile = sound_profiles.get(requested_sound)
+    if not profile:
+        return 50.0
+
+    return _keyword_score(title, profile['strong'], profile['soft'])
+
+
+def score_style(result: dict, params: dict) -> float:
+    """Оценивает соответствие музыкальному стилю по эвристикам названия."""
+    requested_style = str(params.get('style') or '').strip().lower()
+    if not requested_style:
+        return 50.0
+
+    title = result.get('title', '').lower()
+    style_profiles = {
+        'metal': {
+            'strong': ['7-string', '7 string', 'emg', 'active', 'floyd rose'],
+            'soft': ['ibanez rg', 'jackson', 'esp', 'ltd', 'schecter'],
+        },
+        'jazz': {
+            'strong': ['hollow body', 'archtop', 'semi-hollow', 'semi hollow'],
+            'soft': ['es-335', 'casino', 'jazzmaster'],
+        },
+        'blues': {
+            'strong': ['stratocaster', 'telecaster', 'semi-hollow', 'semi hollow'],
+            'soft': ['strat', 'tele', 'p90', 'es-335'],
+        },
+        'rock': {
+            'strong': ['les paul', 'sg', 'humbucker'],
+            'soft': ['telecaster', 'stratocaster', 'prs'],
+        },
+    }
+
+    profile = style_profiles.get(requested_style)
+    if not profile:
+        return 50.0
+
+    return _keyword_score(title, profile['strong'], profile['soft'])
+
+
 def calculate_total_score(result: dict, params: dict, use_full_formula: bool = True) -> float:
     """
     Вычисляет итоговый score для результата.
@@ -205,7 +287,7 @@ def calculate_total_score(result: dict, params: dict, use_full_formula: bool = T
         use_full_formula: Если True — полная формула, иначе — упрощённая
 
     Упрощённая: (бюджет × 0.55) + (название × 0.45)
-    Полная: бюджет(30%) + тип(25%) + датчики(20%) + бренд(10%) + название(15%)
+    Расширенная: бюджет(25%) + тип(20%) + датчики(15%) + бренд(10%) + sound(10%) + style(10%) + название(10%)
     """
     budget_score = score_budget(result, params)
     title_score = score_title(result, params)
@@ -214,17 +296,21 @@ def calculate_total_score(result: dict, params: dict, use_full_formula: bool = T
         # Упрощённая формула — когда нет type/pickups/brand
         total_score = (budget_score * 0.55) + (title_score * 0.45)
     else:
-        # Полная формула — когда есть все параметры
+        # Расширенная формула — когда есть дополнительные фильтры
         type_score = score_type(result, params)
         pickups_score = score_pickups(result, params)
         brand_score = score_brand(result, params)
+        sound_score = score_sound(result, params)
+        style_score = score_style(result, params)
 
         total_score = (
-            (budget_score * 0.30) +
-            (type_score * 0.25) +
-            (pickups_score * 0.20) +
+            (budget_score * 0.25) +
+            (type_score * 0.20) +
+            (pickups_score * 0.15) +
             (brand_score * 0.10) +
-            (title_score * 0.15)
+            (sound_score * 0.10) +
+            (style_score * 0.10) +
+            (title_score * 0.10)
         )
 
     return round(total_score, 2)
@@ -236,20 +322,20 @@ def rank_results(results: list, params: dict) -> list:
 
     Args:
         results: Список объявлений с Reverb
-        params: Параметры поиска (budget_max, search_queries, type, pickups, brand)
+        params: Параметры поиска (budget_max, search_queries, type, pickups, brand, sound, style)
 
     Returns:
         Топ-5 результатов БЕЗ полей score/_score
 
     Автоматически выбирает формулу:
-    - Если есть type/pickups/brand — полная формула
-    - Иначе — упрощённая (budget + title)
+        - Если есть type/pickups/brand/sound/style — расширенная формула
+        - Иначе — упрощённая (budget + title)
     """
     if not results:
         return []
 
-    # Определяем есть ли полные параметры для полной формулы
-    has_full_params = all(k in params and params[k] is not None for k in ['type', 'pickups', 'brand'])
+    # Расширенная формула включается при любом дополнительном фильтре.
+    has_full_params = any(params.get(key) is not None for key in ['type', 'pickups', 'brand', 'sound', 'style'])
 
     # Вычисляем score для каждого результата
     scored_results = []

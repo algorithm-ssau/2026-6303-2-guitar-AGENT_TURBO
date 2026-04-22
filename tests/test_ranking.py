@@ -4,7 +4,7 @@
 """
 
 import pytest
-from backend.ranking.ranking import rank_results, score_budget, score_title
+from backend.ranking.ranking import rank_results, score_budget, score_title, score_sound, score_style
 
 
 class TestRankResults:
@@ -157,3 +157,39 @@ class TestScoreTitle:
         params = {}
 
         assert score_title(result, params) == 0.0
+
+
+class TestSoundAndStyle:
+    """Тесты эвристик sound/style."""
+
+    def test_bright_sound_prefers_telecaster_and_strat(self):
+        tele = {'title': 'Fender Telecaster SSS'}
+        lp = {'title': 'Gibson Les Paul HH'}
+
+        params = {'sound': 'bright'}
+
+        assert score_sound(tele, params) > score_sound(lp, params)
+
+    def test_metal_style_prefers_metal_friendly_models(self):
+        metal = {'title': 'ESP LTD 7-string with EMG'}
+        jazz = {'title': 'Epiphone Casino Semi-Hollow'}
+
+        params = {'style': 'metal'}
+
+        assert score_style(metal, params) > score_style(jazz, params)
+
+    def test_rank_results_uses_sound_when_query_is_broad(self):
+        mock_results = [
+            {'title': 'Gibson Les Paul HH', 'price': 450},
+            {'title': 'Fender Telecaster SSS', 'price': 450},
+        ]
+
+        params = {
+            'price_max': 600,
+            'search_queries': ['guitar'],
+            'sound': 'bright',
+        }
+
+        ranked = rank_results(mock_results, params)
+
+        assert ranked[0]['title'] == 'Fender Telecaster SSS'

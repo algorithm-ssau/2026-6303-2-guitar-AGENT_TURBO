@@ -24,6 +24,26 @@ def test_whitespace_only_returns_consultation():
     assert detect_mode("   ") == "consultation"
 
 
+def test_written_above_with_previous_search_returns_search():
+    """Ссылка на предыдущий поиск должна оставаться в search-контексте."""
+    assert detect_mode("я же писал выше", has_previous_search=True) == "search"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "покажи ссылки",
+        "дай ссылки",
+        "дай ссылки на них",
+        "покажи примеры моделей",
+        "перейди в режим примеров",
+    ],
+)
+def test_link_requests_are_search_signals(query: str):
+    """Запрос ссылок должен вести в search, а не в свободную консультацию."""
+    assert detect_mode(query) == "search"
+
+
 @pytest.mark.parametrize(
     "query, expected_mode",
     [

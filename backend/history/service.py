@@ -48,6 +48,12 @@ def init_db() -> None:
             results    TEXT,
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
         );
+
+        CREATE TABLE IF NOT EXISTS session_state (
+            session_id INTEGER PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+            state      TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+        );
     """)
     conn.commit()
     logger.info("БД истории инициализирована: %s", _DB_PATH)
@@ -131,6 +137,36 @@ def delete_session(session_id: int) -> None:
     conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
     conn.commit()
     logger.info("Удалена сессия #%d", session_id)
+
+
+def get_session_state(session_id: int) -> dict:
+    """Возвращает структурированное состояние поискового контекста сессии."""
+    conn = _get_connection()
+    row = conn.execute(
+        "SELECT state FROM session_state WHERE session_id = ?",
+        (session_id,),
+    ).fetchone()
+    if not row:
+        return {}
+
+    try:
+        data = json.loads(row[0])
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+
+    return data if isinstance(data, dict) else {}
+
+
+def save_session_state(session_id: int, state: dict) -> None:
+    """Сохраняет/обновляет структурированное состояние поискового контекста."""
+    conn = _get_connection()
+    payload = json.dumps(state or {}, ensure_ascii=False)
+    conn.execute(
+        "INSERT INTO session_state (session_id, state, updated_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')) "
+        "ON CONFLICT(session_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at",
+        (session_id, payload),
+    )
+    conn.commit()
 
 
 def clear_history() -> int:
