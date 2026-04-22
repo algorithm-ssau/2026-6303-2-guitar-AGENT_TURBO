@@ -53,6 +53,7 @@ describe('useChat hook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    window.history.replaceState({}, '', '/');
     mockFetchSessions.mockResolvedValue({ sessions: [], total: 0 });
     mockFetchSessionMessages.mockResolvedValue({ items: [] });
     mockDeleteSession.mockResolvedValue(undefined);
@@ -139,6 +140,57 @@ describe('useChat hook', () => {
     expect(result.current.messages[0].content).toBe('телекастер');
     expect(result.current.messages[1].content).toBe('Уточните бюджет');
     expect(result.current.messages[1].mode).toBe('clarification');
+  });
+
+  it('должен синхронизировать выбранную сессию с URL', async () => {
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.selectSession(42);
+    });
+
+    await waitFor(() => {
+      expect(window.location.search).toBe('?session=42');
+      expect(result.current.currentSessionId).toBe(42);
+    });
+  });
+
+  it('должен восстанавливать активную сессию из URL после перезагрузки', async () => {
+    window.history.replaceState({}, '', '/?session=19');
+    mockFetchSessionMessages.mockResolvedValueOnce({ items: [] });
+
+    const { result } = renderHook(() => useChat());
+
+    await waitFor(() => {
+      expect(mockFetchSessionMessages).toHaveBeenCalledWith(19);
+      expect(result.current.currentSessionId).toBe(19);
+    });
+  });
+
+  it('должен сбрасывать невалидную ссылку на чат', async () => {
+    window.history.replaceState({}, '', '/?session=abc');
+
+    const { result } = renderHook(() => useChat());
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('Некорректная ссылка на чат');
+      expect(window.location.search).toBe('');
+      expect(result.current.currentSessionId).toBeNull();
+    });
+  });
+
+  it('должен обрабатывать отсутствие чата по URL', async () => {
+    window.history.replaceState({}, '', '/?session=404');
+    mockFetchSessionMessages.mockRejectedValueOnce(Object.assign(new Error('not found'), { status: 404 }));
+
+    const { result } = renderHook(() => useChat());
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('Чат по этой ссылке не найден');
+      expect(result.current.currentSessionId).toBeNull();
+      expect(result.current.isLoadingSessionMessages).toBe(false);
+      expect(window.location.search).toBe('');
+    });
   });
 
   it('должен игнорировать устаревший ответ при быстром переключении между чатами', async () => {

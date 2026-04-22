@@ -7,6 +7,16 @@ import { z } from 'zod';
 
 const API_BASE_URL = '/api';
 
+interface ApiError extends Error {
+  status?: number;
+}
+
+function createApiError(status: number, fallbackMessage: string, detail?: string): ApiError {
+  const error = new Error(detail || fallbackMessage) as ApiError;
+  error.status = status;
+  return error;
+}
+
 /**
  * Отправляет сообщение пользователя на сервер
  */
@@ -70,7 +80,10 @@ export async function fetchSessions(
  */
 export async function fetchSessionMessages(sessionId: number): Promise<HistoryResponse> {
   const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/messages`);
-  if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw createApiError(response.status, `Ошибка сервера: ${response.status}`, errorData.detail);
+  }
 
   const data = await response.json();
   const parseResult = HistoryResponseSchema.safeParse(data);
