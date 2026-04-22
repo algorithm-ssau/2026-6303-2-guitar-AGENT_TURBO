@@ -54,7 +54,7 @@ export const SearchStatus: React.FC<SearchStatusProps> = ({
           style={{
             padding: '12px',
             textAlign: 'center',
-            color: '#666',
+            color: 'var(--text-dim)',
             fontStyle: 'italic',
           }}
         >
@@ -79,7 +79,7 @@ export const SearchStatus: React.FC<SearchStatusProps> = ({
           style={{
             padding: '12px',
             textAlign: 'center',
-            color: '#999',
+            color: 'var(--text-dim)',
             fontStyle: 'italic',
           }}
         >
@@ -94,7 +94,7 @@ export const SearchStatus: React.FC<SearchStatusProps> = ({
         style={{
           padding: '12px',
           textAlign: 'center',
-          color: '#28a745',
+          color: 'var(--success)',
           fontWeight: 'bold',
         }}
       >

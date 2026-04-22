@@ -10,8 +10,9 @@ export const EmptyResults: React.FC = () => {
       style={{
         padding: '24px 16px',
         textAlign: 'center',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '8px',
+        backgroundColor: 'var(--bg-bubble-ai)',
+        border: '1px solid var(--border)',
+        borderRadius: '12px',
         margin: '16px',
       }}
     >
@@ -20,7 +21,7 @@ export const EmptyResults: React.FC = () => {
         style={{
           fontSize: '16px',
           fontWeight: '600',
-          color: '#212529',
+          color: 'var(--text-main)',
           marginBottom: '8px',
         }}
       >
@@ -29,7 +30,7 @@ export const EmptyResults: React.FC = () => {
       <div
         style={{
           fontSize: '14px',
-          color: '#6c757d',
+          color: 'var(--text-dim)',
         }}
       >
         Попробуйте расширить бюджет или изменить параметры

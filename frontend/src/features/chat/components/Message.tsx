@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { Message } from '../types';
 import { ModeBadge } from './ModeBadge';
 import { ResultsList } from './ResultsList';
-import { SearchStatus } from './SearchStatus';
+import './Message.css';
 
 interface MessageProps {
   message: Message;
@@ -16,6 +16,8 @@ interface MessageProps {
 export const MessageItem: React.FC<MessageProps> = ({ message }) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
+  const isThinking = message.transient?.phase === 'thinking';
+  const showThinkingState = !isUser && isThinking;
 
   const formattedTime = message.timestamp.toLocaleTimeString('ru-RU', {
     hour: '2-digit',
@@ -43,10 +45,11 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
       <div
         style={{
           maxWidth: isUser ? '70%' : '90%',
-          padding: '12px 16px',
-          borderRadius: '12px',
-          backgroundColor: isUser ? '#007bff' : '#e9ecef',
-          color: isUser ? '#ffffff' : '#212529',
+          padding: '14px 20px',
+          borderRadius: '20px',
+          backgroundColor: isUser ? 'var(--bg-bubble-user)' : 'var(--bg-bubble-ai)',
+          color: isUser ? 'var(--message-user-text)' : 'var(--message-ai-text)',
+          border: isUser ? 'none' : '1px solid var(--border)',
           borderBottomRightRadius: isUser ? '4px' : '12px',
           borderBottomLeftRadius: isUser ? '12px' : '4px',
         }}
@@ -66,13 +69,13 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
             {isUser ? '👤 Вы' : '🤖 Агент'}
             {!isUser && message.mode && <ModeBadge mode={message.mode} />}
           </div>
-          {!isUser && isConsultation && (
+          {!isUser && isConsultation && !message.transient && (
             <button
               onClick={handleCopy}
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#6c757d',
+                color: 'var(--text-dim)',
                 cursor: 'pointer',
                 fontSize: '12px',
               }}
@@ -82,8 +85,22 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
           )}
         </div>
 
+        {showThinkingState && (
+          <div className="message-thinking-body">
+            <div className="message-thinking-title">
+              Думаю над ответом
+              <span className="message-thinking-dots">
+                <span />
+                <span />
+                <span />
+              </span>
+            </div>
+            <div className="message-thinking-status">{message.transient?.status || 'Собираю ответ...'}</div>
+          </div>
+        )}
+
         {/* Для consultation mode или fallback показываем content */}
-        {showContent && (
+        {!showThinkingState && showContent && (
           <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
             {(!isUser && isConsultation) ? (
               <ReactMarkdown
@@ -94,8 +111,8 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
                       <code
                         {...rest}
                         style={{
-                          backgroundColor: '#2b2b2b',
-                          color: '#f8f9fa',
+                          backgroundColor: 'var(--code-bg)',
+                          color: 'var(--text-main)',
                           padding: '2px 4px',
                           borderRadius: '4px',
                           fontFamily: 'monospace'
@@ -108,7 +125,7 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
                   a(props) {
                     const { children, node, ...rest } = props;
                     return (
-                      <a {...rest} style={{ color: '#007bff', textDecoration: 'underline' }}>
+                      <a {...rest} style={{ color: 'var(--link)', textDecoration: 'underline' }}>
                         {children}
                       </a>
                     );
@@ -127,16 +144,18 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
         {message.mode === 'search' && message.results && message.results.length > 0 && (
           <ResultsList results={message.results} />
         )}
-        <div
-          style={{
-            fontSize: '11px',
-            marginTop: '8px',
-            opacity: 0.7,
-            textAlign: 'right',
-          }}
-        >
-          {formattedTime}
-        </div>
+        {!message.transient && (
+          <div
+            style={{
+              fontSize: '11px',
+              marginTop: '8px',
+              opacity: 0.7,
+              textAlign: 'right',
+            }}
+          >
+            {formattedTime}
+          </div>
+        )}
       </div>
     </div>
   );

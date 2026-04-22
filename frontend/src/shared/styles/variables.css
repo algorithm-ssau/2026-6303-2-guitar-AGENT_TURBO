@@ -16,6 +16,30 @@
   --error-text: #ff5f5f;
   --error-border: #4a1a1a;
   --success: #2ecc71;
+  --warning: #f1c40f;
+  --danger: #e74c3c;
+
+  --surface-muted: #171717;
+  --surface-hover: #242424;
+  --surface-elevated: #111111;
+  --overlay: rgba(0, 0, 0, 0.7);
+  --input-bg: #141414;
+  --input-placeholder: #727272;
+  --text-subtle: #b8b8b8;
+  --text-inverse: #ffffff;
+  --message-user-text: #ffffff;
+  --message-ai-text: #ececec;
+  --code-bg: #252525;
+  --link: #73a2ff;
+
+  --success-bg: rgba(46, 204, 113, 0.14);
+  --success-text: #8ff0b4;
+  --info-bg: rgba(77, 136, 255, 0.14);
+  --info-text: #8db2ff;
+  --warning-bg: rgba(241, 196, 15, 0.14);
+  --warning-text: #f6d85e;
+  --danger-bg: rgba(231, 76, 60, 0.14);
+  --danger-text: #ff8f84;
 
   /* Размеры */
   --sidebar-width: 280px;
@@ -37,4 +61,41 @@
 
   /* Шрифты */
   --font-family: "Inter", -apple-system, sans-serif;
+}
+
+body[data-theme='light'] {
+  --bg-app: #ffffff;
+  --bg-sidebar: #f5f7f9;
+  --bg-card: #ffffff;
+  --bg-bubble-user: #0066ff;
+  --bg-bubble-ai: #f0f2f5;
+  --text-main: #1a1a1a;
+  --text-dim: #666666;
+  --border: #e0e4e8;
+  --accent: #0066ff;
+  --accent-hover: #0052cc;
+  --error-bg: #fff5f5;
+  --error-text: #c0392b;
+  --error-border: #f5c2c7;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  --surface-muted: #eef2f6;
+  --surface-hover: #e8edf3;
+  --surface-elevated: #fafbfd;
+  --overlay: rgba(15, 23, 42, 0.35);
+  --input-bg: #f5f7f9;
+  --input-placeholder: #8a8f98;
+  --text-subtle: #515761;
+  --text-inverse: #ffffff;
+  --message-user-text: #ffffff;
+  --message-ai-text: #1a1a1a;
+  --code-bg: #e9edf3;
+  --link: #0052cc;
+  --success-bg: #e9f8f0;
+  --success-text: #1f7a4f;
+  --info-bg: #eaf2ff;
+  --info-text: #004fc7;
+  --warning-bg: #fff7e0;
+  --warning-text: #8a6500;
+  --danger-bg: #fff0f0;
+  --danger-text: #b9382a;
 }

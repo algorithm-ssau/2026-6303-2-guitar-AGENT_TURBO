@@ -14,9 +14,9 @@ export const ModeBadge: React.FC<ModeBadgeProps> = ({ mode }) => {
   if (!mode) return null;
 
   const colorMap = {
-    search: { bg: '#d4edda', text: '#155724', label: 'Поиск' },
-    consultation: { bg: '#cce5ff', text: '#004085', label: 'Консультация' },
-    clarification: { bg: '#fff3cd', text: '#856404', label: 'Уточнение' },
+    search: { bg: 'var(--success-bg)', text: 'var(--success-text)', label: 'Поиск' },
+    consultation: { bg: 'var(--info-bg)', text: 'var(--info-text)', label: 'Консультация' },
+    clarification: { bg: 'var(--warning-bg)', text: 'var(--warning-text)', label: 'Уточнение' },
   };
 
   const colors = colorMap[mode];

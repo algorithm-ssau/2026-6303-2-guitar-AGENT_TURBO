@@ -2,29 +2,33 @@
 
 .input-form {
   display: flex;
-  gap: 8px;
-  padding: 16px;
-  background-color: var(--bg-sidebar);
-  border-top: 1px solid var(--border);
+  gap: 12px;
+  width: min(1120px, calc(100% - 48px));
+  padding: 20px 28px;
+  background-color: var(--bg-app);
   flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
 }
 
 .input-form-textarea {
   flex: 1;
-  padding: 12px 16px;
+  min-height: 52px;
+  max-width: none;
+  padding: 10px 0;
   font-size: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  border-radius: 0;
   resize: none;
   outline: none;
   font-family: inherit;
-  background-color: var(--bg-card);
   color: var(--text-main);
-  transition: border-color 0.2s;
+  line-height: 1.5;
 }
 
-.input-form-textarea:focus {
-  border-color: var(--accent);
+.input-form-textarea::placeholder {
+  color: var(--input-placeholder);
 }
 
 .input-form-textarea:disabled {
@@ -32,24 +36,37 @@
 }
 
 .input-form-submit {
-  padding: 12px 24px;
-  font-size: 16px;
-  font-weight: bold;
-  color: var(--text-main);
+  flex-shrink: 0;
+  padding: 12px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-inverse);
   background-color: var(--accent);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 20px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
 .input-form-submit:hover:not(:disabled) {
   background-color: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(77, 136, 255, 0.25);
 }
 
 .input-form-submit:disabled {
   background-color: var(--border);
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.input-form {
+  margin: 0 auto 24px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow);
 }
 
 /* ===== Адаптивная вёрстка ===== */
@@ -57,15 +74,15 @@
 /* Мобилка (≤480px): инпут прилипает к низ, полная ширина */
 @media (max-width: 480px) {
   .input-form {
-    padding: 8px;
+    width: calc(100% - 16px);
+    margin: 0 auto 8px;
+    padding: 8px 8px 8px 16px;
     position: sticky;
     bottom: 0;
-    background-color: var(--bg-sidebar);
     z-index: 100;
   }
 
   .input-form-textarea {
-    padding: 10px 12px;
     font-size: 14px;
   }
 

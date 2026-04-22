@@ -15,9 +15,10 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = ({ message, onRetry }) 
       style={{
         padding: '16px',
         margin: '0 16px 16px',
-        backgroundColor: '#f8d7da',
-        color: '#721c24',
-        borderRadius: '8px',
+        backgroundColor: 'var(--error-bg)',
+        color: 'var(--error-text)',
+        border: '1px solid var(--error-border)',
+        borderRadius: '12px',
         fontSize: '14px',
         display: 'flex',
         alignItems: 'center',
@@ -31,10 +32,10 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = ({ message, onRetry }) 
           onClick={onRetry}
           style={{
             padding: '8px 16px',
-            backgroundColor: '#721c24',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '4px',
+            backgroundColor: 'var(--bg-bubble-ai)',
+            color: 'var(--text-main)',
+            border: '1px solid var(--error-border)',
+            borderRadius: '10px',
             cursor: 'pointer',
             fontSize: '13px',
             fontWeight: '500',

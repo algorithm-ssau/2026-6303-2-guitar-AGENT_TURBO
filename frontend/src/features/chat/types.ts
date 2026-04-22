@@ -23,6 +23,10 @@ export interface Message {
   timestamp: Date;
   results?: GuitarResult[];
   mode?: 'search' | 'consultation' | 'clarification';
+  transient?: {
+    phase: 'thinking' | 'revealing';
+    status?: string | null;
+  };
 }
 
 /** Состояние чата */
@@ -87,7 +91,7 @@ export const HistoryItemSchema = z.object({
   id: z.number(),
   sessionId: z.number(),
   userQuery: z.string(),
-  mode: z.enum(['search', 'consultation']),
+  mode: z.enum(['search', 'consultation', 'clarification']),
   answer: z.string().nullable().optional(),
   results: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
   createdAt: z.string(),

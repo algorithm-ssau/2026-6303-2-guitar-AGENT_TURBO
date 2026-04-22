@@ -1,9 +1,22 @@
-/* Chat component styles — тёмная тема из дизайн-системы */
+/* Chat component styles — shell под mockup */
+
+.chat-page {
+  min-height: 100vh;
+  padding: 24px;
+  background: var(--bg-app);
+}
 
 .chat-layout {
   display: flex;
-  height: 100vh;
+  height: calc(100vh - 48px);
+  max-width: 1200px;
+  margin: 0 auto;
   position: relative;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  box-shadow: var(--shadow);
 }
 
 .chat-main {
@@ -15,51 +28,115 @@
 }
 
 .chat-header {
-  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: var(--header-height);
-  background-color: var(--bg-sidebar);
+  justify-content: space-between;
+  min-height: var(--header-height);
+  padding: 15px 25px;
+  background-color: var(--bg-app);
   color: var(--text-main);
-  font-size: 20px;
-  font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
-.chat-header-toggle {
-  position: absolute;
-  left: 16px;
-  background: transparent;
-  border: none;
-  color: var(--text-main);
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px 8px;
+.chat-header-group {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
-.chat-header-toggle:hover {
+.chat-header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
+.chat-header-toggle,
+.chat-reset-button {
+  background: var(--bg-bubble-ai);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.chat-header-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+
+.chat-header-toggle:hover,
+.chat-reset-button:hover {
+  border-color: var(--accent);
   color: var(--accent);
 }
 
+.chat-reset-button {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .chat-header-status {
-  margin-left: 12px;
+  display: inline-block;
+  margin-top: 2px;
   font-size: 12px;
-  opacity: 0.8;
+  color: var(--text-dim);
 }
 
 .chat-messages {
   flex: 1;
   overflow-y: auto;
   background-color: var(--bg-app);
+  padding: 14px 14px 0;
 }
 
-.chat-skeleton-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+.chat-history-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
   padding: 16px;
+}
+
+.chat-history-skeleton-message {
+  height: 76px;
+  max-width: 72%;
+  border-radius: 20px;
+  background: linear-gradient(90deg, var(--bg-bubble-ai) 25%, var(--surface-hover) 50%, var(--bg-bubble-ai) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border: 1px solid var(--border);
+}
+
+.chat-history-skeleton-message-user {
+  align-self: flex-end;
+  background: linear-gradient(90deg, rgba(77, 136, 255, 0.45) 25%, rgba(77, 136, 255, 0.28) 50%, rgba(77, 136, 255, 0.45) 75%);
+  border: none;
+}
+
+.chat-history-skeleton-message-agent {
+  align-self: flex-start;
+}
+
+.chat-history-skeleton-message-wide {
+  max-width: 88%;
+  height: 180px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 @keyframes loading {
@@ -67,37 +144,38 @@
   100% { transform: translateX(300%); }
 }
 
-/* ===== Адаптивная вёрстка ===== */
-
-/* Планшет (≤768px): сайдбар — оверлей поверх чата */
 @media (max-width: 768px) {
-  .chat-layout {
-    overflow: hidden;
+  .chat-page {
+    padding: 0;
   }
 
-  .chat-main {
-    width: 100%;
+  .chat-layout {
+    height: 100vh;
+    border-radius: 0;
+    max-width: none;
   }
 
   .chat-header {
-    height: 52px;
-    font-size: 18px;
+    padding: 12px 16px;
   }
+
 }
 
-/* Мобилка (≤480px): компактный хедер, инлип прилипает к низ */
 @media (max-width: 480px) {
   .chat-header {
-    height: 44px;
-    font-size: 16px;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .chat-reset-button {
+    padding: 8px 12px;
+    font-size: 12px;
   }
 
   .chat-header-toggle {
+    width: 36px;
+    height: 36px;
     font-size: 18px;
-    left: 12px;
   }
 
-  .chat-header-status {
-    font-size: 10px;
-  }
 }
