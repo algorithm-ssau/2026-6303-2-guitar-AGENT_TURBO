@@ -3,17 +3,19 @@ import ReactMarkdown from 'react-markdown';
 import { Message } from '../types';
 import { ModeBadge } from './ModeBadge';
 import { ResultsList } from './ResultsList';
+import { SearchParamsPanel } from './SearchParamsPanel';
 import './Message.css';
 
 interface MessageProps {
   message: Message;
+  previousMessage?: Message;
 }
 
 /**
  * Компонент одного сообщения в чате
  * Отображает сообщение от пользователя или агента
  */
-export const MessageItem: React.FC<MessageProps> = ({ message }) => {
+export const MessageItem: React.FC<MessageProps> = ({ message, previousMessage }) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
   const isThinking = message.transient?.phase === 'thinking';
@@ -99,10 +101,9 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
           </div>
         )}
 
-        {/* Для consultation mode или fallback показываем content */}
         {!showThinkingState && showContent && (
           <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
-            {(!isUser && isConsultation) ? (
+            {!isUser && isConsultation ? (
               <ReactMarkdown
                 components={{
                   code(props) {
@@ -140,7 +141,10 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
           </div>
         )}
 
-        {/* Отображаем список результатов */}
+        {!isUser && message.mode === 'search' && previousMessage?.parsedParams && (
+          <SearchParamsPanel params={previousMessage.parsedParams} />
+        )}
+
         {message.mode === 'search' && message.results && message.results.length > 0 && (
           <ResultsList results={message.results} />
         )}

@@ -15,6 +15,13 @@ export interface GuitarResult {
   listingUrl: string;
 }
 
+export interface ParsedParams {
+  type?: string;
+  budget?: string;
+  brand?: string;
+  tags?: string[];
+}
+
 /** Сообщение в чате */
 export interface Message {
   id: string;
@@ -27,6 +34,7 @@ export interface Message {
     phase: 'thinking' | 'revealing';
     status?: string | null;
   };
+  parsedParams?: ParsedParams | null;
 }
 
 /** Состояние чата */

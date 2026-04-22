@@ -16,9 +16,7 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
 
   if (!hasPersistentMessages && messages.length === 0) {
     return (
-      <div
-        className="message-list-empty"
-      >
+      <div className="message-list-empty">
         <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎸</div>
         <div className="message-list-empty-title">
           Добро пожаловать в Guitar Agent!
@@ -36,8 +34,8 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
 
   return (
     <div className="message-list">
-      {messages.map((message) => (
-        <MessageItem key={message.id} message={message} />
+      {messages.map((message, index) => (
+        <MessageItem key={message.id} message={message} previousMessage={index > 0 ? messages[index - 1] : undefined} />
       ))}
     </div>
   );
