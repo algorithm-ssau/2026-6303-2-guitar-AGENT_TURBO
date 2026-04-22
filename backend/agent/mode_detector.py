@@ -25,9 +25,16 @@ _OFF_TOPIC_PATTERNS = [
 # Сигналы режима search — глаголы действия и намерение купить/подобрать
 _SEARCH_KEYWORDS = [
     "подбери", "найди", "покажи варианты", "покажи вариант",
+    "покажи ссылки", "дай ссылки", "дай ссылк", "ссылки на них",
     "что купить", "посоветуй модель", "подборк",
     "подскажи .{0,30}до \\d",  # "подскажи Telecaster до 1500$"
     "сделай подборку",
+]
+
+_DIRECT_SEARCH_PATTERNS = [
+    r"(покажи|дай|пришли|скинь).{0,30}(ссылк|вариант|модел|лоты|объявлен|каталог|пример)",
+    r"(подбери|найди|покажи|дай).{0,30}(гитар|stratocaster|telecaster|les paul|sg|superstrat)",
+    r"режим.{0,15}(поиск|пример)",
 ]
 
 # Паттерны бюджета — указание цены = намерение искать
@@ -51,6 +58,10 @@ _PURCHASE_INTENT = [
 _RESEARCH_PATTERNS = [
     r"ещ[её]\s*раз",
     r"еще\s*раз",
+    r"я\s*же\s*писал",
+    r"писал.{0,20}выше",
+    r"выше.{0,20}писал",
+    r"смотри\s*выше",
     r"покажи.{0,30}ссылк",
     r"покажи.{0,30}результат",
     r"покажи.{0,30}вариант",
@@ -97,6 +108,7 @@ def detect_mode(text: str, has_previous_search: bool = False) -> str:
         return "off_topic"
 
     has_search = _match_any(lower, _SEARCH_KEYWORDS)
+    has_direct_search = _match_any(lower, _DIRECT_SEARCH_PATTERNS)
     has_budget = _match_any(lower, _BUDGET_PATTERNS)
     has_purchase = _match_any(lower, _PURCHASE_INTENT)
     has_consultation = _match_any(lower, _CONSULTATION_KEYWORDS)
@@ -107,6 +119,9 @@ def detect_mode(text: str, has_previous_search: bool = False) -> str:
 
     # Явный search-сигнал
     if has_search:
+        return "search"
+
+    if has_direct_search:
         return "search"
 
     # Намерение купить (даже если есть consultation-сигналы — приоритет search)

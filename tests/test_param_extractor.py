@@ -82,6 +82,15 @@ class TestExtractParamsFromLlmResponse:
         assert isinstance(result["price_min"], int)
         assert isinstance(result["price_max"], int)
 
+    def test_preserves_type_brand_and_pickups(self):
+        """Доп. поля не должны теряться до этапа clarification/ranking."""
+        response = '{"search_queries": ["Fender Stratocaster"], "price_max": 1200, "type": "Stratocaster", "brand": "Fender", "pickups": "SSS"}'
+        result = extract_params_from_llm_response(response)
+
+        assert result["type"] == "Stratocaster"
+        assert result["brand"] == "Fender"
+        assert result["pickups"] == "SSS"
+
 
 class TestBuildSearchPrompt:
     """Тесты функции build_search_prompt."""

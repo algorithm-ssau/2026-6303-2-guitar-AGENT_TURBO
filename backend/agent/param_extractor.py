@@ -40,6 +40,20 @@ def extract_params_from_llm_response(llm_response: str) -> dict:
         return fallback
 
 
+def extract_json_dict_from_text(text: str) -> Optional[dict]:
+    """Извлекает JSON-объект из текста и возвращает dict или None."""
+    json_str = _extract_json_from_text(text)
+    if not json_str:
+        return None
+
+    try:
+        parsed = json.loads(json_str)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+    return parsed if isinstance(parsed, dict) else None
+
+
 def _extract_json_from_text(text: str) -> Optional[str]:
     """Извлекает JSON-строку из текста.
 
@@ -86,6 +100,9 @@ def _normalize_params(params: dict) -> dict:
         "search_queries": params.get("search_queries", []),
         "price_min": params.get("price_min"),
         "price_max": params.get("price_max"),
+        "type": params.get("type"),
+        "pickups": params.get("pickups"),
+        "brand": params.get("brand"),
     }
 
     # Конвертация цен из строки в int
@@ -114,7 +131,7 @@ def _normalize_params(params: dict) -> dict:
     return result
 
 
-def build_search_prompt(user_query: str, mapping_table: str) -> str:
+def build_search_prompt(user_query: str, mapping_table: str, history_context: str = "") -> str:
     """Формирует промпт для LLM с инструкцией вернуть JSON.
 
     Args:
@@ -124,11 +141,20 @@ def build_search_prompt(user_query: str, mapping_table: str) -> str:
     Returns:
         Строка промпта для LLM
     """
+    history_block = ""
+    if history_context.strip():
+        history_block = (
+            "\nКонтекст предыдущего диалога (используй только если он помогает "
+            "восстановить недостающие параметры текущего поискового запроса):\n"
+            f"{history_context}\n"
+        )
+
     prompt = f"""Ты — ассистент по подбору гитар. Твоя задача — извлечь параметры поиска из запроса пользователя.
 
 Используй следующую таблицу маппинга для преобразования абстрактных описаний звука в конкретные параметры:
 
 {mapping_table}
+{history_block}
 
 Запрос пользователя:
 {user_query}
