@@ -56,6 +56,7 @@ def init_db() -> None:
         );
     """)
     conn.commit()
+    from backend.analytics.pipeline_metrics import init_metrics_table; init_metrics_table()
     logger.info("БД истории инициализирована: %s", _DB_PATH)
 
 
