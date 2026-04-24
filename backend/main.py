@@ -1,5 +1,7 @@
 import asyncio
+import importlib
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from dotenv import load_dotenv
@@ -10,9 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.models import GuitarResult, WSMessage
 from backend.agent.service import interpret_query
-from backend.search.router import router as chat_router
-from backend.history.router import router as history_router
 from backend.history.service import init_db, save_exchange, create_session
+from backend.analytics.pipeline_metrics import record_exchange
 from backend.utils.logger import get_logger
 from backend.utils.serializer import snake_to_camel
 
@@ -27,8 +28,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(chat_router)
-app.include_router(history_router)
+ROUTER_MODULES = ["search", "history", "analytics", "feedback", "health"]
+for name in ROUTER_MODULES:
+    try:
+        mod = importlib.import_module(f"backend.{name}.router")
+        if hasattr(mod, "router"):
+            app.include_router(mod.router)
+            logger.info("Loaded router: %s", name)
+    except ImportError as e:
+        logger.warning("Router %s not available: %s", name, e)
 
 
 @app.on_event("startup")
@@ -79,6 +87,7 @@ async def chat(websocket: WebSocket):
             task_done = False
             result_data = None
             error_data = None
+            elapsed_ms = 0
 
             def on_status(text: str):
                 """Callback для отправки статусов из синхронного кода."""
@@ -89,10 +98,12 @@ async def chat(websocket: WebSocket):
 
             # Функция для запуска в потоке
             def run_interpret():
-                nonlocal result_data, error_data
+                nonlocal result_data, error_data, elapsed_ms
                 try:
                     logger.info("WebSocket запрос: %s", query[:100])
+                    t0 = time.perf_counter()
                     result_data = interpret_query(query, on_status=on_status, session_id=session_id)
+                    elapsed_ms = int((time.perf_counter() - t0) * 1000)
                 except Exception as e:
                     logger.error("Ошибка в interpret_query: %s", e)
                     error_data = str(e)
@@ -145,6 +156,15 @@ async def chat(websocket: WebSocket):
                         "answer": consultation_answer,
                         "sessionId": session_id,
                     })
+                    try:
+                        record_exchange(
+                            session_id,
+                            result_data["mode"],
+                            elapsed_ms,
+                            None,
+                        )
+                    except Exception as e:
+                        logger.error("Ошибка записи метрик пайплайна: %s", e)
 
                     try:
                         save_exchange(session_id=session_id, user_query=query, mode="consultation", answer=consultation_answer)
@@ -159,6 +179,15 @@ async def chat(websocket: WebSocket):
                         "question": clarification_question,
                         "sessionId": session_id,
                     })
+                    try:
+                        record_exchange(
+                            session_id,
+                            result_data["mode"],
+                            elapsed_ms,
+                            None,
+                        )
+                    except Exception as e:
+                        logger.error("Ошибка записи метрик пайплайна: %s", e)
 
                     try:
                         save_exchange(session_id=session_id, user_query=query, mode="clarification", answer=clarification_question)
@@ -200,6 +229,15 @@ async def chat(websocket: WebSocket):
                         "explanation": explanation,
                         "sessionId": session_id,
                     })
+                    try:
+                        record_exchange(
+                            session_id,
+                            result_data["mode"],
+                            elapsed_ms,
+                            len(result_data.get("results", [])),
+                        )
+                    except Exception as e:
+                        logger.error("Ошибка записи метрик пайплайна: %s", e)
 
                     try:
                         save_exchange(session_id=session_id, user_query=query, mode="search", results=results_data)
