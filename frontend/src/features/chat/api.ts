@@ -136,3 +136,21 @@ export async function parseQuery(query: string): Promise<any> {
   const data = await response.json();
   return ParsedParamsSchema.parse(data);
 }
+
+/**
+ * Отправляет фидбек по гитаре
+ */
+export async function submitFeedback(
+  sessionId: number, 
+  guitarId: string, 
+  rating: 'up' | 'down', 
+  query?: string
+): Promise<{ id: number }> {
+  const response = await fetch(`${API_BASE_URL}/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, guitar_id: guitarId, rating, query }),
+  });
+  if (!response.ok) throw new Error('Ошибка отправки фидбека');
+  return response.json();
+}

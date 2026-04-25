@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Message, ChatState, GuitarResult, Session } from '../types';
-import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession, clearAllHistory } from '../api';
+import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession, clearAllHistory, submitFeedback  } from '../api';
 import { parseQuery } from '../api';
 
 const WS_URL = 'ws://localhost:8000/chat';
@@ -66,6 +66,8 @@ interface UseChatReturn extends ChatState {
   hasMoreSessions: boolean;
   isLoadingMoreSessions: boolean;
   isLoadingSessionMessages: boolean;
+  sendFeedback: (guitarId: string, rating: 'up' | 'down', query?: string) => Promise<void>;
+  feedbackGiven: Set<string>;
 }
 
 /**
@@ -124,6 +126,8 @@ export function useChat(): UseChatReturn {
   const requestedSessionIdRef = useRef<number | null>(null);
   const sessionsRequestIdRef = useRef(0);
   const isUnmountingRef = useRef(false);
+
+  const [feedbackGiven, setFeedbackGiven] = useState<Set<string>>(new Set());
 
   // Синхронизируем ref с state для доступа из колбэков
   useEffect(() => {
@@ -441,6 +445,19 @@ export function useChat(): UseChatReturn {
       .catch((err) => console.error('Ошибка очистки истории:', err));
   }, [resetToNewChat]);
 
+  const sendFeedback = useCallback(async (guitarId: string, rating: 'up' | 'down', query?: string) => {
+    if (!currentSessionId) return;
+    
+    try {
+      await submitFeedback(currentSessionId, guitarId, rating, query);
+      setFeedbackGiven(prev => new Set(prev).add(`${guitarId}-${rating}`));
+    } catch (err) {
+      console.error("Ошибка фидбека:", err);
+    }
+  }, [currentSessionId]);
+
+
+
   return {
     messages,
     isLoading,
@@ -460,5 +477,7 @@ export function useChat(): UseChatReturn {
     hasMoreSessions,
     isLoadingMoreSessions,
     isLoadingSessionMessages,
+    sendFeedback,
+    feedbackGiven
   };
 }
