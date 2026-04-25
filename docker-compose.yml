@@ -1,0 +1,11 @@
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      USE_MOCK_REVERB: ${USE_MOCK_REVERB:-true}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-llama-3.3-70b-versatile}
+    volumes:
+      - ./backend/history/chat.db:/app/backend/history/chat.db
