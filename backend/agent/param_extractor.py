@@ -173,6 +173,24 @@ def build_search_prompt(user_query: str, mapping_table: str, history_context: st
 {{"search_queries": ["Ibanez RG", "Jackson Soloist"], "price_min": null, "price_max": 500}} # Для "мятал палку за 50к деревянных" -> 50000/100 = 500 USD
 {{"search_queries": ["PRS Custom 24"], "price_min": null, "price_max": null}} # Для "жирную гитару с красивым топом"
 
+Дополнительные few-shot примеры:
+
+Пример — противоречивый запрос (PRD сценарий 6):
+Запрос: "Хочу акустику с флойдом и EMG"
+// Акустика с Floyd Rose и EMG — физически невозможная комбинация.
+// Ставим type: "acoustic", не придумываем бренды с нелогичными ТТХ.
+{{"search_queries": ["Yamaha APX600", "Fender CD-60", "Epiphone DR-100"], "price_min": null, "price_max": null, "type": "acoustic"}}
+
+Пример — бюджет в рублях:
+Запрос: "ищу теле до 80 тыс руб"
+// Курс: 100 руб/$ → 80000 / 100 = 800 USD
+{{"search_queries": ["Fender Telecaster", "Squier Classic Vibe Telecaster", "G&L ASAT"], "price_min": null, "price_max": 800}}
+
+Пример — vintage/год:
+Запрос: "винтажный стратокастер 70-х до 3000$"
+// Ищем конкретные модели/переиздания 1970-х годов
+{{"search_queries": ["Fender Stratocaster 1970s", "Fender Vintage Stratocaster", "Fender Vintera 70s Stratocaster"], "price_min": null, "price_max": 3000, "condition": "vintage"}}
+
 Важно: верни ТОЛЬКО JSON, без дополнительного текста."""
 
     return prompt
