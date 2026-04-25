@@ -1,0 +1,77 @@
+[
+  {
+    "query": "Найди стратокастер до 500$",
+    "llm_response": {"search_queries": ["Fender Stratocaster", "Squier Classic Vibe Stratocaster"], "price_max": 500},
+    "expect": {"has_price_max": 500, "min_queries": 2}
+  },
+  {
+    "query": "Хочу теле для кантри",
+    "llm_response": {"search_queries": ["Fender Telecaster", "Squier Classic Vibe Telecaster", "G&L ASAT"], "price_max": null},
+    "expect": {"has_price_max": null, "min_queries": 2}
+  },
+  {
+    "query": "Лес пол для рока, бюджет 1500",
+    "llm_response": {"search_queries": ["Gibson Les Paul", "Epiphone Les Paul Standard"], "price_max": 1500},
+    "expect": {"has_price_max": 1500, "min_queries": 2}
+  },
+  {
+    "query": "Нужна гитара для джаза, полуполый корпус",
+    "llm_response": {"search_queries": ["Gibson ES-335", "Ibanez AF75", "Epiphone Casino"], "price_max": null},
+    "expect": {"has_price_max": null, "min_queries": 3}
+  },
+  {
+    "query": "Ищу что-то для блюза, тёплое и сочное",
+    "llm_response": {"search_queries": ["Fender Telecaster", "Gibson SG", "PRS SE Silver Sky"], "price_max": null},
+    "expect": {"has_price_max": null, "min_queries": 3}
+  },
+  {
+    "query": "Нужна палка для металла до 500 баксов",
+    "llm_response": {"search_queries": ["Ibanez RG", "Jackson Dinky", "ESP LTD EC"], "price_max": 500},
+    "expect": {"has_price_max": 500, "min_queries": 3}
+  },
+  {
+    "query": "ищу теле до 80 тыс руб",
+    "llm_response": {"search_queries": ["Fender Telecaster", "Squier Classic Vibe Telecaster", "G&L ASAT"], "price_max": 800},
+    "expect": {"has_price_max": 800, "min_queries": 2}
+  },
+  {
+    "query": "акустику для начинающего",
+    "llm_response": {"search_queries": ["Yamaha F310", "Fender CD-60", "Epiphone DR-100"], "price_max": null},
+    "expect": {"has_price_max": null, "min_queries": 3}
+  },
+  {
+    "query": "винтажный стратокастер 70-х до 3000$",
+    "llm_response": {"search_queries": ["Fender Stratocaster 1970s", "Fender Vintage Stratocaster", "Fender Vintera 70s Stratocaster"], "price_max": 3000},
+    "expect": {"has_price_max": 3000, "min_queries": 3}
+  },
+  {
+    "query": "Хочу акустику с флойдом и EMG",
+    "llm_response": {"search_queries": ["Yamaha APX600", "Fender CD-60", "Epiphone DR-100"], "price_max": null},
+    "expect": {"has_price_max": null, "min_queries": 3}
+  },
+  {
+    "query": "нужен страт",
+    "llm_response": {"search_queries": ["Fender Stratocaster", "Squier Stratocaster"], "price_max": null},
+    "expect": {"has_price_max": null, "min_queries": 2}
+  },
+  {
+    "query": "хочу лп до 2000",
+    "llm_response": {"search_queries": ["Gibson Les Paul", "Epiphone Les Paul"], "price_max": 2000},
+    "expect": {"has_price_max": 2000, "min_queries": 2}
+  },
+  {
+    "query": "семиструнку для джента до 1000$",
+    "llm_response": {"search_queries": ["Ibanez RGD", "Schecter C-7", "Strandberg Boden"], "price_max": 1000},
+    "expect": {"has_price_max": 1000, "min_queries": 3}
+  },
+  {
+    "query": "гитару для шугейза, стену звука",
+    "llm_response": {"search_queries": ["Fender Jazzmaster", "Squier Jaguar", "Fender Mustang"], "price_max": null},
+    "expect": {"has_price_max": null, "min_queries": 3}
+  },
+  {
+    "query": "мясную палку за 50к деревянных",
+    "llm_response": {"search_queries": ["Gibson Les Paul", "PRS SE Custom 24", "Epiphone SG"], "price_max": 500},
+    "expect": {"has_price_max": 500, "min_queries": 3}
+  }
+]
