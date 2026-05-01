@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "sessionId": 1,
+      "userQuery": "Найди стратокастер до 500$",
+      "mode": "search",
+      "answer": null,
+      "results": [
+        {
+          "id": "12345",
+          "title": "Fender Player Stratocaster",
+          "price": 499.99,
+          "currency": "USD",
+          "imageUrl": "https://reverb.com/images/12345.jpg",
+          "listingUrl": "https://reverb.com/item/12345"
+        }
+      ],
+      "createdAt": "2026-04-28T10:30:00"
+    },
+    {
+      "id": 2,
+      "sessionId": 1,
+      "userQuery": "А покажи подешевле",
+      "mode": "search",
+      "answer": null,
+      "results": [
+        {
+          "id": "67890",
+          "title": "Squier Classic Vibe 60s Stratocaster",
+          "price": 429.99,
+          "currency": "USD",
+          "imageUrl": "https://reverb.com/images/67890.jpg",
+          "listingUrl": "https://reverb.com/item/67890"
+        }
+      ],
+      "createdAt": "2026-04-28T10:32:00"
+    }
+  ]
+}
