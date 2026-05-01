@@ -1,0 +1,10 @@
+{
+  "totalSessions": 10,
+  "totalExchanges": 25,
+  "avgElapsedMs": 1250.5,
+  "p95ElapsedMs": 2800.0,
+  "avgMessagesToFirstSearch": 1.2,
+  "clarificationRate": 0.15,
+  "repeatSessionRate": 0.3,
+  "kpiMet": true
+}
