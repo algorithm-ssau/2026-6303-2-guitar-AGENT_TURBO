@@ -25,4 +25,4 @@ dist/
 .idea/
 *.swp
 
-temp
+.temp
