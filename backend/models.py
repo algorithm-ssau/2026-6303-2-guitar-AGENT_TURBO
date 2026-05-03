@@ -3,23 +3,17 @@
 from pydantic import BaseModel
 from typing import List, Optional, Literal
 
-
-class GuitarResult(BaseModel):
-    """Модель результата поиска гитары."""
-    id: str
-    title: str
-    price: float
-    currency: str
-    image_url: str
-    listing_url: str
+# Используем модели из search.models с поддержкой camelCase
+from backend.search.models import GuitarResult
 
 
 class WSMessage(BaseModel):
     """Модель сообщения WebSocket."""
     type: Literal["status", "result", "error"]
-    mode: Optional[Literal["search", "consultation", "conversation", "clarification"]] = None
+    mode: Optional[Literal["search", "consultation", "clarification"]] = None
     status: Optional[str] = None
     answer: Optional[str] = None
+    question: Optional[str] = None
     results: Optional[List[GuitarResult]] = None
     question: Optional[str] = None
     explanation: Optional[str] = None

@@ -20,7 +20,8 @@ async def chat(
     Обработка запроса пользователя через LLM-пайплайн.
 
     Принимает текстовый запрос, вызывает interpret_query для анализа,
-    возвращает ответ в режиме 'search' (с результатами) или 'consultation' (текстовый ответ).
+    возвращает ответ в режиме 'search' (с результатами), 'consultation' (текстовый ответ)
+    или 'clarification' (уточняющий вопрос).
     """
     try:
         result = interpret_query(text=request.query)
@@ -41,20 +42,13 @@ async def chat(
             results=result.get("results", []),
             search_params=result.get("search_params"),
         )
-    if result["mode"] == "clarification":
+    elif result["mode"] == "clarification":
         return ChatResponse(
             mode="clarification",
-            question=result.get("question", ""),
-            search_params=result.get("search_params"),
+            question=result.get("question", "")
         )
-    if result["mode"] == "conversation":
+    else:
         return ChatResponse(
-            mode="conversation",
+            mode="consultation",
             answer=result.get("answer", ""),
-            debug_think=result.get("debug_think"),
         )
-    return ChatResponse(
-        mode="consultation",
-        answer=result.get("answer", ""),
-        debug_think=result.get("debug_think"),
-    )

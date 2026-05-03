@@ -26,7 +26,7 @@ function authHeaders(token: string): HeadersInit {
 /**
  * Отправляет сообщение пользователя на сервер
  */
-export async function sendMessage(text: string, token: string): Promise<ChatResponse> {
+export async function sendMessage(text: string): Promise<ChatResponse> {
   const parseResult = ChatRequestSchema.safeParse({ query: text });
   if (!parseResult.success) {
     const errorMessage = parseResult.error.errors?.[0]?.message || 'Невалидный запрос';
@@ -36,7 +36,7 @@ export async function sendMessage(text: string, token: string): Promise<ChatResp
   try {
     const response = await fetch(`${API_BASE_URL}/chat`, {
       method: 'POST',
-      headers: authHeaders(token),
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: text }),
     });
 

@@ -35,12 +35,8 @@ export interface Message {
   content: string;
   timestamp: Date;
   results?: GuitarResult[];
-  mode?: ChatMode;
-  answer?: string;
+  mode?: 'search' | 'consultation' | 'clarification';
   question?: string;
-  explanation?: string;
-  sessionId?: number;
-  debugThink?: string | null;
   transient?: {
     phase: 'thinking' | 'revealing';
     status?: string | null;
@@ -65,7 +61,11 @@ export interface Session {
 
 /** Схема запроса к API */
 export const ChatRequestSchema = z.object({
+<<<<<<< HEAD
   query: z.string().min(2, 'Запрос не может быть короче 2 символов').max(500, 'Запрос слишком длинный'),
+=======
+  query: z.string().min(2, 'Запрос не может быть пустым').max(500, 'Запрос слишком длинный'),
+>>>>>>> bc230c1 (fix: freeze frontend backend contract (step 2))
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
@@ -95,14 +95,12 @@ export const SearchParamsSchema = z.object({
 
 /** Схема ответа от API */
 export const ChatResponseSchema = z.object({
-  mode: z.enum(['search', 'consultation', 'conversation', 'clarification']),
+  mode: z.enum(['search', 'consultation', 'clarification']),
   answer: z.string().optional(),
   debugThink: z.string().nullable().optional(),
   results: z.array(SearchResultSchema).optional(),
-  question: z.string().optional(),
   explanation: z.string().optional(),
-  searchParams: SearchParamsSchema.nullable().optional(),
-  sessionId: z.number().optional(),
+  question: z.string().optional(),
 });
 
 export type ChatResponse = z.infer<typeof ChatResponseSchema>;

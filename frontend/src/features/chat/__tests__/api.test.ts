@@ -56,6 +56,36 @@ describe('sendMessage API function', () => {
       json: async () => mockResponse,
     });
 
+    const result = await sendMessage('Чем отличается Les Paul?');
+
+    expect(result).toEqual(mockResponse);
+  });
+
+  it('должен возвращать валидный ответ (clarification mode)', async () => {
+    const mockResponse = {
+      mode: 'clarification',
+      question: 'Какой у вас бюджет?'
+    };
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockResponse,
+    });
+
+    const result = await sendMessage('Хочу гитару');
+
+    expect(result).toEqual(mockResponse);
+  });
+
+  it('должен возвращать валидный ответ (consultation mode)', async () => {
+    const mockResponse = {
+      mode: 'consultation',
+      answer: 'Рекомендую Fender Stratocaster'
+    };
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockResponse,
+    });
+
     const result = await sendMessage('Чем отличается Stratocaster?');
 
     expect(result).toEqual(mockResponse);
@@ -80,13 +110,13 @@ describe('sendMessage API function', () => {
   it('должен бросать ошибку при невалидном ответе от сервера', async () => {
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ invalid: 'data' }), // нет обязательных полей
+      json: async () => ({ invalid: 'data' }), // нет поля mode
     });
 
     await expect(sendMessage('Привет')).rejects.toThrow('Сервер вернул невалидные данные');
   });
 
-  it('должен бросать ошибку при слишком коротком запросе', async () => {
+  it('должен бросать ошибку при слишком коротком сообщении', async () => {
     await expect(sendMessage('')).rejects.toThrow('Невалидный запрос');
     await expect(sendMessage('a')).rejects.toThrow('Невалидный запрос');
   });
