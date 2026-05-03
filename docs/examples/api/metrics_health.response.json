@@ -4,7 +4,7 @@
   "avgElapsedMs": 1250.5,
   "p95ElapsedMs": 2800.0,
   "avgMessagesToFirstSearch": 1.2,
-  "clarificationRate": 0.15,
-  "repeatSessionRate": 0.3,
+  "clarificationRate": 15.0,
+  "repeatSessionRate": 30.0,
   "kpiMet": true
 }

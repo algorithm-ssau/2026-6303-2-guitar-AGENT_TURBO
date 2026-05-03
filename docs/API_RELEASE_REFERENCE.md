@@ -39,17 +39,8 @@
       "imageUrl": "https://reverb.com/item/12345.jpg",
       "listingUrl": "https://reverb.com/item/12345"
     }
-  ],
-  "searchParams": {
-    "searchQueries": ["Fender Player Stratocaster"],
-    "priceMin": null,
-    "priceMax": 500,
-    "type": "stratocaster",
-    "brand": "Fender",
-    "pickups": null,
-    "sound": null,
-    "style": null
-  }
+  ]
+}
 }
 ```
 
@@ -61,11 +52,11 @@
 }
 ```
 
-**Response body (conversation mode):**
+**Response body (clarification mode):**
 ```json
 {
-  "mode": "conversation",
-  "answer": "Sure, I can answer in English."
+  "mode": "clarification",
+  "question": "Какой у вас бюджет и какой тип гитары вы ищете?"
 }
 ```
 
@@ -249,8 +240,7 @@ curl -X DELETE http://localhost:8000/api/history
   "modeDistribution": {
     "search": 15,
     "consultation": 8,
-    "conversation": 3,
-    "clarification": 2
+    "off_topic": 2
   },
   "avgMessagesPerSession": 2.5,
   "avgQueriesWithLinks": 1.8
@@ -282,8 +272,8 @@ curl http://localhost:8000/api/stats
   "avgElapsedMs": 1250.5,
   "p95ElapsedMs": 2800.0,
   "avgMessagesToFirstSearch": 1.2,
-  "clarificationRate": 0.15,
-  "repeatSessionRate": 0.3,
+  "clarificationRate": 15.0,
+  "repeatSessionRate": 30.0,
   "kpiMet": true
 }
 ```
@@ -388,10 +378,29 @@ WebSocket соединение для интерактивного чата с �
 - Defaults вроде beginner `$500` должны быть явно в `searchParams`; backend не применяет `default_actions` как скрытые runtime defaults.
 - Clarification responses не возвращают stale `searchParams` из предыдущего ready search.
 
-**Ошибки:**
-- `4001` — пустой запрос
-- `4002` — превышено время ожидания (30 сек)
-- `4003` — внутренняя ошибка
+Сервер отправляет результат (clarification mode):
+```json
+{
+  "type": "result",
+  "mode": "clarification",
+  "question": "Какой у вас бюджет?",
+  "sessionId": 1
+}
+```
+
+**Ошибки (WebSocket close codes):**
+- `1003` — пустой запрос (Wrong data / unsupported payload)
+- `1008` — превышено время ожидания (30 сек) (Policy Violation)
+- `1011` — внутренняя ошибка (Server Error)
+
+**Ошибки (JSON сообщения от сервера):**
+Сервер отправляет ошибки в формате:
+```json
+{
+  "type": "error",
+  "status": "Текст ошибки"
+}
+```
 
 **Пример использования (JavaScript):**
 ```javascript
