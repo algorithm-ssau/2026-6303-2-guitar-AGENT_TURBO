@@ -24,6 +24,8 @@
 }
 ```
 
+**Примечание:** поле запроса должно называться `query`, а не `message`.
+
 **Response body (search mode):**
 ```json
 {
@@ -37,8 +39,7 @@
       "imageUrl": "https://reverb.com/item/12345.jpg",
       "listingUrl": "https://reverb.com/item/12345"
     }
-  ],
-  "explanation": "Found guitars matching your criteria"
+  ]
 }
 ```
 
@@ -104,7 +105,7 @@ curl -X POST http://localhost:8000/api/query/parse \
 **Статус:** `ready`
 
 **Назначение:**  
-Получить список сессий чата с пагинацией. Сессии отсортированы от новых к старым.
+Получить список сессий чата с пагинацией. Сессии отсортированы от новых к старых.
 
 **Query параметры:**
 - `offset` (int, default=0) — смещение
@@ -186,7 +187,8 @@ curl -X POST http://localhost:8000/api/sessions \
       "mode": "search",
       "answer": null,
       "results": [...],
-      "createdAt": "2026-04-28T10:30:00"
+      "createdAt": "2026-04-28T10:30:00",
+      "updatedAt": "2026-04-28T10:32:00"
     }
   ]
 }
@@ -359,6 +361,16 @@ WebSocket соединение для интерактивного чата с �
   "type": "result",
   "mode": "consultation",
   "answer": "Стратокастер — это...",
+  "sessionId": 1
+}
+```
+
+Сервер отправляет результат (clarification mode):
+```json
+{
+  "type": "result",
+  "mode": "clarification",
+  "question": "Уточните, какой бренд вы предпочитаете?",
   "sessionId": 1
 }
 ```
