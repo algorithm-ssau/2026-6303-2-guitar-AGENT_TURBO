@@ -21,7 +21,7 @@ function createApiError(status: number, fallbackMessage: string, detail?: string
  * Отправляет сообщение пользователя на сервер
  */
 export async function sendMessage(text: string): Promise<ChatResponse> {
-  const parseResult = ChatRequestSchema.safeParse({ message: text });
+  const parseResult = ChatRequestSchema.safeParse({ query: text });
   if (!parseResult.success) {
     const errorMessage = parseResult.error.errors?.[0]?.message || 'Невалидный запрос';
     throw new Error(errorMessage);
@@ -31,7 +31,7 @@ export async function sendMessage(text: string): Promise<ChatResponse> {
     const response = await fetch(`${API_BASE_URL}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({ query: text }),
     });
 
     if (!response.ok) {

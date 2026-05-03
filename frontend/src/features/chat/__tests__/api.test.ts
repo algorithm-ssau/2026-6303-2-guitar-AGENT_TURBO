@@ -14,7 +14,7 @@ describe('sendMessage API function', () => {
   });
 
   it('должен вызывать правильный URL и метод', async () => {
-    const mockResponse = { reply: 'Тестовый ответ' };
+    const mockResponse = { mode: 'consultation', answer: 'Тестовый ответ' };
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => mockResponse,
@@ -27,14 +27,14 @@ describe('sendMessage API function', () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message: 'Привет' }),
+      body: JSON.stringify({ query: 'Привет' }),
     });
   });
 
-  it('должен возвращать валидный ответ', async () => {
+  it('должен возвращать валидный ответ (search mode)', async () => {
     const mockResponse = {
-      reply: 'Рекомендую Fender Stratocaster',
-      results: [{ title: 'Fender', url: 'https://reverb.com/1', price: 500 }]
+      mode: 'search',
+      results: [{ title: 'Fender', listingUrl: 'https://reverb.com/1', price: 500 }]
     };
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
@@ -42,6 +42,21 @@ describe('sendMessage API function', () => {
     });
 
     const result = await sendMessage('Хочу гитару');
+
+    expect(result).toEqual(mockResponse);
+  });
+
+  it('должен возвращать валидный ответ (consultation mode)', async () => {
+    const mockResponse = {
+      mode: 'consultation',
+      answer: 'Рекомендую Fender Stratocaster'
+    };
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockResponse,
+    });
+
+    const result = await sendMessage('Чем отличается Stratocaster?');
 
     expect(result).toEqual(mockResponse);
   });
@@ -65,13 +80,14 @@ describe('sendMessage API function', () => {
   it('должен бросать ошибку при невалидном ответе от сервера', async () => {
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ invalid: 'data' }), // нет поля reply
+      json: async () => ({ invalid: 'data' }), // нет обязательных полей
     });
 
     await expect(sendMessage('Привет')).rejects.toThrow('Сервер вернул невалидные данные');
   });
 
-  it('должен бросать ошибку при пустом сообщении', async () => {
+  it('должен бросать ошибку при слишком коротком запросе', async () => {
     await expect(sendMessage('')).rejects.toThrow('Невалидный запрос');
+    await expect(sendMessage('a')).rejects.toThrow('Невалидный запрос');
   });
 });

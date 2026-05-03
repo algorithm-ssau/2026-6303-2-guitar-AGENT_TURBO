@@ -30,6 +30,10 @@ export interface Message {
   timestamp: Date;
   results?: GuitarResult[];
   mode?: 'search' | 'consultation' | 'clarification';
+  answer?: string;
+  question?: string;
+  explanation?: string;
+  sessionId?: number;
   transient?: {
     phase: 'thinking' | 'revealing';
     status?: string | null;
@@ -54,7 +58,7 @@ export interface Session {
 
 /** Схема запроса к API */
 export const ChatRequestSchema = z.object({
-  message: z.string().min(1, 'Сообщение не может быть пустым'),
+  query: z.string().min(2, 'Запрос не может быть короче 2 символов').max(500, 'Запрос слишком длинный'),
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
@@ -73,9 +77,12 @@ export type SearchResult = z.infer<typeof SearchResultSchema>;
 
 /** Схема ответа от API */
 export const ChatResponseSchema = z.object({
-  mode: z.enum(['search', 'consultation']),
+  mode: z.enum(['search', 'consultation', 'clarification']),
   answer: z.string().optional(),
   results: z.array(SearchResultSchema).optional(),
+  question: z.string().optional(),
+  explanation: z.string().optional(),
+  sessionId: z.number().optional(),
 });
 
 export type ChatResponse = z.infer<typeof ChatResponseSchema>;
