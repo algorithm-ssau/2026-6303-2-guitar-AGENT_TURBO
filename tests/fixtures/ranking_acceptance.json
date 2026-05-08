@@ -1,0 +1,174 @@
+{
+  "scenarios": [
+    {
+      "name": "jazz_warm",
+      "params": {
+        "search_queries": ["jazz guitar"],
+        "type": "semi-hollow",
+        "sound": "warm",
+        "style": "jazz",
+        "price_max": 2200
+      },
+      "expected_top_keywords": ["es-335", "semi-hollow", "jazz"],
+      "relevant_title": "Gibson ES-335 Semi-Hollow Jazz Guitar",
+      "irrelevant_title": "ESP LTD 7-string Active Metal Guitar",
+      "results": [
+        {"title": "ESP LTD 7-string Active Metal Guitar", "price": 900},
+        {"title": "Gibson ES-335 Semi-Hollow Jazz Guitar", "price": 1900},
+        {"title": "Fender Telecaster Bright Country Guitar", "price": 1200},
+        {"title": "Yamaha FG830 Dreadnought Acoustic Guitar", "price": 350}
+      ]
+    },
+    {
+      "name": "metal_high_output",
+      "params": {
+        "search_queries": ["metal guitar"],
+        "type": "superstrat",
+        "pickups": "HH",
+        "style": "metal",
+        "price_max": 1400
+      },
+      "expected_top_keywords": ["emg", "active", "7-string"],
+      "relevant_title": "ESP LTD EC-1000 7-string Active EMG HH Metal Guitar",
+      "irrelevant_title": "Epiphone Casino Semi-Hollow Jazz Guitar",
+      "results": [
+        {"title": "Epiphone Casino Semi-Hollow Jazz Guitar", "price": 700},
+        {"title": "ESP LTD EC-1000 7-string Active EMG HH Metal Guitar", "price": 1050},
+        {"title": "Fender Player Stratocaster SSS Blues Guitar", "price": 850},
+        {"title": "Yamaha FG830 Acoustic Dreadnought Guitar", "price": 350}
+      ]
+    },
+    {
+      "name": "beginner_budget",
+      "params": {
+        "search_queries": ["beginner guitar"],
+        "price_max": 300
+      },
+      "expected_top_keywords": ["beginner", "pacifica"],
+      "relevant_title": "Yamaha Pacifica Beginner Guitar",
+      "irrelevant_title": "PRS Custom 24 Premium Guitar",
+      "results": [
+        {"title": "PRS Custom 24 Premium Guitar", "price": 2400},
+        {"title": "Yamaha Pacifica Beginner Guitar", "price": 220},
+        {"title": "Fender American Professional Guitar", "price": 1600},
+        {"title": "Gibson Les Paul Standard Guitar", "price": 2500}
+      ]
+    },
+    {
+      "name": "vintage_strat",
+      "params": {
+        "search_queries": ["vintage stratocaster"],
+        "type": "stratocaster",
+        "sound": "bright",
+        "price_max": 3000
+      },
+      "expected_top_keywords": ["stratocaster", "vintage"],
+      "relevant_title": "Fender Vintage Stratocaster SSS Maple Guitar",
+      "irrelevant_title": "Gibson Les Paul HH Mahogany Guitar",
+      "results": [
+        {"title": "Gibson Les Paul HH Mahogany Guitar", "price": 1800},
+        {"title": "Fender Vintage Stratocaster SSS Maple Guitar", "price": 2300},
+        {"title": "ESP LTD Active Metal Guitar", "price": 900},
+        {"title": "Yamaha FG830 Acoustic Guitar", "price": 350}
+      ]
+    },
+    {
+      "name": "acoustic_campfire",
+      "params": {
+        "search_queries": ["acoustic guitar"],
+        "type": "acoustic",
+        "price_max": 500
+      },
+      "expected_top_keywords": ["acoustic", "dreadnought"],
+      "relevant_title": "Yamaha FG830 Acoustic Dreadnought Guitar",
+      "irrelevant_title": "Ibanez RG 7-string Metal Guitar",
+      "results": [
+        {"title": "Ibanez RG 7-string Metal Guitar", "price": 800},
+        {"title": "Yamaha FG830 Acoustic Dreadnought Guitar", "price": 330},
+        {"title": "Fender Telecaster Electric Guitar", "price": 900},
+        {"title": "Gibson SG Rock Guitar", "price": 1100}
+      ]
+    },
+    {
+      "name": "bass_funk",
+      "params": {
+        "search_queries": ["jazz bass"],
+        "type": "bass",
+        "price_max": 1300
+      },
+      "expected_top_keywords": ["jazz bass", "bass"],
+      "relevant_title": "Fender Jazz Bass Funk Bass Guitar",
+      "irrelevant_title": "Martin D-28 Acoustic Guitar",
+      "results": [
+        {"title": "Martin D-28 Acoustic Guitar", "price": 2600},
+        {"title": "Fender Jazz Bass Funk Bass Guitar", "price": 1150},
+        {"title": "Gibson Les Paul Electric Guitar", "price": 1700},
+        {"title": "Squier Telecaster Electric Guitar", "price": 400}
+      ]
+    },
+    {
+      "name": "blues_les_paul",
+      "params": {
+        "search_queries": ["les paul"],
+        "type": "les paul",
+        "sound": "warm",
+        "style": "blues",
+        "price_max": 1800
+      },
+      "expected_top_keywords": ["les paul", "p90"],
+      "relevant_title": "Epiphone Les Paul P90 Warm Blues Guitar",
+      "irrelevant_title": "Jackson Dinky Active Metal Guitar",
+      "results": [
+        {"title": "Jackson Dinky Active Metal Guitar", "price": 650},
+        {"title": "Epiphone Les Paul P90 Warm Blues Guitar", "price": 700},
+        {"title": "Fender Telecaster Bright Country Guitar", "price": 1100},
+        {"title": "Taylor GS Mini Acoustic Guitar", "price": 600}
+      ]
+    },
+    {
+      "name": "tele_country",
+      "params": {
+        "search_queries": ["telecaster"],
+        "type": "telecaster",
+        "sound": "bright",
+        "price_max": 1600
+      },
+      "expected_top_keywords": ["telecaster", "country"],
+      "relevant_title": "Fender Telecaster Country Twang SSS Guitar",
+      "irrelevant_title": "Gibson Les Paul HH Rock Guitar",
+      "results": [
+        {"title": "Gibson Les Paul HH Rock Guitar", "price": 1500},
+        {"title": "Fender Telecaster Country Twang SSS Guitar", "price": 1200},
+        {"title": "Ibanez SR505 Bass Guitar", "price": 850},
+        {"title": "Yamaha FG830 Acoustic Guitar", "price": 350}
+      ]
+    },
+    {
+      "name": "empty_results",
+      "params": {
+        "search_queries": ["stratocaster"],
+        "price_max": 1000
+      },
+      "expected_top_keywords": [],
+      "results": []
+    },
+    {
+      "name": "irrelevant_results",
+      "params": {
+        "search_queries": ["stratocaster"],
+        "type": "stratocaster",
+        "sound": "bright",
+        "price_max": 1200
+      },
+      "expected_top_keywords": ["stratocaster"],
+      "relevant_title": "Fender Player Stratocaster SSS Bright Guitar",
+      "irrelevant_title": "Gibson Les Paul HH Warm Guitar",
+      "results": [
+        {"title": "Gibson Les Paul HH Warm Guitar", "price": 900},
+        {"title": "Fender Player Stratocaster SSS Bright Guitar", "price": 850},
+        {"title": "ESP LTD Active Metal Guitar", "price": 800},
+        {"title": "Yamaha FG830 Acoustic Guitar", "price": 350}
+      ]
+    }
+  ]
+}
