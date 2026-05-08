@@ -28,6 +28,9 @@ class GuitarResult(BaseModel):
     image_url: Optional[HttpUrl] = Field(None, description="Ссылка на изображение")
 
 
+SearchResult = GuitarResult
+
+
 class ChatResponse(BaseModel):
     """Модель ответа от chat API."""
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)

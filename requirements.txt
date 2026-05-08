@@ -6,3 +6,4 @@ requests==2.32.3
 beautifulsoup4==4.12.3
 websockets
 pytest>=7.0.0
+responses==0.25.3

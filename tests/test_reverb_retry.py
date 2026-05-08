@@ -1,6 +1,7 @@
 """Тесты retry с exponential backoff для Reverb API."""
 
 import time
+from typing import Optional
 from unittest.mock import Mock, patch, call
 
 import pytest
@@ -9,7 +10,7 @@ import requests
 from backend.search.search_reverb import _search_reverb_api
 
 
-def _make_mock_response(status_code: int, json_data: dict | None = None) -> Mock:
+def _make_mock_response(status_code: int, json_data: Optional[dict] = None) -> Mock:
     """Создать мок-объект ответа requests."""
     resp = Mock()
     resp.status_code = status_code
