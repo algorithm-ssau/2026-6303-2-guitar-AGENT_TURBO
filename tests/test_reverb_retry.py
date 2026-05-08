@@ -174,3 +174,37 @@ class TestConnectionErrorRetry:
 
             assert mock_get.call_count == 3
             assert result == []
+
+
+class TestMalformedResponse:
+    """Некорректный JSON от Reverb не роняет pipeline."""
+
+    def test_malformed_json_returns_empty(self):
+        """Malformed JSON → пустой список без исключения."""
+        malformed_resp = Mock()
+        malformed_resp.status_code = 200
+        malformed_resp.raise_for_status.return_value = None
+        malformed_resp.json.side_effect = ValueError("invalid json")
+
+        with patch("backend.search.search_reverb.requests.get") as mock_get:
+            mock_get.return_value = malformed_resp
+            with patch.dict("os.environ", {"REVERB_API_TOKEN": "fake-token"}):
+                result = _search_reverb_api(["test"])
+
+            assert mock_get.call_count == 1
+            assert result == []
+
+    def test_non_dict_json_returns_empty(self):
+        """JSON не в формате объекта → пустой список без исключения."""
+        malformed_resp = Mock()
+        malformed_resp.status_code = 200
+        malformed_resp.raise_for_status.return_value = None
+        malformed_resp.json.return_value = ["not", "a", "mapping"]
+
+        with patch("backend.search.search_reverb.requests.get") as mock_get:
+            mock_get.return_value = malformed_resp
+            with patch.dict("os.environ", {"REVERB_API_TOKEN": "fake-token"}):
+                result = _search_reverb_api(["test"])
+
+            assert mock_get.call_count == 1
+            assert result == []

@@ -30,7 +30,8 @@ def test_websocket_chat_accepts_connection():
     from backend.main import app
     client = TestClient(app)
     with client.websocket_connect("/chat") as ws:
-        # Сервер отправляет начальный статус при подключении
+        # Сервер отправляет статус после первого пользовательского сообщения.
+        ws.send_json({"query": "Тестовый запрос"})
         data = ws.receive_json()
         assert data["type"] == "status"
 
