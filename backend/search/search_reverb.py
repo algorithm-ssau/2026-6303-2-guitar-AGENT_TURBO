@@ -247,7 +247,25 @@ def _search_reverb_api(
 
                 # Успех (2xx)
                 response.raise_for_status()
-                data = response.json()
+                try:
+                    data = response.json()
+                except ValueError as exc:
+                    _search_logger.warning(
+                        "attempt %d/%d: malformed JSON response: %s",
+                        attempt + 1,
+                        max_retries,
+                        exc,
+                    )
+                    break
+
+                if not isinstance(data, dict):
+                    _search_logger.warning(
+                        "attempt %d/%d: unexpected response format: %s",
+                        attempt + 1,
+                        max_retries,
+                        type(data).__name__,
+                    )
+                    break
 
                 # Извлекаем объявления из ответа
                 listings = data.get("listings", [])

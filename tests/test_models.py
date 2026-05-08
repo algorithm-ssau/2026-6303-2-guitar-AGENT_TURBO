@@ -101,13 +101,13 @@ class TestChatResponse:
         assert len(response.results) == 1
         assert response.answer is None
 
-    def test_valid_chat_response(self):
-        """Валидный ответ в режиме чата."""
+    def test_valid_consultation_response(self):
+        """Валидный ответ в консультационном режиме."""
         response = ChatResponse(
-            mode="chat",
+            mode="consultation",
             answer="Я понял, что вам нужна гитара для металла"
         )
-        assert response.mode == "chat"
+        assert response.mode == "consultation"
         assert response.answer == "Я понял, что вам нужна гитара для металла"
         assert response.results is None
 
@@ -139,4 +139,3 @@ class TestChatResponse:
         assert response.mode == "search"
         assert response.answer is not None
         assert response.results is not None
-

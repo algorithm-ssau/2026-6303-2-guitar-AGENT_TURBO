@@ -103,12 +103,15 @@ class TestSearchReverbMockMode:
 class TestSearchReverbRealMode:
     """Тесты для реального режима работы с мок-HTTP."""
 
+    @pytest.fixture(autouse=True)
+    def setup_real_mode(self, monkeypatch):
+        """Включаем API-ветку без реального внешнего запроса."""
+        monkeypatch.setenv("USE_MOCK_REVERB", "false")
+        monkeypatch.setenv("REVERB_API_TOKEN", "fake-token")
+
     @responses.activate
     def test_real_mode_api_request_format(self):
         """Проверяет, что параметры правильно преобразуются в URL запроса."""
-        # Убираем мок-режим
-        os.environ["USE_MOCK_REVERB"] = "false"
-        
         # Мок-ответ от Reverb API
         mock_response = {
             "listings": [
@@ -125,7 +128,7 @@ class TestSearchReverbRealMode:
         # Регистрируем мок-ответ
         responses.add(
             responses.GET,
-            "https://api.reverb.com/api/listings",
+            "https://api.reverb.com/api/listings/all",
             json=mock_response,
             status=200,
         )
@@ -154,8 +157,6 @@ class TestSearchReverbRealMode:
     @responses.activate
     def test_real_mode_response_parsing(self):
         """Проверяет корректность парсинга ответа от Reverb API."""
-        os.environ["USE_MOCK_REVERB"] = "false"
-        
         # Мок-ответ с альтернативной структурой цен
         mock_response = {
             "listings": [
@@ -178,7 +179,7 @@ class TestSearchReverbRealMode:
         
         responses.add(
             responses.GET,
-            "https://api.reverb.com/api/listings",
+            "https://api.reverb.com/api/listings/all",
             json=mock_response,
             status=200,
         )
@@ -199,19 +200,17 @@ class TestSearchReverbRealMode:
     @responses.activate
     def test_real_mode_fallback_to_mock_on_empty_response(self):
         """Проверяет fallback на мок-данные при пустом ответе API."""
-        os.environ["USE_MOCK_REVERB"] = "false"
-        
         # Пустой ответ от API
         mock_response = {"listings": []}
         
         responses.add(
             responses.GET,
-            "https://api.reverb.com/api/listings",
+            "https://api.reverb.com/api/listings/all",
             json=mock_response,
             status=200,
         )
         
-        result = search_reverb(search_queries=["Rare Guitar"])
+        result = search_reverb(search_queries=["Guitar"])
         
         # Должен вернуться к мок-данным как fallback
         assert isinstance(result, list)
@@ -221,6 +220,11 @@ class TestSearchReverbRealMode:
 class TestSearchReverbEdgeCases:
     """Тесты на граничные случаи работы search_reverb."""
 
+    @pytest.fixture(autouse=True)
+    def setup_api_token(self, monkeypatch):
+        """API-тесты используют мокированный HTTP, но код требует токен."""
+        monkeypatch.setenv("REVERB_API_TOKEN", "fake-token")
+
     @responses.activate
     def test_http_500_error(self):
         """Проверяет обработку HTTP 500 ошибки от API."""
@@ -229,7 +233,7 @@ class TestSearchReverbEdgeCases:
         # Сервер возвращает 500 ошибку
         responses.add(
             responses.GET,
-            "https://api.reverb.com/api/listings",
+            "https://api.reverb.com/api/listings/all",
             status=500,
         )
         
@@ -247,7 +251,7 @@ class TestSearchReverbEdgeCases:
         # Симулируем таймаут
         responses.add(
             responses.GET,
-            "https://api.reverb.com/api/listings",
+            "https://api.reverb.com/api/listings/all",
             body=requests.exceptions.Timeout("Request timed out"),
         )
         
@@ -265,7 +269,7 @@ class TestSearchReverbEdgeCases:
         # Симулируем ошибку соединения
         responses.add(
             responses.GET,
-            "https://api.reverb.com/api/listings",
+            "https://api.reverb.com/api/listings/all",
             body=requests.exceptions.ConnectionError("Connection refused"),
         )
         
@@ -306,13 +310,13 @@ class TestSearchReverbEdgeCases:
         
         responses.add(
             responses.GET,
-            "https://api.reverb.com/api/listings",
+            "https://api.reverb.com/api/listings/all",
             json=mock_response_1,
             status=200,
         )
         responses.add(
             responses.GET,
-            "https://api.reverb.com/api/listings",
+            "https://api.reverb.com/api/listings/all",
             json=mock_response_2,
             status=200,
         )
@@ -362,7 +366,7 @@ class TestSearchReverbEdgeCases:
         
         responses.add(
             responses.GET,
-            "https://api.reverb.com/api/listings",
+            "https://api.reverb.com/api/listings/all",
             json=mock_response,
             status=200,
         )
