@@ -1,9 +1,14 @@
 """Тесты graceful degradation — проверка устойчивости пайплайна к ошибкам."""
 
 import os
+import sys
 from unittest.mock import patch, MagicMock
 
 import pytest
+
+# Mock groq, чтобы тесты работали без установленного пакета
+if "groq" not in sys.modules:
+    sys.modules["groq"] = MagicMock()
 
 from backend.agent.service import interpret_query
 
@@ -76,7 +81,16 @@ class TestDetectModeFailure:
 
     def test_detect_mode_exception_falls_back_to_consultation(self):
         """Если detect_mode падает — режим consultation."""
-        with patch("backend.agent.service.detect_mode", side_effect=RuntimeError("mode detection broken")):
+        call_count = {"n": 0}
+        original_detect = __import__("backend.agent.mode_detector", fromlist=["detect_mode"]).detect_mode
+
+        def failing_then_ok(*args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise RuntimeError("mode detection broken")
+            return original_detect(*args, **kwargs)
+
+        with patch("backend.agent.service.detect_mode", side_effect=failing_then_ok):
             result = interpret_query(
                 text="Что угодно",
                 llm_client=MockLLMClient(),

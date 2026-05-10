@@ -1,9 +1,14 @@
 """Тесты полного пайплайна interpret_query с mock-данными."""
 
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+# Mock groq, чтобы тесты работали без установленного пакета
+if "groq" not in sys.modules:
+    sys.modules["groq"] = MagicMock()
 
 from backend.agent.service import interpret_query
 
