@@ -17,7 +17,10 @@ class GuitarResult(BaseModel):
 class WSMessage(BaseModel):
     """Модель сообщения WebSocket."""
     type: Literal["status", "result", "error"]
-    mode: Optional[Literal["search", "consultation"]] = None
+    mode: Optional[Literal["search", "consultation", "clarification"]] = None
     status: Optional[str] = None
     answer: Optional[str] = None
     results: Optional[List[GuitarResult]] = None
+    question: Optional[str] = None
+    explanation: Optional[str] = None
+    session_id: Optional[int] = None

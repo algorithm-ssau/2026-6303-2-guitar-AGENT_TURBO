@@ -3,19 +3,25 @@ import { ChatRequestSchema, ChatResponseSchema, SearchResultSchema } from '../ty
 
 describe('Chat API Zod Schemas', () => {
   describe('ChatRequestSchema', () => {
-    it('должен проходить валидацию с корректным сообщением', () => {
-      const validData = { message: 'Хочу гитару с тёплым звуком' };
+    it('должен проходить валидацию с корректным запросом', () => {
+      const validData = { query: 'Хочу гитару с тёплым звуком' };
       const result = ChatRequestSchema.safeParse(validData);
       expect(result.success).toBe(true);
     });
 
-    it('должен бросать ошибку с пустым сообщением', () => {
-      const invalidData = { message: '' };
+    it('должен бросать ошибку с пустым запросом', () => {
+      const invalidData = { query: '' };
       const result = ChatRequestSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
     });
 
-    it('должен бросать ошибку с отсутствующим полем message', () => {
+    it('должен бросать ошибку со слишком коротким запросом', () => {
+      const invalidData = { query: 'a' };
+      const result = ChatRequestSchema.safeParse(invalidData);
+      expect(result.success).toBe(false);
+    });
+
+    it('должен бросать ошибку с отсутствующим полем query', () => {
       const invalidData = {};
       const result = ChatRequestSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
@@ -23,34 +29,46 @@ describe('Chat API Zod Schemas', () => {
   });
 
   describe('ChatResponseSchema', () => {
-    it('должен проходить валидацию с корректным ответом', () => {
+    it('должен проходить валидацию с корректным ответом (search mode)', () => {
       const validData = {
-        reply: 'Рекомендую Fender Stratocaster',
+        mode: 'search',
         results: [
-          { title: 'Fender Strat', url: 'https://reverb.com/item/123', price: 500 }
+          { title: 'Fender Strat', listingUrl: 'https://reverb.com/item/123', price: 500 }
         ]
       };
       const result = ChatResponseSchema.safeParse(validData);
       expect(result.success).toBe(true);
     });
 
-    it('должен проходить валидацию без results', () => {
-      const validData = { reply: 'Привет! Чем помочь?' };
+    it('должен проходить валидацию с корректным ответом (consultation mode)', () => {
+      const validData = { mode: 'consultation', answer: 'Рекомендую Fender' };
+      const result = ChatResponseSchema.safeParse(validData);
+      expect(result.success).toBe(true);
+    });
+
+    it('должен проходить валидацию с корректным ответом (clarification mode)', () => {
+      const validData = { mode: 'clarification', question: 'Какой бренд предпочитаете?' };
       const result = ChatResponseSchema.safeParse(validData);
       expect(result.success).toBe(true);
     });
 
     it('должен бросать ошибку с невалидным URL', () => {
       const invalidData = {
-        reply: 'Тест',
-        results: [{ title: 'Test', url: 'not-a-url', price: 100 }]
+        mode: 'search',
+        results: [{ title: 'Test', listingUrl: 'not-a-url', price: 100 }]
       };
       const result = ChatResponseSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
     });
 
-    it('должен бросать ошибку с отсутствующим reply', () => {
+    it('должен бросать ошибку с отсутствующим mode', () => {
       const invalidData = { results: [] };
+      const result = ChatResponseSchema.safeParse(invalidData);
+      expect(result.success).toBe(false);
+    });
+
+    it('должен бросать ошибку с невалидным mode', () => {
+      const invalidData = { mode: 'invalid_mode' };
       const result = ChatResponseSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
     });
@@ -58,15 +76,21 @@ describe('Chat API Zod Schemas', () => {
 
   describe('SearchResultSchema', () => {
     it('должен проходить валидацию с корректным результатом', () => {
-      const validData = { title: 'Gibson Les Paul', url: 'https://reverb.com/item/456', price: 1200 };
+      const validData = { title: 'Gibson Les Paul', listingUrl: 'https://reverb.com/item/456', price: 1200 };
       const result = SearchResultSchema.safeParse(validData);
       expect(result.success).toBe(true);
     });
 
     it('должен проходить валидацию без price', () => {
-      const validData = { title: 'Guitar', url: 'https://reverb.com/item/789' };
+      const validData = { title: 'Guitar', listingUrl: 'https://reverb.com/item/789' };
       const result = SearchResultSchema.safeParse(validData);
       expect(result.success).toBe(true);
+    });
+
+    it('должен требовать обязательное поле listingUrl', () => {
+      const invalidData = { title: 'Guitar' };
+      const result = SearchResultSchema.safeParse(invalidData);
+      expect(result.success).toBe(false);
     });
   });
 });
