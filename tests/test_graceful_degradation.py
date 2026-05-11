@@ -24,6 +24,11 @@ class MockLLMClient:
                 "search_queries": ["Fender Stratocaster"],
                 "price_min": None,
                 "price_max": 1000,
+                "type": "stratocaster",
+                "brand": None,
+                "pickups": None,
+                "sound": None,
+                "style": None,
             },
             "should_offer_search": False,
         }

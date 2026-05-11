@@ -164,15 +164,13 @@ def test_pending_budget_default_confirmation_applies_default(monkeypatch):
         "should_offer_search": False,
     }
 
-    result = interpret_query(
-        "да",
-        llm_client=client,
-        search_fn=lambda queries, price_min, price_max: [{"title": "Starter Guitar", "price": 450}],
-        session_id=42,
-    )
-
-    assert result["mode"] == "search"
-    assert result["search_params"]["price_max"] == 500
+    with pytest.raises(InvalidRouterResponseError):
+        interpret_query(
+            "да",
+            llm_client=client,
+            search_fn=lambda queries, price_min, price_max: [{"title": "Starter Guitar", "price": 450}],
+            session_id=42,
+        )
 
 
 def test_no_extra_questions_beginner_request_applies_default_without_confirmation():
@@ -192,14 +190,12 @@ def test_no_extra_questions_beginner_request_applies_default_without_confirmatio
         "should_offer_search": False,
     }
 
-    result = interpret_query(
-        "хочу гитару, я новичок, ничего не понимаю, без лишних вопросов",
-        llm_client=client,
-        search_fn=lambda queries, price_min, price_max: [{"title": "Starter Guitar", "price": 450}],
-    )
-
-    assert result["mode"] == "search"
-    assert result["search_params"]["price_max"] == 500
+    with pytest.raises(InvalidRouterResponseError):
+        interpret_query(
+            "хочу гитару, я новичок, ничего не понимаю, без лишних вопросов",
+            llm_client=client,
+            search_fn=lambda queries, price_min, price_max: [{"title": "Starter Guitar", "price": 450}],
+        )
 
 
 def test_budget_no_preference_without_default_does_not_allow_unlimited_ready_search():
@@ -275,14 +271,14 @@ def test_explicit_budget_patch_overrides_stale_beginner_default_clarification(mo
     client = MagicMock()
     client.classify_and_plan_query.return_value = {
         "intent": "search",
-        "enough_for_search": False,
-        "missing_fields": ["budget"],
+        "enough_for_search": True,
+        "missing_fields": [],
         "no_preference_fields": ["type"],
-        "budget_default_offer": True,
+        "budget_default_offer": False,
         "default_actions": [],
         "state_action": "patch",
         "search_params": {
-            "search_queries": [],
+            "search_queries": ["Yamaha Pacifica"],
             "price_min": None,
             "price_max": 1000,
             "type": "any",
@@ -299,7 +295,7 @@ def test_explicit_budget_patch_overrides_stale_beginner_default_clarification(mo
 
     assert result["mode"] == "search"
     assert result["search_params"]["price_max"] == 1000
-    assert result["search_params"]["search_queries"] == ["beginner electric guitar"]
+    assert result["search_params"]["search_queries"] == ["Yamaha Pacifica"]
     assert not saved_states[-1].get("pending_defaults", {}).get("budget")
 
 
@@ -318,8 +314,8 @@ def test_explicit_type_patch_removes_contradictory_type_missing_field(monkeypatc
     client = MagicMock()
     client.classify_and_plan_query.return_value = {
         "intent": "search",
-        "enough_for_search": False,
-        "missing_fields": ["type"],
+        "enough_for_search": True,
+        "missing_fields": [],
         "no_preference_fields": [],
         "budget_default_offer": False,
         "default_actions": [],
@@ -327,7 +323,7 @@ def test_explicit_type_patch_removes_contradictory_type_missing_field(monkeypatc
         "search_params": {
             "search_queries": ["Squier Telecaster"],
             "price_min": None,
-            "price_max": None,
+            "price_max": 500,
             "type": "telecaster",
         },
         "should_offer_search": False,
@@ -342,3 +338,116 @@ def test_explicit_type_patch_removes_contradictory_type_missing_field(monkeypatc
 
     assert result["mode"] == "search"
     assert result["search_params"]["type"] == "telecaster"
+
+
+def test_ready_partial_budget_snapshot_is_repairable_not_stale_state(monkeypatch):
+    monkeypatch.setattr(
+        "backend.agent.service.get_session_state",
+        lambda session_id: {
+            "price_max": 500,
+            "type": "any",
+            "search_queries": ["Squier Affinity Stratocaster"],
+            "ready_for_search": True,
+        },
+    )
+    monkeypatch.setattr("backend.agent.service.save_session_state", lambda session_id, state: None)
+
+    client = MagicMock()
+    client.classify_and_plan_query.return_value = route(search_params={
+        "search_queries": ["Yamaha Pacifica"],
+        "price_min": None,
+        "price_max": None,
+        "type": "any",
+    })
+
+    with pytest.raises(InvalidRouterResponseError):
+        interpret_query("давай до 1000", llm_client=client, session_id=42)
+
+
+def test_ready_search_executes_and_displays_current_router_snapshot(monkeypatch):
+    saved_states = []
+    monkeypatch.setattr(
+        "backend.agent.service.get_session_state",
+        lambda session_id: {
+            "price_max": 500,
+            "type": "any",
+            "brand": "Fender",
+            "search_queries": ["Squier Affinity Stratocaster"],
+            "ready_for_search": True,
+        },
+    )
+    monkeypatch.setattr("backend.agent.service.save_session_state", lambda session_id, state: saved_states.append(state))
+
+    client = MagicMock()
+    client.classify_and_plan_query.return_value = route(search_params={
+        "search_queries": ["Yamaha Pacifica"],
+        "price_min": None,
+        "price_max": 1000,
+        "type": "any",
+        "brand": None,
+        "pickups": None,
+        "sound": None,
+        "style": None,
+    })
+    captured = {}
+
+    def search_fn(queries, price_min, price_max):
+        captured["params"] = (queries, price_min, price_max)
+        return [{"title": "Yamaha Pacifica", "price": 700}]
+
+    result = interpret_query("давай до 1000", llm_client=client, search_fn=search_fn, session_id=42)
+
+    assert captured["params"] == (["Yamaha Pacifica"], None, 1000)
+    assert result["search_params"]["price_max"] == 1000
+    assert result["search_params"]["brand"] is None
+    assert saved_states[-1]["state_schema"] == "ready_search_snapshot_v1"
+    assert saved_states[-1]["brand"] is None
+
+
+def test_incomplete_clarification_does_not_expose_stale_ready_search_params(monkeypatch):
+    monkeypatch.setattr(
+        "backend.agent.service.get_session_state",
+        lambda session_id: {
+            "price_max": 500,
+            "type": "any",
+            "search_queries": ["Squier Affinity Stratocaster"],
+            "ready_for_search": True,
+        },
+    )
+    monkeypatch.setattr("backend.agent.service.save_session_state", lambda session_id, state: None)
+
+    client = MagicMock()
+    client.classify_and_plan_query.return_value = route(
+        search_params=None,
+        enough=False,
+        missing=["budget", "type"],
+    )
+    client.ask.return_value = "Какой бюджет и тип гитары?"
+
+    result = interpret_query("подбери ещё", llm_client=client, session_id=42)
+
+    assert result["mode"] == "clarification"
+    assert result["search_params"]["price_max"] is None
+    assert result["search_params"]["type"] is None
+    assert result["search_params"]["search_queries"] == []
+
+
+def test_ready_search_does_not_call_backend_relaxed_query_retry():
+    client = MagicMock()
+    client.classify_and_plan_query.return_value = route(search_params={
+        "search_queries": ["very specific unavailable guitar"],
+        "price_min": None,
+        "price_max": 900,
+        "type": "any",
+    })
+    calls = []
+
+    def search_fn(queries, price_min, price_max):
+        calls.append(list(queries))
+        return []
+
+    result = interpret_query("подбери редкую гитару до 900", llm_client=client, search_fn=search_fn)
+
+    assert result["mode"] == "search"
+    assert calls == [["very specific unavailable guitar"]]
+    assert result["search_params"]["search_queries"] == ["very specific unavailable guitar"]

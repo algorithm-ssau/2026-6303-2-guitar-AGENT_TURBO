@@ -6,8 +6,9 @@
 
 ### 1. Search (Поиск)
 - **Триггер:** Пользователь хочет подобрать/купить конкретный инструмент, указывает бюджет, модель или стиль.
-- **Пайплайн:** `LLMClient.classify_and_plan_query` → validation/normalization → `search_reverb` → `rank_results` → ответ с карточками.
-- **Результат:** JSON со списком гитар (ссылки, цены, фото) из реального каталога Reverb и `searchParams` из LLM-router.
+- **Пайплайн:** `LLMClient.classify_and_plan_query` → validation/normalization → exact agent Reverb search → `rank_results` → ответ с карточками.
+- **Результат:** JSON со списком гитар (ссылки, цены, фото) из реального каталога Reverb и `searchParams` из текущего LLM-router snapshot.
+- **Ready contract:** `enough_for_search=true` требует финальный effective `search_params`: 1-3 `search_queries`, явный `price_max`/`price_min`, явный `type` или `"any"`, плюс нормализованные optional fields. Backend не достраивает ready search из старого session state.
 
 ### 2. Consultation (Консультация)
 - **Триггер:** Теоретические вопросы ("что такое хамбакер?", "как дерево влияет на звук?") и follow-up вопросы по последней поисковой выдаче ("чем #1 лучше #2?", "что новичку взять из этих?").
@@ -20,7 +21,7 @@
 - **Пайплайн:** `LLMClient.classify_and_plan_query` → validation/normalization → structured clarification state → dedicated `CLARIFICATION_PROMPT.md`.
 - **Результат:** LLM-generated уточняющий вопрос или подтверждение, сессионное состояние сохраняется.
 - **Contract:** `search_params=null` допустим, если `intent="search"`, `enough_for_search=false` и `missing_fields` содержит `budget` и/или `type`.
-- **No-preference:** если пользователь не может выбрать тип, router возвращает `no_preference_fields=["type"]` и `type="any"`. Если бюджет неизвестен, backend не запускает unlimited search: используется `budget_default_offer=true` для одного подтверждения или `default_actions=["apply_beginner_budget"|"accept_beginner_budget"]` для безопасного beginner default.
+- **No-preference:** если пользователь не может выбрать тип, router возвращает `no_preference_fields=["type"]` и explicit `type="any"`. Если бюджет неизвестен, backend не запускает unlimited search: используется `budget_default_offer=true` для одного подтверждения или explicit `search_params.price_max` с diagnostic `default_actions=["apply_beginner_budget"|"accept_beginner_budget"]`.
 
 ### 4. Off-topic (Не по теме)
 - **Триггер:** Запрос не связан с гитарами/музыкой (программирование, погода, рецепты).
@@ -53,6 +54,8 @@
 - Для repairable ошибок, например `search_params.search_queries=[]` при `intent=search` и `enough_for_search=true`, backend делает один repair-вызов в тот же `LLM_ROUTER_MODEL`.
 - Repair prompt получает исходный user query, компактный router context, structured state, невалидный JSON и validation errors.
 - Backend не синтезирует `search_queries`, intent или missing fields сам; исправленный JSON должен вернуть LLM-router.
+- Backend не применяет `default_actions` как runtime mutations: если используется beginner default, repair должен вернуть фактический `search_params.price_max`.
+- Ready routes with non-empty `missing_fields`, unknown missing fields, empty or 4+ `search_queries`, invalid enum values, or incoherent price ranges are repaired/rejected instead of being silently coerced.
 - Исправленный JSON проходит ту же валидацию. Если исходный intent был валидным, repair обязан сохранить его.
 - Repair prompt тоже ограничен `ROUTER_MAX_PROMPT_CHARS`; oversized repair не отправляется provider.
 - Если repair невозможен или снова невалиден, REST `/api/chat` возвращает `502` с body `{"detail": "Некорректный ответ LLM-router."}`, а WebSocket `/chat` отправляет `type="error"` с user-safe статусом.
@@ -68,7 +71,7 @@
 - Backend хранит `asked_fields`, `no_preference_fields` и `pending_defaults` в JSON `session_state`.
 - Повторные ответы вроде "я не понимаю типы" интерпретирует LLM-router, не backend regex.
 - Для неизвестного типа router может закрыть поле через `type="any"`.
-- Для неизвестного бюджета применяется product policy: спросить "Ок, показать недорогие варианты для новичка до $500?" либо применить `$500` сразу, если router видит начальный запрос без лишних вопросов и возвращает `default_actions=["apply_beginner_budget"]`.
+- Для неизвестного бюджета применяется product policy: спросить "Ок, показать недорогие варианты для новичка до $500?" либо вернуть ready search с explicit `search_params.price_max=500`, если router видит начальный запрос без лишних вопросов. Backend сам не подставляет `$500`.
 
 ### Когда provider отклонил router-запрос из-за размера
 - Router и генерация ответов могут использовать разные модели: `LLM_ROUTER_MODEL` для JSON-классификации, `LLM_ANSWER_MODEL`/`LLM_MODEL` для консультаций и off-topic ответов.
@@ -85,8 +88,9 @@
 - Rate limit (`429`) не retry-ится, потому что повторный запрос сразу потратит ещё лимит и не устранит причину.
 
 ### Когда Reverb вернул 0 результатов
-- `_build_relaxed_queries` пробует ослабленный запрос (например, убирает бренд).
-- Если всё ещё 0 — возвращается пустой список `results: []`.
+- Agent path возвращает пустой список `results: []` с теми же LLM-router `searchParams`.
+- Backend больше не запускает скрытый relaxed-query retry в agent path. Будущее расширение поиска должно быть LLM-owned refinement, чтобы executed queries и public `searchParams` не расходились.
+- Direct low-level `search_reverb()` по-прежнему может расширять query synonyms для обратной совместимости; agent-owned search использует exact mode.
 
 ## Честные ограничения
 

@@ -22,6 +22,7 @@ class MockLLMClient:
             "search_queries": ["Fender Stratocaster"],
             "price_min": None,
             "price_max": 1000,
+            "type": "any",
         }
 
     def classify_and_plan_query(self, text: str, history=None, current_state=None) -> dict:
@@ -91,6 +92,7 @@ def test_search_with_mock():
             "search_queries": ["Fender Stratocaster"],
             "price_min": None,
             "price_max": 1000,
+            "type": "any",
         }
     )
     statuses = []

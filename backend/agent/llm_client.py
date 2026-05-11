@@ -233,38 +233,31 @@ def _build_router_prompt(user_query: str, history_context: str, current_state: d
     if current_state:
         state_block = f"\nState:\n{json.dumps(current_state, ensure_ascii=False)}\n"
 
-    return f"""Guitar router. Return JSON only.
-
-Keys: intent, enough_for_search, missing_fields, search_params, should_offer_search; optional: no_preference_fields, budget_default_offer, default_actions, state_action.
-intent: search|consultation|off_topic. search_params: search_queries,price_min,price_max,type,brand,pickups,sound,style. type never "electric"; use any when type is unknown. RUB 100=1USD.
-
-Rules:
-- ready search: enough=true, search_queries>=1, budget explicit or default_actions has apply_beginner_budget/accept_beginner_budget.
-- not ready search: enough=false, missing_fields only budget/type, search_params may be null.
-- user cannot choose field => no_preference_fields; unknown budget after asked => budget_default_offer, never unlimited.
-- beginner + no extra questions => apply_beginner_budget. Pending budget offer + yes => accept_beginner_budget.
-- new independent search => state_action=reset; follow-up constraints => patch.
-- off_topic: unrelated to guitar/bass/sound/music gear.
-- No previous search context + "посоветуй/что взять/порекомендуй гитару" => search.
-- With "Последняя поисковая выдача" + "что взять/какой лучше/новичку" => consultation unless new variants/links/budget.
-- "покажи ещё"/"другие"/"дешевле"/"до 1000"/"ссылки" => search.
+    return f"""Guitar router. JSON only.
+Keys: intent,enough_for_search,missing_fields,search_params,should_offer_search; optional no_preference_fields,budget_default_offer,default_actions,state_action.
+search_params schema: search_queries,price_min,price_max,type,brand,pickups,sound,style. RUB 100=1USD.
+Ready: final effective search_params; backend will not apply default_actions/stale state. Need 1-3 queries, price, type; never omit search_params fields. default_actions labels only; apply_beginner_budget/accept_beginner_budget must put price_max.
+Types: stratocaster,telecaster,les paul,sg,superstrat,acoustic,classical,bass,seven_string,any. Use "les paul", not "les_paul"; never electric.
+Queries marketplace/title-searchable. Beginner: Squier Affinity Stratocaster, Yamaha Pacifica, Ibanez Gio, Yamaha FG acoustic; avoid 7-string/baritone/pro/metal.
+Not ready: enough=false, missing_fields only budget/type. Type unknown => no_preference_fields ["type"], ready type="any". Unknown budget after asked => budget_default_offer. New search reset; follow-up/show more patch full snapshot.
+off_topic unrelated. No previous search context + "посоветуй/что взять/порекомендуй гитару" => search. With "Последняя поисковая выдача" + "что взять/какой лучше/новичку" => consultation unless new variants/links/budget. "покажи ещё"/"другие"/"дешевле"/"до 1000"/"ссылки" => search.
 
 Examples:
-Q:"Хочу телекастер с ярким звуком, до $600"
-A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"no_preference_fields":[],"budget_default_offer":false,"default_actions":[],"state_action":"patch","search_params":{{"search_queries":["Fender Telecaster"],"price_max":600,"type":"telecaster","sound":"bright"}},"should_offer_search":false}}
 Q:"хорошую гитарку для новичка посоветуй давай"
 A:{{"intent":"search","enough_for_search":false,"missing_fields":["budget","type"],"search_params":null,"should_offer_search":false}}
-Q:"500 долларов, тип не знаю"
-A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"no_preference_fields":["type"],"search_params":{{"search_queries":["beginner electric guitar"],"price_max":500,"type":"any"}},"should_offer_search":false}}
 Q:"хочу гитару, я новичок, ничего не понимаю, без лишних вопросов"
-A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"no_preference_fields":["type"],"default_actions":["apply_beginner_budget"],"state_action":"reset","search_params":{{"search_queries":["beginner electric guitar"],"price_max":null,"type":"any"}},"should_offer_search":false}}
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"no_preference_fields":["type"],"default_actions":["apply_beginner_budget"],"state_action":"reset","search_params":{{"search_queries":["Squier Affinity Stratocaster","Yamaha Pacifica","Ibanez Gio"],"price_max":500,"type":"any"}},"should_offer_search":false}}
+State price_max=500,type=any Q:"давай до 1000 доларов"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"state_action":"patch","search_params":{{"search_queries":["Yamaha Pacifica","Squier Affinity Stratocaster"],"price_max":1000,"type":"any"}},"should_offer_search":false}}
+State ready search Q:"покажи ещё"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"state_action":"patch","search_params":{{"search_queries":["Yamaha Pacifica","Squier Affinity Stratocaster"],"price_max":1000,"type":"any"}},"should_offer_search":false}}
+Q:"покажи ещё до 1000"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"search_params":{{"search_queries":["Yamaha Pacifica"],"price_max":1000,"type":"any"}},"should_offer_search":false}}
 Context: Последняя поисковая выдача: #1 Fender Player Telecaster #2 Squier Classic Vibe Telecaster
 Q:"чем 1ый лучше 2го"
 A:{{"intent":"consultation","enough_for_search":false,"missing_fields":[],"search_params":null,"should_offer_search":false}}
 Q:"для новичка что лучше взять?"
 A:{{"intent":"consultation","enough_for_search":false,"missing_fields":[],"search_params":null,"should_offer_search":false}}
-Q:"покажи ещё до 1000"
-A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"search_params":{{"search_queries":["beginner electric guitar"],"price_max":1000,"type":"any"}},"should_offer_search":false}}
 {history_block}
 {state_block}
 Q:{user_query}
@@ -294,8 +287,11 @@ def _build_router_repair_prompt(
 Не отвечай пользователю. Верни только исправленный JSON той же формы.
 Не придумывай объявления, ссылки, магазины, цены или наличие.
 Используй исходный запрос, context и state.
-Если intent=search и enough_for_search=true, search_params.search_queries обязан содержать минимум одну непустую поисковую строку для Reverb.
-Если бюджет неизвестен, не делай unlimited search: используй budget_default_offer или default_actions.
+For ready search, return the final effective search_params snapshot. backend will not apply default_actions or stale state.
+Если default_actions содержит apply_beginner_budget/accept_beginner_budget, поставь фактическое число в search_params.price_max.
+Если user changed a constraint, reflect it in search_params.
+Если intent=search и enough_for_search=true: search_queries 1-3 непустые строки, price_max/price_min явный, type явный или "any".
+Если бюджет неизвестен, не делай unlimited search: используй budget_default_offer, not ready search.
 consultation/off_topic => search_params=null. off_topic => should_offer_search=false.
 
 Форма:

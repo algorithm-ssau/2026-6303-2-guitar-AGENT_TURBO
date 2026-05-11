@@ -298,6 +298,8 @@ def search_reverb(
     search_queries: list[str],
     price_min: int | None = None,
     price_max: int | None = None,
+    *,
+    expand_query_synonyms: bool = True,
 ) -> list[dict[str, Any]]:
     """
     Выполняет поиск объявлений на Reverb по подготовленным параметрам.
@@ -311,6 +313,7 @@ def search_reverb(
         search_queries: Список строк, которые нужно отправить в поиск Reverb.
         price_min: Нижняя граница бюджета в долларах, если указана.
         price_max: Верхняя граница бюджета в долларах, если указана.
+        expand_query_synonyms: Расширять ли запросы внутренними синонимами.
 
     Returns:
         Нормализованный список объявлений Reverb. Каждый элемент содержит:
@@ -321,8 +324,9 @@ def search_reverb(
         - image_url: ссылка на изображение
         - listing_url: ссылка на карточку товара
     """
-    # Расширяем запросы синонимами (работает для обоих режимов)
-    search_queries = expand_queries(search_queries)
+    # Direct callers keep synonym expansion by default. Agent-owned search can opt out
+    # so router-provided effective queries stay identical to executed queries.
+    search_queries = expand_queries(search_queries) if expand_query_synonyms else list(search_queries or [])
 
     # Проверяем режим работы
     use_mock = os.getenv("USE_MOCK_REVERB", "false").lower() == "true"
@@ -357,3 +361,17 @@ def search_reverb(
         results = _filter_by_price(filtered_by_query, price_min, price_max)
 
     return results
+
+
+def search_reverb_exact(
+    search_queries: list[str],
+    price_min: int | None = None,
+    price_max: int | None = None,
+) -> list[dict[str, Any]]:
+    """Executes Reverb search without post-router synonym expansion."""
+    return search_reverb(
+        search_queries,
+        price_min,
+        price_max,
+        expand_query_synonyms=False,
+    )

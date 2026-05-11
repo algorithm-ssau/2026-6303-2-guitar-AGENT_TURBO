@@ -326,6 +326,240 @@ def test_accept_beginner_budget_without_pending_state_is_invalid():
         interpret_query("да", llm_client=client)
 
 
+def test_apply_beginner_budget_requires_explicit_price_max():
+    client = FakeRouterClient({
+        "intent": "search",
+        "enough_for_search": True,
+        "missing_fields": [],
+        "default_actions": ["apply_beginner_budget"],
+        "search_params": {
+            "search_queries": ["Squier Affinity Stratocaster"],
+            "price_min": None,
+            "price_max": None,
+            "type": "any",
+        },
+        "should_offer_search": False,
+    })
+
+    with pytest.raises(InvalidRouterResponseError):
+        interpret_query("без лишних вопросов", llm_client=client)
+
+
+def test_repair_can_make_beginner_default_explicit_and_run_search():
+    class RepairingClient:
+        def __init__(self):
+            self.repair_calls = []
+
+        def classify_and_plan_query(self, user_message, history=None, current_state=None):
+            return {
+                "intent": "search",
+                "enough_for_search": True,
+                "missing_fields": [],
+                "default_actions": ["apply_beginner_budget"],
+                "search_params": {
+                    "search_queries": ["Squier Affinity Stratocaster"],
+                    "price_min": None,
+                    "price_max": None,
+                    "type": "any",
+                },
+                "should_offer_search": False,
+            }
+
+        def repair_router_plan(self, user_message, invalid_plan, validation_errors, history=None, current_state=None):
+            self.repair_calls.append(validation_errors)
+            return {
+                "intent": "search",
+                "enough_for_search": True,
+                "missing_fields": [],
+                "default_actions": ["apply_beginner_budget"],
+                "search_params": {
+                    "search_queries": ["Squier Affinity Stratocaster"],
+                    "price_min": None,
+                    "price_max": 500,
+                    "type": "any",
+                },
+                "should_offer_search": False,
+            }
+
+    client = RepairingClient()
+    result = interpret_query(
+        "без лишних вопросов",
+        llm_client=client,
+        search_fn=lambda queries, price_min, price_max: [{"title": "Squier Affinity Stratocaster", "price": 450}],
+    )
+
+    assert result["mode"] == "search"
+    assert result["search_params"]["price_max"] == 500
+    assert client.repair_calls
+
+
+@pytest.mark.parametrize(
+    ("raw_type", "expected_type"),
+    [("les paul", "les paul"), ("les_paul", "les paul")],
+)
+def test_ready_type_les_paul_is_canonicalized(monkeypatch, raw_type, expected_type):
+    saved_states = []
+    monkeypatch.setattr("backend.agent.service.save_session_state", lambda session_id, state: saved_states.append(state))
+
+    client = FakeRouterClient({
+        "intent": "search",
+        "enough_for_search": True,
+        "missing_fields": [],
+        "search_params": {
+            "search_queries": ["Epiphone Les Paul"],
+            "price_min": None,
+            "price_max": 700,
+            "type": raw_type,
+            "brand": None,
+            "pickups": None,
+            "sound": None,
+            "style": None,
+        },
+        "should_offer_search": False,
+    })
+
+    result = interpret_query(
+        "les paul до 700",
+        llm_client=client,
+        search_fn=lambda queries, price_min, price_max: [{"title": "Epiphone Les Paul", "price": 650}],
+        session_id=42,
+    )
+
+    assert result["search_params"]["type"] == expected_type
+    assert saved_states[-1]["type"] == expected_type
+
+
+@pytest.mark.parametrize(
+    "search_params",
+    [
+        {"search_queries": ["generic electric"], "price_min": None, "price_max": 700, "type": "electric"},
+        {"search_queries": ["strat"], "price_min": None, "price_max": 700, "type": "any", "pickups": "unknown"},
+        {"search_queries": ["strat"], "price_min": 1000, "price_max": 500, "type": "any"},
+        {"search_queries": [], "price_min": None, "price_max": 500, "type": "any"},
+        {"search_queries": ["one", "two", "three", "four"], "price_min": None, "price_max": 500, "type": "any"},
+    ],
+)
+def test_invalid_ready_search_params_are_not_silently_executed(search_params):
+    client = FakeRouterClient({
+        "intent": "search",
+        "enough_for_search": True,
+        "missing_fields": [],
+        "search_params": search_params,
+        "should_offer_search": False,
+    })
+
+    with pytest.raises(InvalidRouterResponseError):
+        interpret_query("подбери", llm_client=client, search_fn=lambda *args: [{"title": "Should not run"}])
+
+
+def test_ready_pickups_alias_is_canonicalized(monkeypatch):
+    saved_states = []
+    monkeypatch.setattr("backend.agent.service.save_session_state", lambda session_id, state: saved_states.append(state))
+
+    client = FakeRouterClient({
+        "intent": "search",
+        "enough_for_search": True,
+        "missing_fields": [],
+        "search_params": {
+            "search_queries": ["Squier Stratocaster"],
+            "price_min": None,
+            "price_max": 600,
+            "type": "stratocaster",
+            "pickups": "sss",
+        },
+        "should_offer_search": False,
+    })
+
+    result = interpret_query(
+        "strat sss до 600",
+        llm_client=client,
+        search_fn=lambda queries, price_min, price_max: [{"title": "Squier Stratocaster", "price": 500}],
+        session_id=42,
+    )
+
+    assert result["search_params"]["pickups"] == "SSS"
+    assert saved_states[-1]["pickups"] == "SSS"
+
+
+def test_unknown_missing_fields_are_contract_errors():
+    client = FakeRouterClient({
+        "intent": "search",
+        "enough_for_search": False,
+        "missing_fields": ["budget", "color"],
+        "search_params": None,
+        "should_offer_search": False,
+    })
+
+    with pytest.raises(InvalidRouterResponseError):
+        interpret_query("подбери красную", llm_client=client)
+
+
+@pytest.mark.parametrize(
+    ("no_preference_fields", "route_type"),
+    [(["type"], None), (["type"], "telecaster"), (["budget"], "any")],
+)
+def test_ready_no_preference_fields_must_match_explicit_final_params(no_preference_fields, route_type):
+    client = FakeRouterClient({
+        "intent": "search",
+        "enough_for_search": True,
+        "missing_fields": [],
+        "no_preference_fields": no_preference_fields,
+        "search_params": {
+            "search_queries": ["Squier Telecaster"],
+            "price_min": None,
+            "price_max": 600,
+            "type": route_type,
+        },
+        "should_offer_search": False,
+    })
+
+    with pytest.raises(InvalidRouterResponseError):
+        interpret_query("подбери", llm_client=client)
+
+
+def test_ready_with_missing_fields_is_repairable_not_silent_clarification():
+    class Client(FakeRouterClient):
+        def __init__(self):
+            super().__init__({
+                "intent": "search",
+                "enough_for_search": True,
+                "missing_fields": ["budget"],
+                "search_params": {
+                    "search_queries": ["Squier Telecaster"],
+                    "price_min": None,
+                    "price_max": 600,
+                    "type": "telecaster",
+                },
+                "should_offer_search": False,
+            })
+            self.repair_called = False
+
+        def repair_router_plan(self, *args, **kwargs):
+            self.repair_called = True
+            return {
+                "intent": "search",
+                "enough_for_search": True,
+                "missing_fields": [],
+                "search_params": {
+                    "search_queries": ["Squier Telecaster"],
+                    "price_min": None,
+                    "price_max": 600,
+                    "type": "telecaster",
+                },
+                "should_offer_search": False,
+            }
+
+    client = Client()
+    result = interpret_query(
+        "tele до 600",
+        llm_client=client,
+        search_fn=lambda queries, price_min, price_max: [{"title": "Squier Telecaster", "price": 550}],
+    )
+
+    assert result["mode"] == "search"
+    assert client.repair_called is True
+
+
 def test_accept_beginner_budget_with_reset_is_invalid_even_with_pending_state(monkeypatch):
     monkeypatch.setattr(
         "backend.agent.service.get_session_state",

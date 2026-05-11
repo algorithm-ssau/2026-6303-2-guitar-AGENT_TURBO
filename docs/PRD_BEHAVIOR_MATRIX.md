@@ -35,6 +35,8 @@
 | Не обсуждать доставку/оплату | Явный запрет в `AGENT_PROMPT.md` строка "Не обсуждай доставку, оплату" | ready |
 | Search только для search-запросов | `LLMClient.classify_and_plan_query()` + strict route validation в `service.py` | ready |
 | Consultation без поиска | `_handle_consultation` не вызывает `search_reverb` | ready |
+| Ready search без скрытых defaults | LLM-router возвращает полный effective `search_params`; backend валидирует/repair и не применяет `$500` или старый state сам | ready |
+| Public `searchParams` совпадают с execution params | Search исполняется из текущего router snapshot, response строится из того же snapshot | ready |
 
 ## Degraded Mode — поведение без API
 
@@ -43,7 +45,7 @@
 | Без `GROQ_API_KEY` | REST `503` / WebSocket `error`, regex fallback не используется | degraded |
 | `USE_MOCK_REVERB=true` | Mock-данные из `search_reverb`, ранжирование работает | degraded |
 | LLM вернул невалидный JSON | REST `502` / WebSocket `error`, regex fallback не используется | ready |
-| Reverb вернул 0 результатов | `_build_relaxed_queries` пробует ослабленный запрос | ready |
+| Reverb вернул 0 результатов | Agent path возвращает `results: []` без backend-generated relaxed query retry; будущий retry должен быть LLM-owned | ready |
 | Пустой запрос | REST validation `422`, WebSocket error | ready |
 
 ## Покрытие PRD

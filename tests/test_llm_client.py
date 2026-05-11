@@ -114,6 +114,8 @@ def test_router_repair_prompt_contains_validation_errors_and_invalid_json():
     assert "search_queries" in prompt
     assert "Хочу телекастер" in prompt
     assert "Последняя поисковая выдача" in prompt
+    assert "backend will not apply default_actions" in prompt
+    assert "final effective search_params" in prompt
 
 
 def test_repair_router_plan_uses_router_model(monkeypatch):
@@ -208,3 +210,24 @@ def test_router_prompt_size_with_short_history_and_state_stays_under_budget():
     )
 
     assert len(prompt) < 4000
+
+
+def test_router_prompt_documents_explicit_defaults_and_followup_snapshots():
+    prompt = build_router_prompt_for_debug("давай до 1000 доларов")
+
+    assert "backend will not apply" in prompt
+    assert "never omit search_params fields" in prompt
+    assert "давай до 1000 доларов" in prompt
+    assert '"price_max":1000' in prompt
+    assert "покажи ещё" in prompt
+    assert "Use \"les paul\", not \"les_paul\"" in prompt
+
+
+def test_router_prompt_beginner_examples_are_explicit_and_title_searchable():
+    prompt = build_router_prompt_for_debug("без лишних вопросов")
+
+    assert "marketplace/title-searchable" in prompt
+    assert "Squier Affinity Stratocaster" in prompt
+    assert "Yamaha Pacifica" in prompt
+    assert '"price_max":500' in prompt
+    assert '"beginner electric guitar"' not in prompt

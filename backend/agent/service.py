@@ -13,7 +13,7 @@ from typing import Callable, Optional
 from backend.agent.llm_client import LLMClient
 from backend.agent.clarification import CLARIFICATION_QUESTIONS
 from backend.ranking.ranking import rank_results
-from backend.search.search_reverb import search_reverb
+from backend.search.search_reverb import search_reverb_exact
 from backend.history.service import get_session_messages, get_session_state, save_session_state, strip_think_blocks
 from backend.utils.logger import get_logger
 
@@ -33,6 +33,39 @@ MODEL_BRANDS = (
 DEFAULT_ROUTER_CONTEXT_CHAR_LIMIT = 2500
 DEFAULT_ROUTER_ASSISTANT_SNIPPET_CHAR_LIMIT = 450
 DEFAULT_ROUTER_MAX_PROMPT_CHARS = 4200
+
+SEARCH_PARAM_FIELDS = ("search_queries", "price_min", "price_max", "type", "brand", "pickups", "sound", "style")
+ALLOWED_MISSING_FIELDS = {"budget", "type"}
+ALLOWED_NO_PREFERENCE_FIELDS = {"budget", "type", "brand", "pickups", "sound", "style"}
+ALLOWED_DEFAULT_ACTIONS = {"apply_beginner_budget", "accept_beginner_budget"}
+TYPE_ALIASES = {
+    "les_paul": "les paul",
+    "les paul": "les paul",
+    "strat": "stratocaster",
+    "tele": "telecaster",
+}
+ALLOWED_TYPES = {
+    "stratocaster", "telecaster", "les paul", "sg", "superstrat",
+    "acoustic", "classical", "bass", "seven_string", "any",
+}
+PICKUPS_ALIASES = {
+    "sss": "SSS",
+    "ss": "SS",
+    "hss": "HSS",
+    "hsh": "HSH",
+    "hh": "HH",
+    "p90": "P90",
+    "p_90": "P90",
+    "p-90": "P90",
+    "single coil": "single_coil",
+    "single_coil": "single_coil",
+    "humbuckers": "humbucker",
+    "humbucker": "humbucker",
+}
+ALLOWED_PICKUPS = {
+    "SSS", "SS", "HSS", "HSH", "HH", "P90",
+    "single_coil", "humbucker", "active", "passive",
+}
 
 _ROUTER_BAD_TIER_CACHE: dict[tuple[Optional[int], str, str], float] = {}
 
@@ -135,7 +168,7 @@ def interpret_query(
     Args:
         text: Текстовый запрос пользователя
         llm_client: LLMClient для тестов (если None — создаётся через create_llm_client)
-        search_fn: Функция поиска для тестов (если None — используется search_reverb)
+        search_fn: Функция поиска для тестов (если None — используется exact Reverb adapter)
         on_status: Callback для промежуточных статусов (если None — статусы не отправляются)
 
     Returns:
@@ -151,7 +184,7 @@ def interpret_query(
         raise LLMUnavailableError("LLM client is not configured")
 
     # Выбираем функцию поиска
-    actual_search_fn = search_fn or search_reverb
+    actual_search_fn = search_fn or search_reverb_exact
 
     current_state = get_session_state(session_id) if session_id else {}
     router_history = _build_router_history(session_id)
@@ -162,14 +195,18 @@ def interpret_query(
         normal_history=router_history,
         current_state=current_state,
     )
+    logger.info(
+        "router_route intent=%s enough=%s missing=%s defaults=%s budget_offer=%s params=%s",
+        route_plan["intent"],
+        route_plan["enough_for_search"],
+        route_plan["missing_fields"],
+        route_plan.get("default_actions"),
+        route_plan.get("budget_default_offer"),
+        _safe_router_params_for_log(route_plan.get("search_params")),
+    )
 
     if route_plan["intent"] == "off_topic":
         return _handle_off_topic(text, llm_client, on_status)
-
-    merged_state = _merge_search_state(current_state, route_plan)
-    merged_state = _finalize_search_state(merged_state)
-    if session_id:
-        save_session_state(session_id, merged_state)
 
     if route_plan["intent"] == "consultation":
         from backend.agent.context_manager import build_context
@@ -184,14 +221,29 @@ def interpret_query(
             session_id=session_id,
         )
 
-    user_search_params = _state_to_user_search_params(merged_state)
-    params = _state_to_search_params(merged_state)
-    if not merged_state.get("ready_for_search"):
+    if not route_plan.get("enough_for_search"):
+        merged_state = _apply_incomplete_search_patch(current_state, route_plan)
+        merged_state = _finalize_search_state(merged_state)
         merged_state = _prepare_clarification_state(merged_state)
         if session_id:
             save_session_state(session_id, merged_state)
+        user_search_params = _state_to_user_search_params(merged_state)
         return _handle_clarification(text, llm_client, on_status, route_plan, merged_state, user_search_params)
 
+    params = route_plan["search_params"]
+    user_search_params = _search_params_to_user_search_params(params)
+    merged_state = _apply_ready_search_snapshot(route_plan, current_state)
+    if session_id:
+        save_session_state(session_id, merged_state)
+
+    logger.info(
+        "effective_search_params session_id=%s price_min=%s price_max=%s type=%s queries=%s",
+        session_id,
+        params.get("price_min"),
+        params.get("price_max"),
+        params.get("type"),
+        params.get("search_queries"),
+    )
     from backend.agent.context_manager import build_context
     history = build_context(session_id, get_system_prompt(), text, llm_client)
     return _handle_search(
@@ -346,16 +398,6 @@ def _handle_search(
             params.get("price_min"),
             params.get("price_max"),
         )
-        if not results:
-            relaxed_queries = _build_relaxed_queries(params)
-            if relaxed_queries:
-                results = search_fn(
-                    relaxed_queries,
-                    params.get("price_min"),
-                    params.get("price_max"),
-                )
-                if results:
-                    params = {**params, "search_queries": relaxed_queries}
     except Exception as e:
         logger.error("Ошибка search_reverb: %s", e)
         return {
@@ -440,9 +482,7 @@ def _consultation_guardrail_recovery(
             ),
         }
 
-    state = get_session_state(session_id) if session_id else {}
     recovery_state = _prepare_clarification_state({
-        **(state or {}),
         "last_intent": "search",
         "missing_fields": ["budget", "type"],
         "ready_for_search": False,
@@ -1092,7 +1132,10 @@ def _validate_route_plan(candidate: object) -> tuple[Optional[dict], list[str]]:
         errors.append("missing_fields must be list")
         normalized_missing_fields = []
     else:
-        normalized_missing_fields = [field for field in missing_fields if field in {"budget", "type"}]
+        normalized_missing_fields = [field for field in missing_fields if isinstance(field, str)]
+        unknown_missing = [field for field in normalized_missing_fields if field not in ALLOWED_MISSING_FIELDS]
+        if unknown_missing:
+            errors.append("missing_fields must contain only budget/type")
 
     no_preference_fields = candidate.get("no_preference_fields", [])
     if no_preference_fields is None:
@@ -1101,9 +1144,8 @@ def _validate_route_plan(candidate: object) -> tuple[Optional[dict], list[str]]:
         errors.append("no_preference_fields must be list")
         normalized_no_preference_fields = []
     else:
-        allowed_no_preference = {"budget", "type", "brand", "pickups", "sound", "style"}
         normalized_no_preference_fields = [
-            field for field in no_preference_fields if field in allowed_no_preference
+            field for field in no_preference_fields if field in ALLOWED_NO_PREFERENCE_FIELDS
         ]
         if len(normalized_no_preference_fields) != len(no_preference_fields):
             errors.append("no_preference_fields must contain only allowed values")
@@ -1115,9 +1157,8 @@ def _validate_route_plan(candidate: object) -> tuple[Optional[dict], list[str]]:
         errors.append("default_actions must be list")
         normalized_default_actions = []
     else:
-        allowed_default_actions = {"apply_beginner_budget", "accept_beginner_budget"}
         normalized_default_actions = [
-            action for action in default_actions if action in allowed_default_actions
+            action for action in default_actions if action in ALLOWED_DEFAULT_ACTIONS
         ]
         if len(normalized_default_actions) != len(default_actions):
             errors.append("default_actions must contain only allowed values")
@@ -1130,14 +1171,12 @@ def _validate_route_plan(candidate: object) -> tuple[Optional[dict], list[str]]:
     budget_default_offer = bool(candidate.get("budget_default_offer"))
 
     enough_for_search = bool(candidate.get("enough_for_search"))
-    if normalized_missing_fields:
-        enough_for_search = False
 
     search_params = candidate.get("search_params")
     if intent == "search":
         if not enough_for_search and normalized_missing_fields:
             normalized_search_params = (
-                _normalize_search_params(search_params)
+                _normalize_search_params(search_params)[0]
                 if isinstance(search_params, dict)
                 else None
             )
@@ -1145,11 +1184,15 @@ def _validate_route_plan(candidate: object) -> tuple[Optional[dict], list[str]]:
             errors.append("search_params must be object for search intent")
             normalized_search_params = None
         else:
-            normalized_search_params = _normalize_search_params(search_params)
-            if enough_for_search and not normalized_search_params["search_queries"]:
-                errors.append(
-                    "search_params.search_queries must contain at least one non-empty query when enough_for_search=true"
-                )
+            normalized_search_params, param_errors = _normalize_search_params(search_params)
+            errors.extend(param_errors)
+            if enough_for_search:
+                errors.extend(_validate_ready_search_params(
+                    normalized_search_params,
+                    normalized_missing_fields,
+                    normalized_no_preference_fields,
+                    normalized_default_actions,
+                ))
         if not enough_for_search and not normalized_missing_fields:
             errors.append("missing_fields must contain budget and/or type when enough_for_search=false")
     elif search_params is not None:
@@ -1181,9 +1224,6 @@ def _validate_route_plan_for_state(route_plan: dict, current_state: dict) -> lis
 
     params = route_plan.get("search_params") or {}
     default_actions = set(route_plan.get("default_actions") or [])
-    no_preference = set(route_plan.get("no_preference_fields") or [])
-    has_explicit_budget = params.get("price_max") is not None or params.get("price_min") is not None
-    has_apply_default = "apply_beginner_budget" in default_actions
     has_accept_default = "accept_beginner_budget" in default_actions
     pending_budget = ((current_state or {}).get("pending_defaults") or {}).get("budget")
 
@@ -1192,42 +1232,62 @@ def _validate_route_plan_for_state(route_plan: dict, current_state: dict) -> lis
         errors.append("default_actions.accept_beginner_budget requires pending budget default")
     if has_accept_default and route_plan.get("state_action") == "reset":
         errors.append("default_actions.accept_beginner_budget cannot be used with state_action reset")
-    if "budget" in no_preference and not has_explicit_budget and not has_apply_default and not has_accept_default:
-        errors.append("budget no_preference requires explicit budget or default action")
-    if not has_explicit_budget and not has_apply_default and not has_accept_default:
-        errors.append("search budget required when enough_for_search=true")
+    if "accept_beginner_budget" in default_actions and params.get("price_max") is None:
+        errors.append("accept_beginner_budget requires explicit final price_max")
     return errors
 
 
-def _normalize_search_params(params: dict) -> dict:
+def _validate_ready_search_params(
+    params: Optional[dict],
+    missing_fields: list[str],
+    no_preference_fields: list[str],
+    default_actions: list[str],
+) -> list[str]:
+    errors: list[str] = []
+    params = params or {}
+    queries = params.get("search_queries") or []
+    if not queries:
+        errors.append("ready search must include final search_params.search_queries")
+    if not (1 <= len(queries) <= 3):
+        errors.append("ready search must include 1-3 final search_params.search_queries")
+    if params.get("price_max") is None and params.get("price_min") is None:
+        errors.append("ready search must include explicit final search_params.price_max or price_min")
+    if params.get("type") is None:
+        errors.append("ready search must include explicit final search_params.type or type='any'")
+    if missing_fields:
+        errors.append("ready search must have missing_fields=[]")
+    if params.get("price_min") is not None and params.get("price_max") is not None:
+        if params["price_min"] > params["price_max"]:
+            errors.append("ready search price_min must be <= price_max")
+    if "apply_beginner_budget" in default_actions and params.get("price_max") is None:
+        errors.append("apply_beginner_budget requires explicit final price_max")
+    if "accept_beginner_budget" in default_actions and params.get("price_max") is None:
+        errors.append("accept_beginner_budget requires explicit final price_max")
+    if "type" in no_preference_fields and params.get("type") != "any":
+        errors.append("type no_preference requires explicit final type='any'")
+    if "budget" in no_preference_fields:
+        errors.append("budget no_preference cannot make ready search without explicit safe budget")
+    return errors
+
+
+def _normalize_search_params(params: dict) -> tuple[dict, list[str]]:
     """Приводит router search_params к стабильной внутренней форме."""
-    allowed_types = {
-        "stratocaster", "telecaster", "les_paul", "sg", "superstrat",
-        "acoustic", "classical", "bass", "seven_string", "any",
-    }
-    allowed_pickups = {
-        "SSS", "SS", "HSS", "HSH", "HH", "P90",
-        "single_coil", "humbucker", "active", "passive",
-    }
+    errors: list[str] = []
 
     raw_queries = params.get("search_queries")
     queries = []
     if isinstance(raw_queries, list):
         queries = [str(query).strip() for query in raw_queries if str(query or "").strip()]
 
-    guitar_type = params.get("type")
-    if guitar_type is not None:
-        guitar_type = str(guitar_type).strip().lower()
-        if guitar_type not in allowed_types:
-            guitar_type = None
+    guitar_type, type_error = _normalize_type_value(params.get("type"))
+    if type_error:
+        errors.append(type_error)
 
-    pickups = params.get("pickups")
-    if pickups is not None:
-        pickups = str(pickups).strip()
-        if pickups not in allowed_pickups:
-            pickups = None
+    pickups, pickups_error = _normalize_pickups_value(params.get("pickups"))
+    if pickups_error:
+        errors.append(pickups_error)
 
-    return {
+    normalized = {
         "search_queries": queries,
         "price_min": _number_or_none(params.get("price_min")),
         "price_max": _number_or_none(params.get("price_max")),
@@ -1237,6 +1297,32 @@ def _normalize_search_params(params: dict) -> dict:
         "sound": _string_or_none(params.get("sound")),
         "style": _string_or_none(params.get("style")),
     }
+    return normalized, errors
+
+
+def _normalize_type_value(value: object) -> tuple[Optional[str], Optional[str]]:
+    if value is None:
+        return None, None
+    raw = str(value).strip().lower().replace("-", "_")
+    if not raw:
+        return None, None
+    normalized = TYPE_ALIASES.get(raw, raw)
+    if normalized not in ALLOWED_TYPES:
+        return None, f"search_params.type must be one of {sorted(ALLOWED_TYPES)}"
+    return normalized, None
+
+
+def _normalize_pickups_value(value: object) -> tuple[Optional[str], Optional[str]]:
+    if value is None:
+        return None, None
+    raw = str(value).strip()
+    if not raw:
+        return None, None
+    alias_key = raw.lower().replace("-", "_")
+    normalized = PICKUPS_ALIASES.get(alias_key, PICKUPS_ALIASES.get(raw.lower(), raw))
+    if normalized not in ALLOWED_PICKUPS:
+        return None, f"search_params.pickups must be one of {sorted(ALLOWED_PICKUPS)}"
+    return normalized, None
 
 
 def _number_or_none(value: object) -> Optional[float]:
@@ -1268,75 +1354,63 @@ def _question_from_missing_fields(missing_fields: list) -> str:
     return CLARIFICATION_QUESTIONS["both"]
 
 
-def _merge_search_state(
-    current_state: dict,
-    route_plan: dict,
-) -> dict:
-    """Мержит накопленное поисковое состояние с новыми параметрами, не теряя уже известное."""
-    state = {} if (route_plan or {}).get("state_action") == "reset" else dict(current_state or {})
-    params = route_plan.get("search_params") if isinstance(route_plan, dict) else {}
-    params = params if isinstance(params, dict) else {}
-    route_has_explicit_budget = params.get("price_max") is not None or params.get("price_min") is not None
-    intent = (route_plan or {}).get("intent")
-    missing_fields = route_plan.get("missing_fields", []) if isinstance(route_plan, dict) else []
-    enough_for_search = bool((route_plan or {}).get("enough_for_search", False))
-    no_preference_fields = [
-        field for field in ((route_plan or {}).get("no_preference_fields") or [])
-        if field in {"budget", "type", "brand", "pickups", "sound", "style"}
+def _apply_ready_search_snapshot(route_plan: dict, current_state: Optional[dict] = None) -> dict:
+    """Persists the current router-owned final search_params snapshot."""
+    params = route_plan["search_params"]
+    pending = dict((current_state or {}).get("pending_defaults") or {})
+    pending.pop("budget", None)
+    return {
+        "state_schema": "ready_search_snapshot_v1",
+        "state_source": "router_search_params",
+        "last_intent": "search",
+        "ready_for_search": True,
+        "missing_fields": [],
+        "search_queries": list(params.get("search_queries") or []),
+        "price_min": params.get("price_min"),
+        "price_max": params.get("price_max"),
+        "type": params.get("type"),
+        "brand": params.get("brand"),
+        "pickups": params.get("pickups"),
+        "sound": params.get("sound"),
+        "style": params.get("style"),
+        "no_preference_fields": list(route_plan.get("no_preference_fields") or []),
+        "default_actions": list(route_plan.get("default_actions") or []),
+        "state_action": route_plan.get("state_action", "patch"),
+        "pending_defaults": pending,
+        "last_clarification_target": None,
+    }
+
+
+def _apply_incomplete_search_patch(current_state: dict, route_plan: dict) -> dict:
+    """Builds clarification state from current router output without stale executable params."""
+    params = route_plan.get("search_params") if isinstance(route_plan.get("search_params"), dict) else {}
+    state = {
+        "last_intent": "search",
+        "ready_for_search": False,
+        "missing_fields": list(route_plan.get("missing_fields") or []),
+        "search_queries": list(params.get("search_queries") or []),
+        "price_min": params.get("price_min"),
+        "price_max": params.get("price_max"),
+        "type": params.get("type"),
+        "brand": params.get("brand"),
+        "pickups": params.get("pickups"),
+        "sound": params.get("sound"),
+        "style": params.get("style"),
+        "no_preference_fields": list(route_plan.get("no_preference_fields") or []),
+        "default_actions": list(route_plan.get("default_actions") or []),
+        "state_action": route_plan.get("state_action", "patch"),
+    }
+    asked_fields = [
+        field for field in ((current_state or {}).get("asked_fields") or [])
+        if field in ALLOWED_NO_PREFERENCE_FIELDS
     ]
-    default_actions = [
-        action for action in ((route_plan or {}).get("default_actions") or [])
-        if action in {"apply_beginner_budget", "accept_beginner_budget"}
-    ]
-
-    if no_preference_fields:
-        existing = [field for field in state.get("no_preference_fields", []) if isinstance(field, str)]
-        state["no_preference_fields"] = _unique_preserving_order(existing + no_preference_fields)
-    state["default_actions"] = default_actions
-
-    if "type" in no_preference_fields and not params.get("type"):
-        params = {**params, "type": "any"}
-
-    for field in ["price_min", "price_max", "type", "brand", "pickups", "sound", "style"]:
-        value = params.get(field)
-        if value not in (None, "", []):
-            state[field] = value
-
-    queries = params.get("search_queries")
-    if isinstance(queries, list) and any(str(query or "").strip() for query in queries):
-        state["search_queries"] = [str(query).strip() for query in queries if str(query or "").strip()]
-
-    if intent in {"search", "consultation"}:
-        state["last_intent"] = intent
-    if intent == "search":
-        normalized_missing = [field for field in (missing_fields or []) if field in {"budget", "type"}]
-        if route_has_explicit_budget and "budget" in normalized_missing:
-            normalized_missing.remove("budget")
-        if params.get("type") and "type" in normalized_missing:
-            normalized_missing.remove("type")
-        for field in no_preference_fields:
-            if field == "budget" and not _has_budget_value(state) and not _has_budget_default_action(default_actions):
-                continue
-            if field in normalized_missing:
-                normalized_missing.remove(field)
-        state["missing_fields"] = normalized_missing
-        if (route_plan or {}).get("budget_default_offer") and not route_has_explicit_budget:
-            pending = dict(state.get("pending_defaults") or {})
-            pending["budget"] = {"kind": "beginner_cheap", "price_max": _beginner_default_price_max()}
-            state["pending_defaults"] = pending
-        if "apply_beginner_budget" in default_actions:
-            state["price_max"] = _beginner_default_price_max()
-        elif "accept_beginner_budget" in default_actions and not route_has_explicit_budget:
-            pending_budget = (state.get("pending_defaults") or {}).get("budget") or {}
-            state["price_max"] = _number_or_none(pending_budget.get("price_max")) or _beginner_default_price_max()
-        state["ready_for_search"] = (
-            bool(enough_for_search) or (_has_budget_value(state) and bool(state.get("search_queries")))
-        ) and not state["missing_fields"]
-        if state["ready_for_search"] and state.get("pending_defaults"):
-            pending = dict(state.get("pending_defaults") or {})
-            pending.pop("budget", None)
-            state["pending_defaults"] = pending
-
+    if asked_fields:
+        state["asked_fields"] = asked_fields
+    pending = dict((current_state or {}).get("pending_defaults") or {})
+    if route_plan.get("budget_default_offer") and state.get("price_max") is None and state.get("price_min") is None:
+        pending["budget"] = {"kind": "beginner_cheap", "price_max": _beginner_default_price_max()}
+    if pending:
+        state["pending_defaults"] = pending
     return state
 
 
@@ -1348,14 +1422,6 @@ def _unique_preserving_order(values: list[str]) -> list[str]:
             result.append(value)
             seen.add(value)
     return result
-
-
-def _has_budget_value(state: dict) -> bool:
-    return state.get("price_max") is not None or state.get("price_min") is not None
-
-
-def _has_budget_default_action(default_actions: list[str]) -> bool:
-    return any(action in {"apply_beginner_budget", "accept_beginner_budget"} for action in default_actions)
 
 
 def _beginner_default_price_max() -> float:
@@ -1391,6 +1457,8 @@ def _prepare_clarification_state(state: dict) -> dict:
 
 def _state_to_search_params(state: dict) -> dict:
     """Преобразует session state в execution search params."""
+    if state.get("ready_for_search") and state.get("state_schema") != "ready_search_snapshot_v1":
+        return _empty_search_params()
     params = {
         "search_queries": state.get("search_queries") or [],
         "price_min": state.get("price_min"),
@@ -1412,43 +1480,44 @@ def _state_to_user_search_params(state: dict) -> dict:
     return params
 
 
+def _search_params_to_user_search_params(params: dict) -> dict:
+    return {
+        "search_queries": list(params.get("search_queries") or []),
+        "price_min": params.get("price_min"),
+        "price_max": params.get("price_max"),
+        "type": params.get("type"),
+        "brand": params.get("brand"),
+        "pickups": params.get("pickups"),
+        "sound": params.get("sound"),
+        "style": params.get("style"),
+    }
+
+
+def _empty_search_params() -> dict:
+    return {
+        "search_queries": [],
+        "price_min": None,
+        "price_max": None,
+        "type": None,
+        "brand": None,
+        "pickups": None,
+        "sound": None,
+        "style": None,
+    }
+
+
+def _safe_router_params_for_log(params: object) -> dict:
+    if not isinstance(params, dict):
+        return {}
+    safe = {key: params.get(key) for key in SEARCH_PARAM_FIELDS}
+    if isinstance(safe.get("search_queries"), list):
+        safe["search_queries"] = [str(query)[:120] for query in safe["search_queries"][:5]]
+    return safe
+
+
 def _clarification_target_from_missing_fields(missing_fields: list) -> Optional[str]:
     """Возвращает основной target текущего уточнения."""
     fields = list(missing_fields or [])
     if len(fields) == 1:
         return fields[0]
     return None
-
-
-def _build_relaxed_queries(params: dict) -> list[str]:
-    """Если strict search дал 0, ослабляет запрос до более широких формулировок."""
-    relaxed = []
-    seen = set()
-
-    guitar_type = str(params.get("type") or "").strip()
-    brand = str(params.get("brand") or "").strip()
-    queries = params.get("search_queries") or []
-
-    def add(query: str):
-        normalized = query.strip()
-        if normalized and normalized.lower() not in seen:
-            relaxed.append(normalized)
-            seen.add(normalized.lower())
-
-    if guitar_type:
-        add(guitar_type)
-        if brand:
-            add(f"{brand} {guitar_type}")
-
-    for query in queries:
-        normalized = str(query or "").strip()
-        if not normalized:
-            continue
-        words = normalized.split()
-        if len(words) >= 2:
-            for candidate in [words[-1], " ".join(words[-2:])]:
-                if candidate.lower() != normalized.lower():
-                    add(candidate)
-
-    original = [str(query or "").strip().lower() for query in queries if str(query or "").strip()]
-    return [query for query in relaxed if query.lower() not in original]

@@ -45,6 +45,7 @@ scenarios = [
         search_route({
             "search_queries": ["Fender Player Stratocaster", "Squier Classic Vibe Telecaster"],
             "price_max": 1000,
+            "type": "any",
             "style": "blues",
             "sound": "bright",
         }),

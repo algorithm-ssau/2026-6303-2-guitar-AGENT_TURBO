@@ -362,6 +362,12 @@ WebSocket соединение для интерактивного чата с �
 - `consultation` — ответ на вопрос о гитарах
 - `clarification` — LLM-generated уточняющий вопрос или подтверждение по недостающим search-полям
 
+**Search params contract:**
+- Для `mode="search"` поле `searchParams` отражает текущий effective snapshot, который вернул LLM-router и который был исполнен в search.
+- Ready search требует 1-3 `searchQueries`, явный `priceMax`/`priceMin` и явный `type` или `any`.
+- Defaults вроде beginner `$500` должны быть явно в `searchParams`; backend не применяет `default_actions` как скрытые runtime defaults.
+- Clarification responses не возвращают stale `searchParams` из предыдущего ready search.
+
 **Ошибки:**
 - `4001` — пустой запрос
 - `4002` — превышено время ожидания (30 сек)

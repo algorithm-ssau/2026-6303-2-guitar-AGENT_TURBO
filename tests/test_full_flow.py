@@ -15,7 +15,7 @@ def test_full_flow_search(monkeypatch):
         "intent": "search",
         "enough_for_search": True,
         "missing_fields": [],
-        "search_params": {"search_queries": ["Fender"], "price_max": 1000},
+        "search_params": {"search_queries": ["Fender"], "price_max": 1000, "type": "any"},
         "should_offer_search": False,
     }
     

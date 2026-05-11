@@ -29,7 +29,7 @@ def mock_search_results(queries, price_min, price_max):
     ]
 
 
-@patch('backend.agent.service.search_reverb')
+@patch('backend.agent.service.search_reverb_exact')
 @patch('backend.agent.service.create_llm_client')
 def test_pipeline_returns_max_5_results(mock_llm, mock_search):
     """interpret_query возвращает не более 5 результатов из 10."""
@@ -45,7 +45,7 @@ def test_pipeline_returns_max_5_results(mock_llm, mock_search):
     assert len(result["results"]) <= 5
 
 
-@patch('backend.agent.service.search_reverb')
+@patch('backend.agent.service.search_reverb_exact')
 @patch('backend.agent.service.create_llm_client')
 def test_budget_guitar_first(mock_llm, mock_search):
     """Гитара в бюджете с совпадением в title → первая."""
@@ -63,7 +63,7 @@ def test_budget_guitar_first(mock_llm, mock_search):
         assert titles.index("Squier Classic Vibe Strat") < titles.index("Fender Player Stratocaster")
 
 
-@patch('backend.agent.service.search_reverb')
+@patch('backend.agent.service.search_reverb_exact')
 @patch('backend.agent.service.create_llm_client')
 def test_no_score_in_output(mock_llm, mock_search):
     """score/_score не в выходных данных."""
@@ -80,7 +80,7 @@ def test_no_score_in_output(mock_llm, mock_search):
         assert "_score" not in r, f"_score не должно быть в результате: {r}"
 
 
-@patch('backend.agent.service.search_reverb')
+@patch('backend.agent.service.search_reverb_exact')
 @patch('backend.agent.service.create_llm_client')
 def test_zero_results_from_search(mock_llm, mock_search):
     """search_reverb вернул 0 результатов → пустой список."""
@@ -95,7 +95,7 @@ def test_zero_results_from_search(mock_llm, mock_search):
     assert result["results"] == []
 
 
-@patch('backend.agent.service.search_reverb')
+@patch('backend.agent.service.search_reverb_exact')
 @patch('backend.agent.service.create_llm_client')
 def test_less_than_5_results(mock_llm, mock_search):
     """search_reverb вернул 3 результата → 3 на выходе (не 5)."""
@@ -110,7 +110,7 @@ def test_less_than_5_results(mock_llm, mock_search):
     assert len(result["results"]) == 3
 
 
-@patch('backend.agent.service.search_reverb')
+@patch('backend.agent.service.search_reverb_exact')
 @patch('backend.agent.service.create_llm_client')
 def test_ranking_order_matches_expectations(mock_llm, mock_search):
     """Порядок результатов соответствует ожиданиям по бюджету и title."""
@@ -137,7 +137,7 @@ def _route_plan(query: str, price_max: int) -> dict:
             "search_queries": [query],
             "price_min": None,
             "price_max": price_max,
-            "type": None,
+            "type": "any",
             "brand": None,
             "pickups": None,
             "sound": None,
