@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="620" viewBox="0 0 1120 620" role="img" aria-labelledby="title desc">
+  <title id="title">Пример результата агента</title>
+  <desc id="desc">Иллюстрация интерфейса агента: пользовательский запрос и три карточки найденных гитар.</desc>
+  <defs>
+    <style>
+      .bg { fill: #101217; }
+      .panel { fill: #171b22; stroke: #2f3644; stroke-width: 2; rx: 18; }
+      .bubble { fill: #4d82f3; rx: 16; }
+      .card { fill: #202631; stroke: #3b4658; stroke-width: 1.5; rx: 14; }
+      .title { font-family: Arial, sans-serif; fill: #f7f9fc; font-size: 24px; font-weight: 700; }
+      .txt { font-family: Arial, sans-serif; fill: #d8dee9; font-size: 18px; }
+      .muted { font-family: Arial, sans-serif; fill: #9aa8ba; font-size: 16px; }
+      .price { font-family: Arial, sans-serif; fill: #8bd17c; font-size: 22px; font-weight: 700; }
+      .badge { fill: #263d75; rx: 10; }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1120" height="620"/>
+  <rect class="panel" x="48" y="36" width="1024" height="548"/>
+  <text class="title" x="88" y="86">Guitar Agent</text>
+  <rect class="bubble" x="476" y="58" width="528" height="70"/>
+  <text class="txt" x="502" y="101">Найди тёплую гитару для блюза до $1000</text>
+
+  <text class="muted" x="88" y="158">Агент сформировал поисковый план: тип — les paul, звук — warm, стиль — blues, бюджет — $1000.</text>
+
+  <rect class="card" x="88" y="192" width="944" height="104"/>
+  <rect class="badge" x="112" y="214" width="76" height="30"/>
+  <text class="muted" x="150" y="235" text-anchor="middle">#1</text>
+  <text class="title" x="210" y="234">Epiphone Les Paul P90 Warm Blues Guitar</text>
+  <text class="price" x="900" y="235" text-anchor="end">$700</text>
+  <text class="txt" x="210" y="270">Совпадает по типу, тёплому звучанию, стилю и бюджету.</text>
+
+  <rect class="card" x="88" y="320" width="944" height="104"/>
+  <rect class="badge" x="112" y="342" width="76" height="30"/>
+  <text class="muted" x="150" y="363" text-anchor="middle">#2</text>
+  <text class="title" x="210" y="362">Harley Benton SC-450 Les Paul Style</text>
+  <text class="price" x="900" y="363" text-anchor="end">$159</text>
+  <text class="txt" x="210" y="398">Бюджетный вариант с хамбакерами и близкой формой корпуса.</text>
+
+  <rect class="card" x="88" y="448" width="944" height="104"/>
+  <rect class="badge" x="112" y="470" width="76" height="30"/>
+  <text class="muted" x="150" y="491" text-anchor="middle">#3</text>
+  <text class="title" x="210" y="490">PRS SE Custom 24 Faded Blue</text>
+  <text class="price" x="900" y="491" text-anchor="end">$849</text>
+  <text class="txt" x="210" y="526">Подходит по бюджету и универсальности, но менее точно по модели.</text>
+</svg>
