@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Message, ChatState, GuitarResult, Session } from '../types';
-import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession, clearAllHistory, submitFeedback  } from '../api';
-import { parseQuery } from '../api';
+import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession, clearAllHistory } from '../api';
 
-const WS_URL = 'ws://localhost:8000/chat';
+const WS_URL = 'ws://127.0.0.1:8000/chat';
 const PAGE_SIZE = 20;
 const SESSION_QUERY_PARAM = 'session';
 
 interface SessionSelectionOptions {
   syncUrl?: boolean;
   replaceUrl?: boolean;
+}
+
+function isUnauthorizedError(error: unknown): boolean {
+  return error instanceof Error && 'status' in error && error.status === 401;
 }
 
 function readSessionIdFromUrl(): { sessionId: number | null; error: string | null } {
@@ -66,8 +69,6 @@ interface UseChatReturn extends ChatState {
   hasMoreSessions: boolean;
   isLoadingMoreSessions: boolean;
   isLoadingSessionMessages: boolean;
-  sendFeedback: (guitarId: string, rating: 'up' | 'down', query?: string) => Promise<void>;
-  feedbackGiven: Set<string>;
 }
 
 /**
@@ -95,6 +96,7 @@ function historyToMessages(items: any[]): Message[] {
       timestamp: new Date(item.createdAt),
       mode: item.mode as 'search' | 'consultation' | 'clarification',
       results: normalizedResults,
+      searchParams: item.searchParams || null,
     });
   }
   return messages;
@@ -103,7 +105,7 @@ function historyToMessages(items: any[]): Message[] {
 /**
  * Хук для управления чатом с поддержкой сессий и пагинацией
  */
-export function useChat(): UseChatReturn {
+export function useChat(authToken: string, onAuthExpired: () => void): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,13 +128,16 @@ export function useChat(): UseChatReturn {
   const requestedSessionIdRef = useRef<number | null>(null);
   const sessionsRequestIdRef = useRef(0);
   const isUnmountingRef = useRef(false);
-
-  const [feedbackGiven, setFeedbackGiven] = useState<Set<string>>(new Set());
+  const onAuthExpiredRef = useRef(onAuthExpired);
 
   // Синхронизируем ref с state для доступа из колбэков
   useEffect(() => {
     currentSessionIdRef.current = currentSessionId;
   }, [currentSessionId]);
+
+  useEffect(() => {
+    onAuthExpiredRef.current = onAuthExpired;
+  }, [onAuthExpired]);
 
   // Загрузка первой страницы сессий
   const loadSessions = useCallback(() => {
@@ -140,7 +145,7 @@ export function useChat(): UseChatReturn {
     sessionsRequestIdRef.current = requestId;
     loadedCountRef.current = 0;
     setIsLoadingSessions(true);
-    fetchSessions(0, PAGE_SIZE)
+    fetchSessions(authToken, 0, PAGE_SIZE)
       .then(({ sessions: newSessions, total }) => {
         if (sessionsRequestIdRef.current !== requestId) {
           return;
@@ -149,28 +154,40 @@ export function useChat(): UseChatReturn {
         loadedCountRef.current = newSessions.length;
         setHasMoreSessions(loadedCountRef.current < total);
       })
-      .catch((err) => console.error('Ошибка загрузки сессий:', err))
+      .catch((err) => {
+        if (isUnauthorizedError(err)) {
+          onAuthExpiredRef.current();
+          return;
+        }
+        console.error('Ошибка загрузки сессий:', err);
+      })
       .finally(() => {
         if (sessionsRequestIdRef.current === requestId) {
           setIsLoadingSessions(false);
         }
       });
-  }, []);
+  }, [authToken]);
 
   // Подгрузка следующей страницы при скролле
   const loadMoreSessions = useCallback(() => {
     if (isLoadingMoreSessions || !hasMoreSessions) return;
     setIsLoadingMoreSessions(true);
 
-    fetchSessions(loadedCountRef.current, PAGE_SIZE)
+    fetchSessions(authToken, loadedCountRef.current, PAGE_SIZE)
       .then(({ sessions: newSessions, total }) => {
         setSessions(prev => [...prev, ...newSessions]);
         loadedCountRef.current += newSessions.length;
         setHasMoreSessions(loadedCountRef.current < total);
       })
-      .catch((err) => console.error('Ошибка подгрузки сессий:', err))
+      .catch((err) => {
+        if (isUnauthorizedError(err)) {
+          onAuthExpiredRef.current();
+          return;
+        }
+        console.error('Ошибка подгрузки сессий:', err);
+      })
       .finally(() => setIsLoadingMoreSessions(false));
-  }, [hasMoreSessions, isLoadingMoreSessions]);
+  }, [authToken, hasMoreSessions, isLoadingMoreSessions]);
 
   useEffect(() => {
     loadSessions();
@@ -181,15 +198,19 @@ export function useChat(): UseChatReturn {
     setConnectionStatus('connecting');
 
     try {
-      const ws = new WebSocket(WS_URL);
+      const ws = new window.WebSocket(`${WS_URL}?token=${encodeURIComponent(authToken)}`);
 
       ws.onopen = () => {
         setConnectionStatus('connected');
-        setError(null);
+        setError(prev => prev === 'Ошибка соединения с сервером' ? null : prev);
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         if (isUnmountingRef.current) {
+          return;
+        }
+        if (event.code === 1008) {
+          onAuthExpiredRef.current();
           return;
         }
         setConnectionStatus('disconnected');
@@ -244,6 +265,8 @@ export function useChat(): UseChatReturn {
                 timestamp: new Date(),
                 results,
                 mode: data.mode,
+                debugThink: data.debugThink || null,
+                searchParams: data.searchParams || null,
               };
 
               setMessages(prev => [...prev, agentMessage]);
@@ -271,7 +294,7 @@ export function useChat(): UseChatReturn {
       setConnectionStatus('disconnected');
       setError('Не удалось подключиться к серверу');
     }
-  }, [loadSessions]);
+  }, [authToken, loadSessions]);
 
   useEffect(() => {
     connect();
@@ -299,7 +322,7 @@ export function useChat(): UseChatReturn {
 
   // Отправка сообщения
   const sendMessage = useCallback((text: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+    if (!wsRef.current || wsRef.current.readyState !== window.WebSocket.OPEN) {
       setError('Нет соединения с сервером');
       return;
     }
@@ -312,14 +335,7 @@ export function useChat(): UseChatReturn {
     };
 
     setMessages(prev => [...prev, userMessage]);
-    
-    parseQuery(text).then(params => {
-      setMessages(currentMsgs => currentMsgs.map(m => 
-        m.id === userMessage.id ? { ...m, parsedParams: params } : m
-      ));
-    }).catch(err => console.error("Ошибка парсинга параметров", err));
-    
-    setIsLoading(true);
+
     setIsLoading(true);
     setError(null);
     setStatus(null);
@@ -347,7 +363,7 @@ export function useChat(): UseChatReturn {
       updateSessionUrl(id, options?.replaceUrl ?? false);
     }
 
-    fetchSessionMessages(id)
+    fetchSessionMessages(id, authToken)
       .then((data) => {
         if (requestedSessionIdRef.current !== id) {
           return;
@@ -366,7 +382,9 @@ export function useChat(): UseChatReturn {
         setCurrentSessionId(null);
         setMessages([]);
 
-        if (err instanceof Error && 'status' in err && err.status === 404) {
+        if (isUnauthorizedError(err)) {
+          onAuthExpiredRef.current();
+        } else if (err instanceof Error && 'status' in err && err.status === 404) {
           setError('Чат по этой ссылке не найден');
         } else {
           setError('Не удалось загрузить сообщения');
@@ -380,7 +398,7 @@ export function useChat(): UseChatReturn {
           requestedSessionIdRef.current = null;
         }
       });
-  }, []);
+  }, [authToken]);
 
   // Новый чат
   const newChat = useCallback(() => {
@@ -421,7 +439,7 @@ export function useChat(): UseChatReturn {
 
   // Удалить сессию
   const deleteSessionHandler = useCallback((id: number) => {
-    apiDeleteSession(id)
+    apiDeleteSession(id, authToken)
       .then(() => {
         setSessions(prev => prev.filter(s => s.id !== id));
         loadedCountRef.current = Math.max(0, loadedCountRef.current - 1);
@@ -430,33 +448,32 @@ export function useChat(): UseChatReturn {
           resetToNewChat();
         }
       })
-      .catch((err) => console.error('Ошибка удаления сессии:', err));
-  }, [resetToNewChat]);
+      .catch((err) => {
+        if (isUnauthorizedError(err)) {
+          onAuthExpiredRef.current();
+          return;
+        }
+        console.error('Ошибка удаления сессии:', err);
+      });
+  }, [authToken, resetToNewChat]);
 
   // Очистить всю историю
   const clearHistory = useCallback(() => {
-    clearAllHistory()
+    clearAllHistory(authToken)
       .then(() => {
         setSessions([]);
         resetToNewChat();
         loadedCountRef.current = 0;
         setHasMoreSessions(true);
       })
-      .catch((err) => console.error('Ошибка очистки истории:', err));
-  }, [resetToNewChat]);
-
-  const sendFeedback = useCallback(async (guitarId: string, rating: 'up' | 'down', query?: string) => {
-    if (!currentSessionId) return;
-    
-    try {
-      await submitFeedback(currentSessionId, guitarId, rating, query);
-      setFeedbackGiven(prev => new Set(prev).add(`${guitarId}-${rating}`));
-    } catch (err) {
-      console.error("Ошибка фидбека:", err);
-    }
-  }, [currentSessionId]);
-
-
+      .catch((err) => {
+        if (isUnauthorizedError(err)) {
+          onAuthExpiredRef.current();
+          return;
+        }
+        console.error('Ошибка очистки истории:', err);
+      });
+  }, [authToken, resetToNewChat]);
 
   return {
     messages,
@@ -476,8 +493,6 @@ export function useChat(): UseChatReturn {
     loadMoreSessions,
     hasMoreSessions,
     isLoadingMoreSessions,
-    isLoadingSessionMessages,
-    sendFeedback,
-    feedbackGiven
+    isLoadingSessionMessages
   };
 }

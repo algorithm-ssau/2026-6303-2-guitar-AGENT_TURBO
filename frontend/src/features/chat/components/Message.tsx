@@ -8,14 +8,27 @@ import './Message.css';
 
 interface MessageProps {
   message: Message;
-  previousMessage?: Message;
+}
+
+function splitThinkBlock(content: string): { visibleContent: string; debugThink: string | null } {
+  const matches = [...content.matchAll(/<think>([\s\S]*?)<\/think>/gi)];
+  if (matches.length === 0) {
+    return { visibleContent: content, debugThink: null };
+  }
+
+  const debugThink = matches
+    .map(match => match[1]?.trim())
+    .filter(Boolean)
+    .join('\n\n');
+  const visibleContent = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  return { visibleContent, debugThink: debugThink || null };
 }
 
 /**
  * Компонент одного сообщения в чате
  * Отображает сообщение от пользователя или агента
  */
-export const MessageItem: React.FC<MessageProps> = ({ message, previousMessage }) => {
+export const MessageItem: React.FC<MessageProps> = ({ message }) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
   const isThinking = message.transient?.phase === 'thinking';
@@ -28,9 +41,12 @@ export const MessageItem: React.FC<MessageProps> = ({ message, previousMessage }
 
   const isConsultation = !message.mode || message.mode === 'consultation';
   const showContent = isConsultation || !message.results || message.results.length === 0;
+  const legacyThink = !isUser && isConsultation ? splitThinkBlock(message.content) : null;
+  const visibleContent = legacyThink?.visibleContent ?? message.content;
+  const debugThink = message.debugThink || legacyThink?.debugThink || null;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
+    navigator.clipboard.writeText(visibleContent);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -102,7 +118,7 @@ export const MessageItem: React.FC<MessageProps> = ({ message, previousMessage }
         )}
 
         {!showThinkingState && showContent && (
-          <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
+          <div className={!isUser && isConsultation ? 'message-markdown' : 'message-plain-text'}>
             {!isUser && isConsultation ? (
               <ReactMarkdown
                 components={{
@@ -133,16 +149,22 @@ export const MessageItem: React.FC<MessageProps> = ({ message, previousMessage }
                   }
                 }}
               >
-                {message.content}
+                {visibleContent}
               </ReactMarkdown>
             ) : (
-              message.content
+              visibleContent
+            )}
+            {!isUser && isConsultation && debugThink && (
+              <details className="message-think">
+                <summary>Служебные рассуждения модели</summary>
+                <div>{debugThink}</div>
+              </details>
             )}
           </div>
         )}
 
-        {!isUser && message.mode === 'search' && previousMessage?.parsedParams && (
-          <SearchParamsPanel params={previousMessage.parsedParams} />
+        {!isUser && message.mode === 'search' && message.searchParams && (
+          <SearchParamsPanel params={message.searchParams} />
         )}
 
         {message.mode === 'search' && message.results && message.results.length > 0 && (

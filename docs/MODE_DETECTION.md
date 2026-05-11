@@ -1,65 +1,112 @@
-# Определение режима: поиск или консультация
+# LLM Router Contract
 
 ## Цель
-Определить, когда агент должен запускать поиск гитар на Reverb, а когда отвечать как консультант без поиска.
 
-## Два режима
+Определить intent пользователя и search-параметры в едином LLM-router вызове. Backend не классифицирует естественный язык через regex, keyword lists или эвристики.
 
-- `search` — пользователь хочет подобрать конкретный инструмент и получить ссылки на варианты.
-- `consultation` — пользователь хочет понять теорию, особенности звука, компонентов и выбора.
+## Intent
 
-## Простая логика выбора режима
+- `search` — пользователь хочет подбор, варианты, ссылки или продолжает поисковый сценарий.
+- `consultation` — пользователь хочет объяснение, сравнение или совет без выдачи новых объявлений; сюда входят follow-up вопросы по ранее найденным вариантам.
+- `off_topic` — запрос не относится к гитарам, музыкальному оборудованию, звуку или смежной музыкальной теме.
 
-1. Если в запросе есть намерение купить/подобрать/найти инструмент, режим `search`.
-2. Если в запросе есть ограничители выбора (бюджет, тип гитары, бренд, форма, конфигурация датчиков, конкретные требования к звуку), режим `search`.
-3. Если пользователь просит сравнение, объяснение, обучение или совет без запроса "найди варианты", режим `consultation`.
-4. Если запрос неявный или смешанный, агент задает один уточняющий вопрос и только потом выбирает режим:
-   - если пользователь хочет варианты и ссылки -> `search`;
-   - если пользователь хочет только разбор -> `consultation`.
+## Router Response
 
-## Сигналы режима `search`
+Router возвращает только JSON:
 
-- Глаголы действия: "подбери", "найди", "покажи варианты", "что купить", "посоветуй модель".
-- Ограничения: "до 1000$", "в пределах 80 000", "для метала", "HH", "strat".
-- Ожидание результата в виде списка инструментов.
+```json
+{
+  "intent": "search",
+  "enough_for_search": true,
+  "missing_fields": [],
+  "search_params": {
+    "search_queries": ["Fender Telecaster"],
+    "price_min": null,
+    "price_max": 800,
+    "type": "telecaster",
+    "brand": "Fender",
+    "pickups": "single_coil",
+    "sound": "bright",
+    "style": null
+  },
+  "should_offer_search": false
+}
+```
 
-## Сигналы режима `consultation`
+## Backend Responsibilities
 
-- Вопросы "что лучше", "в чем разница", "как влияет", "какой звук дает".
-- Фокус на знаниях: датчики, дерево, мензура, жанры, техника игры.
-- Нет цели прямо сейчас получить карточки товаров и ссылки.
+- validate JSON shape and allowed enum values;
+- run one-shot LLM repair for repairable router contract errors such as empty `search_queries` with `enough_for_search=true`;
+- normalize technical field forms (`snake_case` internals, `camelCase` public API);
+- merge route-derived state across a session;
+- provide numbered previous search context (`Последняя поисковая выдача: #1 ...`) to the router and consultation LLM;
+- keep router context compact and retry with emergency/stateless context if provider rejects the request as too large;
+- run router on `LLM_ROUTER_MODEL`, which intentionally does not inherit a heavy `LLM_MODEL` answer model by default;
+- call search/ranking/history APIs;
+- return explicit `502/503` errors if router is invalid or unavailable.
 
-## Неоднозначные случаи
+## Backend Non-Responsibilities
 
-- Если есть общий вопрос и намек на покупку ("хочу понять и потом выбрать"), сначала `consultation`, затем мягкий переход: предложить запустить `search`.
-- Если пользователь просит и объяснить, и подобрать, приоритет `search`, но с коротким объяснением критериев перед выдачей результатов.
+Backend must not infer from natural language:
 
-## Примеры классификации запросов
+- intent;
+- whether the user provided enough information;
+- whether a search query is “specific”;
+- whether a type/budget/no-preference phrase was implied;
+- follow-up commands such as “давай”, “покажи”, “как выше”;
+- references to previous results such as “1ый”, “2го”, “первый”, “второй”, “из этих”, “что новичку взять”.
 
-| Запрос пользователя | Режим | Почему |
-|---|---|---|
-| "Подбери электрогитару до 1200$ для блюза, чтобы звук был теплый." | `search` | Явный запрос на подбор + бюджет + стиль + характеристики звука. |
-| "В чем разница между single-coil и humbucker?" | `consultation` | Теоретический вопрос без запроса на покупку. |
-| "Хочу что-то для джаза, бюджет до 90 тысяч, покажи варианты." | `search` | Запрос на варианты с ограничениями. |
-| "Как дерево корпуса влияет на сустейн?" | `consultation` | Обучающий вопрос про влияние параметров. |
-| "Что лучше для метала: EMG или пассивные датчики?" | `consultation` | Сравнение и консультация, без требования подбора товаров. |
-| "Нужна 7-струнная гитара для djent, желательно Ibanez." | `search` | Конкретные критерии выбора инструмента. |
-| "Я новичок: с чего начать выбор первой электрогитары?" | `consultation` | Нужна рекомендация по подходу, не список лотов. |
-| "Подскажи Telecaster до 1500$, но сначала коротко объясни отличия от Strat." | `search` | Основная цель — подбор; объяснение вторично. |
-| "Сделай подборку гитар для фанка с ярким звуком." | `search` | Просьба о подборке конкретных инструментов. |
-| "Почему P90 считают компромиссом между single и humbucker?" | `consultation` | Концептуальный вопрос по звуку и датчикам. |
+Those decisions belong to LLM-router and must arrive through `intent`, `enough_for_search`, `missing_fields`, and `search_params`.
 
-## Решения по граничным случаям
+No-preference and default decisions also belong to LLM-router. If a beginner user says they cannot choose a guitar type, the router should return `no_preference_fields=["type"]` and `type="any"`. Backend must not detect phrases like `не знаю` in Python. If budget is unknown, backend must not run an unlimited search: the router either requests a cheap beginner confirmation with `budget_default_offer=true`, applies the first-message no-extra-questions default with `default_actions=["apply_beginner_budget"]`, or confirms a pending offer with `default_actions=["accept_beginner_budget"]`.
 
-| Случай | Решение | Причина |
-|--------|---------|---------|
-| Пустая строка | `consultation` | Безопасный дефолт — нечего искать |
-| Строка из пробелов | `consultation` | Аналогично пустой строке |
-| Очень короткий запрос ("гитара?") | `consultation` | Недостаточно информации для поиска, лучше уточнить |
-| Смешанный запрос ("хочу купить и расскажи о датчиках") | `search` | Приоритет действия — покупка важнее объяснения |
-| Нет явных сигналов ни одного режима | `consultation` | Безопаснее спросить/объяснить, чем запускать поиск |
+For off-topic requests the router still only classifies. The refusal text is generated by a dedicated off-topic prompt, then validated by backend guardrails. External API mode remains `consultation`.
 
-## Шаблон уточняющего вопроса
+## Router Contract Repair
 
-Если режим неочевиден:
-"Хотите, чтобы я сейчас просто объяснил различия и критерии выбора, или сразу подобрал конкретные варианты гитар со ссылками?"
+Backend validates router JSON as a typed contract. If the router returns an otherwise valid object with repairable contract errors, backend may call the router LLM once with:
+
+- original user query;
+- compact repair-safe router context;
+- current structured session state;
+- invalid router JSON;
+- validation errors.
+
+The repaired JSON is validated through the same contract before execution. Repair must preserve the original valid `intent`; if a repair changes `search` to `consultation` or another valid intent, backend rejects it.
+
+Backend still does not synthesize semantic fields. It may tell the LLM that `search_params.search_queries` is required, but it must not generate a query such as `Fender Telecaster` from `type=telecaster` in Python.
+
+Repair is not used for provider failures (`413`, `429`), unknown/missing intent, non-object roots, or unparseable router output. Repair prompt size is checked with the same `ROUTER_MAX_PROMPT_CHARS` safety budget before any provider call.
+
+Incomplete search routes are valid when the router has not collected enough fields:
+
+```json
+{
+  "intent": "search",
+  "enough_for_search": false,
+  "missing_fields": ["budget", "type"],
+  "search_params": null
+}
+```
+
+Backend maps that to `mode="clarification"`. `search_params` is required only for ready search routes with `enough_for_search=true`.
+
+Clarification text is generated through `docs/CLARIFICATION_PROMPT.md` from structured state (`missing_fields`, `asked_fields`, `no_preference_fields`, `pending_defaults`). Static backend templates are not used as runtime UX. Backend stores which fields were asked so repeated "I do not know this criterion" answers can be resolved by router-owned no-preference/default fields instead of repeating the same question.
+
+Recommendation routing is context-aware through the LLM prompt: without previous numbered search results, “посоветуй гитару/что взять новичку” is a search or clarification request; with `Последняя поисковая выдача`, advice such as “что новичку взять?” is consultation over the numbered results unless the user asks for new variants, links, or changed constraints.
+
+If consultation generation trips catalog guardrails, backend returns a typed recovery response instead of exposing an internal fallback string. Without latest search results this becomes clarification; with latest search results it tells the user it can compare only the current numbered options.
+
+## Context Overflow Recovery
+
+Router context is intentionally smaller than consultation context. Router uses `LLM_ROUTER_MODEL`; answer generation uses `LLM_ANSWER_MODEL` or `LLM_MODEL`. This keeps intent classification cheap even when consultation answers use a heavier model such as `groq/compound`.
+
+Before each router call, backend compares prompt size to `ROUTER_MAX_PROMPT_CHARS`. This is a safety budget for cost and latency, not the model context window. Oversized tiers are skipped locally for the current request.
+
+If provider returns `413/request_too_large`, backend marks that tier as known-bad for the current `(session_id, router_model)` for a short TTL and retries classification with smaller context tiers:
+
+- `normal` — compact history with latest numbered search context and short snippets;
+- `emergency` — latest numbered search context plus recent user turns, without assistant consultation answers;
+- `stateless` — no dialogue history, only current query and structured session state.
+
+This recovery is technical context management only. Backend still does not infer intent, missing fields, or references such as `#1`, `первый`, `2го`, or `из этих`.

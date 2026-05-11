@@ -59,3 +59,25 @@ def test_build_context_fallback_no_llm(mock_getenv, mock_get_messages):
 def test_build_context_no_session():
     history = build_context(None, "sys", "txt", None)
     assert history == []
+
+
+@patch("backend.agent.context_manager.get_session_messages")
+def test_build_context_serializes_latest_search_results_as_numbered_context(mock_get_messages):
+    mock_get_messages.return_value = [
+        {
+            "user_query": "Хочу телекастер",
+            "mode": "search",
+            "results": [
+                {"title": "Fender Telecaster Deluxe Nashville 2021 - Daphne Blue", "price": 899},
+                {"title": "Squier Classic Vibe '50s Telecaster 2024 - Butterscotch Blonde", "price": 429},
+            ],
+        }
+    ]
+
+    history = build_context(1, "system", "чем 1ый лучше 2го?", None)
+
+    assert history[1]["content"] == (
+        "Последняя поисковая выдача:\n"
+        "#1 Fender Telecaster Deluxe Nashville 2021 - Daphne Blue, $899\n"
+        "#2 Squier Classic Vibe '50s Telecaster 2024 - Butterscotch Blonde, $429"
+    )

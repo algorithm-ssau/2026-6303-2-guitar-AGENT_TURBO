@@ -11,7 +11,7 @@ type ConfirmDialogProps = {
 const overlayStyle: CSSProperties = {
   position: 'fixed',
   inset: 0,
-  zIndex: 999,
+  zIndex: 2000,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',

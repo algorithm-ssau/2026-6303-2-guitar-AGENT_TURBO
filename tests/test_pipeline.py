@@ -24,11 +24,25 @@ class MockLLMClient:
             "price_max": 1000,
         }
 
-    def ask(self, text: str, system_prompt: str) -> str:
-        return self.consultation_answer
+    def classify_and_plan_query(self, text: str, history=None, current_state=None) -> dict:
+        if "разница" in text.lower() or "что такое" in text.lower():
+            return {
+                "intent": "consultation",
+                "enough_for_search": False,
+                "missing_fields": [],
+                "search_params": None,
+                "should_offer_search": False,
+            }
+        return {
+            "intent": "search",
+            "enough_for_search": True,
+            "missing_fields": [],
+            "search_params": self.search_params,
+            "should_offer_search": False,
+        }
 
-    def extract_search_params(self, text: str) -> dict:
-        return self.search_params
+    def ask(self, text: str, system_prompt: str, history=None) -> str:
+        return self.consultation_answer
 
 
 def mock_search_fn(search_queries, price_min=None, price_max=None):
@@ -102,21 +116,20 @@ def test_search_with_mock():
     assert statuses == expected_statuses
 
 
-def test_no_api_key_fallback():
-    """Без API ключа → не падает, возвращает fallback."""
+def test_no_api_key_raises_unavailable():
+    """Без API ключа → LLM mandatory error."""
     # Убираем переменную окружения
     env_backup = os.environ.pop("GROQ_API_KEY", None)
     try:
         statuses = []
-        result = interpret_query(
-            text="В чем разница между гитарами?",
-            llm_client=None,
-            on_status=lambda s: statuses.append(s),
-        )
+        from backend.agent.service import LLMUnavailableError
 
-        assert result["mode"] == "consultation"
-        assert "answer" in result
-        assert len(result["answer"]) > 0
+        with pytest.raises(LLMUnavailableError):
+            interpret_query(
+                text="В чем разница между гитарами?",
+                llm_client=None,
+                on_status=lambda s: statuses.append(s),
+            )
     finally:
         # Восстанавливаем переменную
         if env_backup is not None:

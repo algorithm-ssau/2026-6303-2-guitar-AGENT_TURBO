@@ -36,6 +36,14 @@
 - Прокидываем реальные LLM-derived `searchParams` через основной ответ.
 - Обновляем существующие тесты и документацию, которые завязаны на regex-поведение.
 - Добавляем тесты на новый LLM-router/searchParams/history/frontend contract, чтобы не сломать pipeline и edge cases.
+- Тесты разрешены в рамках этой задачи, несмотря на общее правило "не писать тесты, если не просят".
+- REST ошибки `502/503` должны использовать единый контракт проекта. В текущих docs/examples это `{"detail": "string"}`.
+- `off_topic` наружу остаётся как сейчас: HTTP 200, `mode: "consultation"` и фиксированный backend answer. Новый внешний режим не добавляем.
+- `type: "any"` можно показывать пользователю в `searchParams`, но в Reverb/ranking не передавать как реальный тип; execution params нормализуют это в широкий query и `type: null`.
+- Для старых history entries без сохранённых параметров возвращаем стабильное поле `searchParams: null`.
+- `backend/agent/param_extractor.py`: не использовать в runtime. После финального reference scan удалить, если он больше не нужен; если удаление создаёт лишний риск для не-runtime совместимости, оставить только как не-production utility без regex/NLP fallback.
+
+Открытых вопросов перед реализацией нет.
 
 ## Ограничения и non-goals
 
@@ -53,15 +61,42 @@
 - `backend/agent/llm_client.py`
 - `backend/agent/mode_detector.py`
 - `backend/agent/params_echo.py`
+- `backend/agent/param_extractor.py`
 - `backend/agent/clarification.py`
 - `backend/search/router.py`
 - `backend/search/models.py`
+- `backend/models.py`
 - `backend/main.py`
+- `backend/history/service.py`
+- `backend/history/models.py`
+- `backend/history/router.py`
 - `frontend/src/features/chat/api.ts`
 - `frontend/src/features/chat/hooks/useChat.ts`
 - `frontend/src/features/chat/types.ts`
+- `frontend/src/features/chat/components/Message.tsx`
+- `frontend/src/features/chat/components/SearchParamsPanel.tsx`
+- `frontend/src/features/chat/demo/demoMessages.ts`
 - Документация, где упоминаются `/api/query/parse` или regex-based mode detection.
 - Существующие тесты, которые импортируют `mode_detector`, patch-ят `detect_mode` или тестируют `params_echo`.
+
+## Инвентаризация текущего кода
+
+Проверено по текущему репозиторию:
+
+- `backend/agent/service.py` сейчас импортирует `re`, `detect_mode`, `OFF_TOPIC_ANSWER`, `_is_no_preference`; вызывает `detect_mode()` до LLM-router; содержит `_fallback_route_plan()` на `detect_mode()` + `extract_search_params()`; содержит regex follow-up helper `_looks_like_followup_search_request()`; `_handle_search()` всё ещё умеет второй LLM-call через `extract_search_params()`.
+- `backend/agent/llm_client.py` импортирует `backend.agent.param_extractor`; `extract_search_params()` остаётся отдельным LLM-парсером; `_build_router_prompt()` пока допускает только `search | consultation`, содержит `consultation_answer` в router response и не поддерживает `off_topic`.
+- `backend/search/router.py` импортирует `params_echo` и объявляет `POST /api/query/parse`; `POST /api/chat` не прокидывает `searchParams`, не различает `clarification` корректно в response branch и не мапит LLM errors в `502/503`.
+- `backend/search/models.py` содержит `ParseQueryResponse`; `ChatResponse` не содержит `search_params` и `question`.
+- `backend/models.py` содержит `WSMessage` без `search_params`/`searchParams`.
+- `backend/main.py` в WebSocket path сохраняет search history только с `results`, не сохраняет `searchParams`, и в search result payload не отправляет `searchParams`.
+- `backend/history/service.py` не имеет колонки `search_params`; `save_exchange()` не принимает search params; `get_session_messages()` не читает/десериализует это поле.
+- `backend/history/models.py` не содержит `search_params` в `HistoryItem`.
+- `frontend/src/features/chat/api.ts` экспортирует `parseQuery()` и `ParsedParamsSchema`, вызывает `/api/query/parse`.
+- `frontend/src/features/chat/hooks/useChat.ts` вызывает `parseQuery(text)` сразу после отправки user message и сохраняет результат в `previousMessage.parsedParams`.
+- `frontend/src/features/chat/components/Message.tsx` показывает `SearchParamsPanel` у agent search message через `previousMessage?.parsedParams`, то есть параметры привязаны к user message, а не к backend search response.
+- `frontend/src/features/chat/types.ts` содержит `ParsedParams`, но не содержит новый `SearchParams` и не валидирует `searchParams` в chat/history schemas.
+- Документы с прямыми references: `docs/API_REFERENCE.md`, `docs/API_RELEASE_REFERENCE.md`, `docs/LLM_RELEASE_BEHAVIOR.md`, `docs/PRD_BEHAVIOR_MATRIX.md`.
+- Тесты с прямыми references: `tests/test_mode_detector.py`, `tests/test_mode_detector_edge_cases.py`, `tests/test_off_topic.py`, `tests/test_params_echo.py`, `tests/test_api_contract.py`, `tests/test_ranking_pipeline.py`, `tests/test_agent_integration.py`, `tests/test_llm_client.py`, `tests/test_full_flow.py`, `tests/test_graceful_degradation.py`, а также tests с fake `extract_search_params()`.
 
 ## UX-состояния
 
@@ -183,8 +218,13 @@ History response для новых search-записей должен уметь
 - Хранить в ней JSON-serialized canonical `search_params`.
 - Расширить `save_exchange(..., search_params: Optional[dict] = None)`.
 - При чтении `get_session_messages()` парсить `search_params`, если колонка есть и значение не пустое.
-- Сделать миграцию backward-compatible: если колонка уже есть, не падать; если старые записи без `search_params`, возвращать `searchParams: null` или не включать поле.
+- Сделать миграцию backward-compatible: если колонка уже есть, не падать; если старые записи без `search_params`, возвращать `searchParams: null`.
 - Не вкладывать `searchParams` в `results`, чтобы не смешивать параметры запроса с карточками найденных инструментов.
+
+Разделить две формы параметров:
+
+- User-facing `searchParams`: то, что вернул LLM-router и что можно показать пользователю. Здесь `type: "any"` допустим и означает явное "тип не важен".
+- Execution params для `search_reverb()` и `rank_results()`: техническая форма после session merge/finalization. Здесь `type: "any"` не должен уходить как реальный тип инструмента; для поиска используется широкий `search_queries`, а для ranking `type` может быть `null`.
 
 Конкретная миграция:
 
@@ -196,10 +236,18 @@ History response для новых search-записей должен уметь
 
 Так как LLM является обязательной зависимостью сервиса, недоступная или невалидная LLM не должна маскироваться regex fallback.
 
-- REST `/api/chat`: возвращать `503 Service Unavailable`, если LLM-клиент не создан или API недоступен; возвращать `502 Bad Gateway`, если LLM вернула невалидный router JSON/shape.
+- REST `/api/chat`: возвращать `503 Service Unavailable`, если LLM-клиент не создан или API недоступен; возвращать `502 Bad Gateway`, если LLM вернула невалидный router JSON/shape. Body по единому контракту проекта: `{"detail": "..."}`.
 - WebSocket `/chat`: отправлять `{"type": "error", "status": "Сервис временно недоступен: не удалось обработать запрос через LLM."}` для недоступной LLM и отдельный понятный error status для невалидного router response.
 - Логи должны содержать техническую причину, но пользовательский ответ не должен раскрывать ключи, stack trace или внутренний prompt.
 - Никакого fallback на `detect_mode`, `params_echo` или другой regex/NLP parser.
+
+Рекомендуемая реализация error path:
+
+- Ввести внутренние exception-типы в `backend/agent/service.py`, например `LLMUnavailableError` и `InvalidRouterResponseError`, или эквивалентные project-local ошибки.
+- `interpret_query()` должен бросать эти ошибки вместо возврата synthetic consultation/search fallback.
+- `backend/search/router.py::chat()` должен мапить ошибки на `HTTPException(status_code=503/502, detail=...)`.
+- `backend/main.py` WebSocket loop должен ловить эти ошибки отдельно от unexpected exceptions и отправлять user-safe error payload.
+- Unexpected exceptions остаются `500`/generic WS error и логируются.
 
 ## Что НЕ удаляем
 
@@ -471,6 +519,26 @@ Context/state: {"type": "telecaster", "price_max": 800, "search_queries": ["Fend
 - Для history messages брать `searchParams` из history response, если поле есть.
 - Не сохранять старую модель `ParsedParams`/`tags` как смысловой контракт. Если UI нужен компактный, форматировать display labels из `SearchParams`, но не возвращаться к отдельному parse endpoint и не делать frontend-side NLP.
 
+## Confidence Assessment
+
+Plan confidence: 94%.
+
+Основано на проверенных файлах и references: `backend/agent/service.py`, `backend/agent/llm_client.py`, `backend/search/router.py`, `backend/search/models.py`, `backend/models.py`, `backend/main.py`, `backend/history/service.py`, `backend/history/models.py`, `frontend/src/features/chat/api.ts`, `frontend/src/features/chat/hooks/useChat.ts`, `frontend/src/features/chat/types.ts`, `frontend/src/features/chat/components/SearchParamsPanel.tsx`, docs/tests references через `rg`.
+
+Что снижает confidence:
+
+- Судьба `param_extractor.py` зависит от финального reference scan после удаления второго parser path, но runtime-правило зафиксировано: production не должен его использовать.
+- Точная механика удаления старых tests/docs references станет видна после implementation diff, потому что references распределены по многим файлам.
+
+Что поднимет confidence до 90%+:
+
+- Уже закрыто пользовательскими решениями выше.
+- Перед кодом всё равно выполнить финальный reference scan: `rg -n "detect_mode|params_echo|query/parse|extract_search_params|ParsedParams|parsedParams" backend frontend tests docs`.
+
+Implementation confidence: 90%.
+
+Реализация выглядит выполнимой в рамках текущей архитектуры. Оставшийся риск связан не с требованиями, а с количеством связанных изменений: backend router prompt/validation, REST/WS payloads, SQLite migration, history serialization, frontend state mapping и docs/tests cleanup. Основной контрольный пункт реализации — сохранить один shape между snake_case backend internals и camelCase public API.
+
 ## Шаги реализации
 
 1. Создать feature branch перед изменениями в коде.
@@ -483,11 +551,13 @@ Context/state: {"type": "telecaster", "price_max": 800, "search_queries": ["Fend
 3. Обновить `service.py`:
    - убрать `detect_mode()` pre-check из `interpret_query()`;
    - убрать regex fallback route plan;
+   - убрать `_fallback_route_plan()` или оставить только как dead-code-free replacement без regex/NLP fallback, если нужен для тестовой совместимости;
    - считать missing/invalid LLM route plan ошибкой сервиса;
    - обрабатывать `off_topic` из route plan;
    - убрать regex-based helpers для no-preference/follow-up;
+   - заменить `_apply_no_preference_reply()` и `_looks_like_followup_search_request()` на использование LLM-router `search_params`, `missing_fields`, `type: "any"` и session state;
    - catalog/url safety guardrails не удалять без замены: оставить как техническую защиту или переписать на не-regex validation;
-   - возвращать `search_params` вместе с search results.
+   - возвращать `search_params` / `searchParams` вместе с search results;
    - убрать production-вызов `LLMClient.extract_search_params()` из search path.
 4. Обновить clarification/state logic:
    - оставить deterministic state merge и field validation;
@@ -503,9 +573,12 @@ Context/state: {"type": "telecaster", "price_max": 800, "search_queries": ["Fend
 7. Прокинуть `searchParams`:
    - REST `/api/chat` должен включать `searchParams` для search responses;
    - WebSocket search result должен включать `searchParams`;
+   - `interpret_query()` должен возвращать search result с `search_params` до camelCase serialization;
+   - `backend/main.py` должен передавать `search_params` в `save_exchange()` и отправлять `searchParams` в WS result payload;
    - history persistence должен сохранять `searchParams` для новых search-записей; старые записи без params отображаются без панели.
 8. Обновить response schemas и типы:
    - backend Pydantic models (`ChatResponse`, `HistoryItem`) должны поддерживать optional `search_params` / `searchParams`;
+   - `backend/models.py::WSMessage` должен поддерживать optional `search_params` или payload должен собираться напрямую с camelCase `searchParams`;
    - WebSocket payload должен отдавать `searchParams` в camelCase;
    - frontend Zod schemas/types должны принимать `searchParams` в chat result и history response;
    - off-topic наружу остаётся `mode: "consultation"`, поэтому внешние enum для mode не расширяются.
@@ -514,6 +587,8 @@ Context/state: {"type": "telecaster", "price_max": 800, "search_queries": ["Fend
    - перестать вызывать `/api/query/parse` в `useChat`;
    - заменить `ParsedParams` на `SearchParams`;
    - использовать backend-provided `searchParams` для `SearchParamsPanel`;
+   - в `Message.tsx` показывать `SearchParamsPanel` из agent search message, а не из previous user message;
+   - в `historyToMessages()` переносить `item.searchParams` в search message;
    - панель может быть пустой только до прихода search response или для старых history entries без `searchParams`.
 10. Обновить docs:
    - убрать `/api/query/parse` из API docs/status tables;

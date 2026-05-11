@@ -1,6 +1,5 @@
 """Тесты graceful degradation — проверка устойчивости пайплайна к ошибкам."""
 
-import os
 import sys
 from unittest.mock import patch, MagicMock
 
@@ -10,21 +9,27 @@ import pytest
 if "groq" not in sys.modules:
     sys.modules["groq"] = MagicMock()
 
-from backend.agent.service import interpret_query
+from backend.agent.service import LLMUnavailableError, interpret_query
 
 
 class MockLLMClient:
     """Мок LLM-клиента для тестов."""
 
-    def ask(self, text: str, system_prompt: str) -> str:
-        return "Тестовый ответ консультанта."
-
-    def extract_search_params(self, text: str) -> dict:
+    def classify_and_plan_query(self, text: str, history=None, current_state=None) -> dict:
         return {
-            "search_queries": ["Fender Stratocaster"],
-            "price_min": None,
-            "price_max": 1000,
+            "intent": "search",
+            "enough_for_search": True,
+            "missing_fields": [],
+            "search_params": {
+                "search_queries": ["Fender Stratocaster"],
+                "price_min": None,
+                "price_max": 1000,
+            },
+            "should_offer_search": False,
         }
+
+    def ask(self, text: str, system_prompt: str, history=None) -> str:
+        return "Тестовый ответ консультанта."
 
 
 def mock_search_fn(search_queries, price_min=None, price_max=None):
@@ -76,59 +81,40 @@ class TestRankResultsFailure:
         assert result["results"][4]["title"] == "Guitar 5"
 
 
-class TestDetectModeFailure:
-    """detect_mode бросает Exception → fallback на consultation."""
+class TestRouterFailure:
+    """LLM-router errors are explicit service errors."""
 
-    def test_detect_mode_exception_falls_back_to_consultation(self):
-        """Если detect_mode падает — режим consultation."""
-        call_count = {"n": 0}
-        original_detect = __import__("backend.agent.mode_detector", fromlist=["detect_mode"]).detect_mode
+    def test_router_exception_raises_unavailable(self):
+        mock_client = MockLLMClient()
+        mock_client.classify_and_plan_query = MagicMock(side_effect=RuntimeError("router broken"))
 
-        def failing_then_ok(*args, **kwargs):
-            call_count["n"] += 1
-            if call_count["n"] == 1:
-                raise RuntimeError("mode detection broken")
-            return original_detect(*args, **kwargs)
+        with pytest.raises(LLMUnavailableError):
+            interpret_query(text="Что угодно", llm_client=mock_client)
 
-        with patch("backend.agent.service.detect_mode", side_effect=failing_then_ok):
-            result = interpret_query(
-                text="Что угодно",
-                llm_client=MockLLMClient(),
-            )
+    def test_off_topic_refusal_generation_error_raises_unavailable(self):
+        mock_client = MagicMock()
+        mock_client.classify_and_plan_query.return_value = {
+            "intent": "off_topic",
+            "enough_for_search": False,
+            "missing_fields": [],
+            "search_params": None,
+            "should_offer_search": False,
+        }
+        mock_client.ask.return_value = "Error: upstream unavailable"
 
-        assert result["mode"] == "consultation"
-        assert "answer" in result
+        with pytest.raises(LLMUnavailableError):
+            interpret_query(text="напиши сортировку пузырьком", llm_client=mock_client)
 
 
 class TestNoApiKey:
-    """Без GROQ_API_KEY → pipeline работает в degraded mode."""
+    """Без GROQ_API_KEY → нет regex fallback."""
 
-    def test_no_api_key_consultation_returns_fallback_message(self):
-        """Consultation без API ключа → сообщение о недоступности."""
-        env_backup = os.environ.pop("GROQ_API_KEY", None)
-        try:
-            result = interpret_query(
-                text="Что такое хамбакер?",
-                llm_client=None,
-            )
-            assert result["mode"] == "consultation"
-            assert "answer" in result
-            assert len(result["answer"]) > 0
-        finally:
-            if env_backup is not None:
-                os.environ["GROQ_API_KEY"] = env_backup
+    def test_no_api_key_consultation_raises_unavailable(self, monkeypatch):
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+        with pytest.raises(LLMUnavailableError):
+            interpret_query(text="Что такое хамбакер?", llm_client=None)
 
-    def test_no_api_key_search_uses_text_as_query(self):
-        """Search без API ключа → текст запроса используется как search_queries."""
-        env_backup = os.environ.pop("GROQ_API_KEY", None)
-        try:
-            result = interpret_query(
-                text="Найди Fender Stratocaster",
-                llm_client=None,
-                search_fn=mock_search_fn,
-            )
-            assert result["mode"] == "search"
-            assert isinstance(result["results"], list)
-        finally:
-            if env_backup is not None:
-                os.environ["GROQ_API_KEY"] = env_backup
+    def test_no_api_key_search_raises_unavailable(self, monkeypatch):
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+        with pytest.raises(LLMUnavailableError):
+            interpret_query(text="Найди Fender Stratocaster", llm_client=None, search_fn=mock_search_fn)

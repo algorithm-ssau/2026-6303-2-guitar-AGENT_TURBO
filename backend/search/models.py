@@ -31,6 +31,20 @@ class GuitarResult(BaseModel):
 SearchResult = GuitarResult
 
 
+class SearchParams(BaseModel):
+    """LLM-derived параметры поиска, показываемые пользователю."""
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
+    search_queries: List[str] = Field(default_factory=list)
+    price_min: Optional[float] = None
+    price_max: Optional[float] = None
+    type: Optional[str] = None
+    brand: Optional[str] = None
+    pickups: Optional[str] = None
+    sound: Optional[str] = None
+    style: Optional[str] = None
+
+
 class ChatResponse(BaseModel):
     """Модель ответа от chat API."""
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
@@ -39,13 +53,6 @@ class ChatResponse(BaseModel):
     mode: Literal["search", "consultation", "clarification"]
     results: Optional[List[GuitarResult]] = Field(default=None, description="Результаты поиска")
     answer: Optional[str] = Field(default=None, description="Текстовый ответ LLM")
-
-
-class ParseQueryResponse(BaseModel):
-    """Модель ответа для эндпоинта парсинга параметров."""
-    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
-
-    type: Optional[str] = None
-    budget: Optional[str] = None
-    brand: Optional[str] = None
-    tags: List[str] = []
+    debug_think: Optional[str] = Field(default=None, description="Служебные рассуждения LLM для dev UI")
+    question: Optional[str] = Field(default=None, description="Уточняющий вопрос")
+    search_params: Optional[SearchParams] = Field(default=None, description="Параметры поиска из LLM-router")

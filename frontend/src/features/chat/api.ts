@@ -1,9 +1,8 @@
 import {
   ChatRequestSchema, ChatResponseSchema, ChatResponse,
   SessionsResponseSchema, HistoryResponseSchema, HistoryResponse,
-  Session, ParsedParams
+  Session
 } from './types';
-import { z } from 'zod';
 
 const API_BASE_URL = '/api';
 
@@ -17,10 +16,17 @@ function createApiError(status: number, fallbackMessage: string, detail?: string
   return error;
 }
 
+function authHeaders(token: string): HeadersInit {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+}
+
 /**
  * Отправляет сообщение пользователя на сервер
  */
-export async function sendMessage(text: string): Promise<ChatResponse> {
+export async function sendMessage(text: string, token: string): Promise<ChatResponse> {
   const parseResult = ChatRequestSchema.safeParse({ query: text });
   if (!parseResult.success) {
     const errorMessage = parseResult.error.errors?.[0]?.message || 'Невалидный запрос';
@@ -30,7 +36,7 @@ export async function sendMessage(text: string): Promise<ChatResponse> {
   try {
     const response = await fetch(`${API_BASE_URL}/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(token),
       body: JSON.stringify({ query: text }),
     });
 
@@ -57,13 +63,18 @@ export async function sendMessage(text: string): Promise<ChatResponse> {
  * Получить список сессий с пагинацией
  */
 export async function fetchSessions(
+  token: string,
   offset = 0,
   limit = 20,
 ): Promise<{ sessions: Session[]; total: number }> {
   const response = await fetch(
     `${API_BASE_URL}/sessions?offset=${offset}&limit=${limit}`,
+    { headers: authHeaders(token) },
   );
-  if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw createApiError(response.status, `Ошибка сервера: ${response.status}`, errorData.detail);
+  }
 
   const data = await response.json();
   const parseResult = SessionsResponseSchema.safeParse(data);
@@ -78,8 +89,10 @@ export async function fetchSessions(
 /**
  * Получить сообщения сессии
  */
-export async function fetchSessionMessages(sessionId: number): Promise<HistoryResponse> {
-  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/messages`);
+export async function fetchSessionMessages(sessionId: number, token: string): Promise<HistoryResponse> {
+  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/messages`, {
+    headers: authHeaders(token),
+  });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw createApiError(response.status, `Ошибка сервера: ${response.status}`, errorData.detail);
@@ -98,59 +111,27 @@ export async function fetchSessionMessages(sessionId: number): Promise<HistoryRe
 /**
  * Удалить сессию
  */
-export async function deleteSession(sessionId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, { method: 'DELETE' });
-  if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+export async function deleteSession(sessionId: number, token: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw createApiError(response.status, `Ошибка сервера: ${response.status}`, errorData.detail);
+  }
 }
 
 /**
  * Очистить всю историю
  */
-export async function clearAllHistory(): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/history`, { method: 'DELETE' });
-  if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
-}
-
-
-export const ParsedParamsSchema = z.object({
-  type: z.string().optional().nullable(),
-  budget: z.string().optional().nullable(),
-  brand: z.string().optional().nullable(),
-  tags: z.array(z.string()).default([]),
-});
-
-/**
- * Парсинг параметров через backend без LLM
- */
-export async function parseQuery(query: string): Promise<any> {
-  const response = await fetch('/api/query/parse', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
+export async function clearAllHistory(token: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/history`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
   });
-  
   if (!response.ok) {
-    throw new Error('Ошибка парсинга');
+    const errorData = await response.json().catch(() => ({}));
+    throw createApiError(response.status, `Ошибка сервера: ${response.status}`, errorData.detail);
   }
-  
-  const data = await response.json();
-  return ParsedParamsSchema.parse(data);
-}
-
-/**
- * Отправляет фидбек по гитаре
- */
-export async function submitFeedback(
-  sessionId: number, 
-  guitarId: string, 
-  rating: 'up' | 'down', 
-  query?: string
-): Promise<{ id: number }> {
-  const response = await fetch(`${API_BASE_URL}/feedback`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, guitar_id: guitarId, rating, query }),
-  });
-  if (!response.ok) throw new Error('Ошибка отправки фидбека');
-  return response.json();
 }

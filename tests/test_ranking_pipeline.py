@@ -30,19 +30,13 @@ def mock_search_results(queries, price_min, price_max):
 
 
 @patch('backend.agent.service.search_reverb')
-@patch('backend.agent.service.detect_mode')
 @patch('backend.agent.service.create_llm_client')
-def test_pipeline_returns_max_5_results(mock_llm, mock_detect_mode, mock_search):
+def test_pipeline_returns_max_5_results(mock_llm, mock_search):
     """interpret_query возвращает не более 5 результатов из 10."""
-    mock_detect_mode.return_value = "search"
     mock_search.return_value = mock_search_results(None, None, None)
 
     mock_client = MagicMock()
-    mock_client.extract_search_params.return_value = {
-        "search_queries": ["strat"],
-        "price_min": None,
-        "price_max": 500,
-    }
+    mock_client.classify_and_plan_query.return_value = _route_plan("strat", 500)
     mock_llm.return_value = mock_client
 
     result = interpret_query("Хочу страт до $500")
@@ -52,19 +46,13 @@ def test_pipeline_returns_max_5_results(mock_llm, mock_detect_mode, mock_search)
 
 
 @patch('backend.agent.service.search_reverb')
-@patch('backend.agent.service.detect_mode')
 @patch('backend.agent.service.create_llm_client')
-def test_budget_guitar_first(mock_llm, mock_detect_mode, mock_search):
+def test_budget_guitar_first(mock_llm, mock_search):
     """Гитара в бюджете с совпадением в title → первая."""
-    mock_detect_mode.return_value = "search"
     mock_search.return_value = mock_search_results(None, None, None)
 
     mock_client = MagicMock()
-    mock_client.extract_search_params.return_value = {
-        "search_queries": ["strat"],
-        "price_min": None,
-        "price_max": 500,
-    }
+    mock_client.classify_and_plan_query.return_value = _route_plan("strat", 500)
     mock_llm.return_value = mock_client
 
     result = interpret_query("Хочу страт до $500")
@@ -76,19 +64,13 @@ def test_budget_guitar_first(mock_llm, mock_detect_mode, mock_search):
 
 
 @patch('backend.agent.service.search_reverb')
-@patch('backend.agent.service.detect_mode')
 @patch('backend.agent.service.create_llm_client')
-def test_no_score_in_output(mock_llm, mock_detect_mode, mock_search):
+def test_no_score_in_output(mock_llm, mock_search):
     """score/_score не в выходных данных."""
-    mock_detect_mode.return_value = "search"
     mock_search.return_value = mock_search_results(None, None, None)
 
     mock_client = MagicMock()
-    mock_client.extract_search_params.return_value = {
-        "search_queries": ["strat"],
-        "price_min": None,
-        "price_max": 500,
-    }
+    mock_client.classify_and_plan_query.return_value = _route_plan("strat", 500)
     mock_llm.return_value = mock_client
 
     result = interpret_query("Хочу страт до $500")
@@ -99,19 +81,13 @@ def test_no_score_in_output(mock_llm, mock_detect_mode, mock_search):
 
 
 @patch('backend.agent.service.search_reverb')
-@patch('backend.agent.service.detect_mode')
 @patch('backend.agent.service.create_llm_client')
-def test_zero_results_from_search(mock_llm, mock_detect_mode, mock_search):
+def test_zero_results_from_search(mock_llm, mock_search):
     """search_reverb вернул 0 результатов → пустой список."""
-    mock_detect_mode.return_value = "search"
     mock_search.return_value = []
 
     mock_client = MagicMock()
-    mock_client.extract_search_params.return_value = {
-        "search_queries": ["strat"],
-        "price_min": None,
-        "price_max": 500,
-    }
+    mock_client.classify_and_plan_query.return_value = _route_plan("strat", 500)
     mock_llm.return_value = mock_client
 
     result = interpret_query("Хочу страт до $500")
@@ -120,19 +96,13 @@ def test_zero_results_from_search(mock_llm, mock_detect_mode, mock_search):
 
 
 @patch('backend.agent.service.search_reverb')
-@patch('backend.agent.service.detect_mode')
 @patch('backend.agent.service.create_llm_client')
-def test_less_than_5_results(mock_llm, mock_detect_mode, mock_search):
+def test_less_than_5_results(mock_llm, mock_search):
     """search_reverb вернул 3 результата → 3 на выходе (не 5)."""
-    mock_detect_mode.return_value = "search"
     mock_search.return_value = mock_search_results(None, None, None)[:3]
 
     mock_client = MagicMock()
-    mock_client.extract_search_params.return_value = {
-        "search_queries": ["strat"],
-        "price_min": None,
-        "price_max": 500,
-    }
+    mock_client.classify_and_plan_query.return_value = _route_plan("strat", 500)
     mock_llm.return_value = mock_client
 
     result = interpret_query("Хочу страт до $500")
@@ -141,19 +111,13 @@ def test_less_than_5_results(mock_llm, mock_detect_mode, mock_search):
 
 
 @patch('backend.agent.service.search_reverb')
-@patch('backend.agent.service.detect_mode')
 @patch('backend.agent.service.create_llm_client')
-def test_ranking_order_matches_expectations(mock_llm, mock_detect_mode, mock_search):
+def test_ranking_order_matches_expectations(mock_llm, mock_search):
     """Порядок результатов соответствует ожиданиям по бюджету и title."""
-    mock_detect_mode.return_value = "search"
     mock_search.return_value = mock_search_results(None, None, None)
 
     mock_client = MagicMock()
-    mock_client.extract_search_params.return_value = {
-        "search_queries": ["tele"],
-        "price_min": None,
-        "price_max": 800,
-    }
+    mock_client.classify_and_plan_query.return_value = _route_plan("tele", 800)
     mock_llm.return_value = mock_client
 
     result = interpret_query("Нужен телекастер до $800")
@@ -162,3 +126,22 @@ def test_ranking_order_matches_expectations(mock_llm, mock_detect_mode, mock_sea
     titles = [r["title"] for r in result["results"][:3]]
     tele_titles = [t for t in titles if "Tele" in t or "ASAT" in t]
     assert len(tele_titles) >= 2
+
+
+def _route_plan(query: str, price_max: int) -> dict:
+    return {
+        "intent": "search",
+        "enough_for_search": True,
+        "missing_fields": [],
+        "search_params": {
+            "search_queries": [query],
+            "price_min": None,
+            "price_max": price_max,
+            "type": None,
+            "brand": None,
+            "pickups": None,
+            "sound": None,
+            "style": None,
+        },
+        "should_offer_search": False,
+    }

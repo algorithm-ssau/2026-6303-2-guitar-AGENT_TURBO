@@ -28,12 +28,16 @@ def save_feedback(req: FeedbackRequest) -> int:
         conn.commit()
         return cursor.lastrowid
 
-def get_feedback_stats() -> FeedbackStats:
+def get_feedback_stats(user_id: int) -> FeedbackStats:
     with _get_connection() as conn:
         cursor = conn.cursor()
         
         # Агрегируем общую статистику
-        cursor.execute("SELECT COUNT(*), SUM(rating='up'), SUM(rating='down') FROM feedback")
+        cursor.execute(
+            "SELECT COUNT(*), SUM(rating='up'), SUM(rating='down') "
+            "FROM feedback WHERE session_id IN (SELECT id FROM sessions WHERE user_id = ?)",
+            (user_id,),
+        )
         total, up, down = cursor.fetchone()
 
         total = total or 0
@@ -42,7 +46,12 @@ def get_feedback_stats() -> FeedbackStats:
         ratio = (up / total) if total > 0 else 0.0
 
         # Агрегируем статистику по гитарам
-        cursor.execute("SELECT guitar_id, SUM(rating='up'), SUM(rating='down') FROM feedback GROUP BY guitar_id")
+        cursor.execute(
+            "SELECT guitar_id, SUM(rating='up'), SUM(rating='down') "
+            "FROM feedback WHERE session_id IN (SELECT id FROM sessions WHERE user_id = ?) "
+            "GROUP BY guitar_id",
+            (user_id,),
+        )
         rows = cursor.fetchall()
         
         by_guitar = {row[0]: {"up": row[1] or 0, "down": row[2] or 0} for row in rows}

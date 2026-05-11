@@ -68,11 +68,14 @@ export const searchResultsDemo: { messages: Message[] } = {
       content: 'Нашёл несколько отличных вариантов на Reverb:',
       timestamp: new Date(now.getTime() - 60000),
       mode: 'search',
-      parsedParams: {
-        type: 'Telecaster',
-        budget: '600',
-        brand: undefined,
-        tags: ['bright sound'],
+      searchParams: {
+        searchQueries: ['Fender Telecaster', 'Squier Classic Vibe Telecaster'],
+        priceMax: 600,
+        type: 'telecaster',
+        brand: null,
+        pickups: 'single_coil',
+        sound: 'bright',
+        style: null,
       },
       results: [
         {
@@ -129,11 +132,14 @@ export const emptyResultsDemo: { messages: Message[] } = {
       content: 'По вашему запросу ничего не найдено на Reverb.',
       timestamp: new Date(now.getTime() - 60000),
       mode: 'search',
-      parsedParams: {
-        type: 'Les Paul Custom',
-        budget: '500',
+      searchParams: {
+        searchQueries: ['Gibson Les Paul Custom 1959'],
+        priceMax: 500,
+        type: 'les_paul',
         brand: 'Gibson',
-        tags: ['1959'],
+        pickups: null,
+        sound: null,
+        style: null,
       },
       results: [],
     } as Message,

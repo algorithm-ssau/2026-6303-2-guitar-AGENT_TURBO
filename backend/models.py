@@ -23,4 +23,5 @@ class WSMessage(BaseModel):
     results: Optional[List[GuitarResult]] = None
     question: Optional[str] = None
     explanation: Optional[str] = None
+    search_params: Optional[dict] = None
     session_id: Optional[int] = None

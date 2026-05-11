@@ -39,7 +39,17 @@
       "imageUrl": "https://reverb.com/item/12345.jpg",
       "listingUrl": "https://reverb.com/item/12345"
     }
-  ]
+  ],
+  "searchParams": {
+    "searchQueries": ["Fender Player Stratocaster"],
+    "priceMin": null,
+    "priceMax": 500,
+    "type": "stratocaster",
+    "brand": "Fender",
+    "pickups": null,
+    "sound": null,
+    "style": null
+  }
 }
 ```
 
@@ -52,7 +62,9 @@
 ```
 
 **Ошибки:**
-- `400` — пустой запрос: `{"detail": "Запрос не может быть пустым"}`
+- `422` — невалидный запрос
+- `502` — LLM-router вернул невалидный ответ: `{"detail": "Некорректный ответ LLM-router."}`
+- `503` — LLM недоступна: `{"detail": "Сервис временно недоступен: не удалось обработать запрос через LLM."}`
 - `500` — внутренняя ошибка сервера
 
 **Пример запроса:**
@@ -61,44 +73,6 @@ curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
   -d '{"query": "Найди гитару до 1000$"}'
 ```
-
----
-
-### POST /api/query/parse
-
-**Статус:** `ready`
-
-**Назначение:**  
-Быстрый парсинг параметров запроса без вызова LLM. Использует регулярные выражения для извлечения типа гитары, бюджета, бренда и тегов.
-
-**Request body:**
-```json
-{
-  "query": "Найди стратокастер до 500$"
-}
-```
-
-**Response body:**
-```json
-{
-  "type": "electric",
-  "budget": "500",
-  "brand": "Fender",
-  "tags": ["stratocaster"]
-}
-```
-
-**Ошибки:**
-- `400` — некорректный запрос
-
-**Пример запроса:**
-```bash
-curl -X POST http://localhost:8000/api/query/parse \
-  -H "Content-Type: application/json" \
-  -d '{"query": "электрогитара Gibson до 2000$"}'
-```
-
----
 
 ### GET /api/sessions
 
@@ -370,7 +344,7 @@ WebSocket соединение для интерактивного чата с �
 {
   "type": "result",
   "mode": "clarification",
-  "question": "Уточните, какой бренд вы предпочитаете?",
+  "question": "Ок, показать недорогие варианты для новичка до $500?",
   "sessionId": 1
 }
 ```
@@ -386,7 +360,7 @@ WebSocket соединение для интерактивного чата с �
 **Режимы работы:**
 - `search` — поиск гитар на Reverb
 - `consultation` — ответ на вопрос о гитарах
-- `clarification` — уточняющий вопрос (недостаточно данных)
+- `clarification` — LLM-generated уточняющий вопрос или подтверждение по недостающим search-полям
 
 **Ошибки:**
 - `4001` — пустой запрос
@@ -421,7 +395,6 @@ ws.onerror = (error) => {
 | Endpoint | Method | Статус |
 |----------|--------|--------|
 | `/api/chat` | POST | ✅ ready |
-| `/api/query/parse` | POST | ✅ ready |
 | `/api/sessions` | GET | ✅ ready |
 | `/api/sessions` | POST | ✅ ready |
 | `/api/sessions/{id}/messages` | GET | ✅ ready |

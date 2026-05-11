@@ -17,5 +17,15 @@
       "imageUrl": "https://reverb.com/images/67890.jpg",
       "listingUrl": "https://reverb.com/item/67890"
     }
-  ]
+  ],
+  "searchParams": {
+    "searchQueries": ["Fender Player Stratocaster", "Squier Classic Vibe 60s Stratocaster"],
+    "priceMin": null,
+    "priceMax": 500,
+    "type": "stratocaster",
+    "brand": "Fender",
+    "pickups": "SSS",
+    "sound": "bright",
+    "style": null
+  }
 }

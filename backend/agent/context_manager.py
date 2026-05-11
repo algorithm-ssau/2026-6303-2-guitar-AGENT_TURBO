@@ -1,9 +1,37 @@
 """Модуль управления контекстом диалога."""
 import os
 from backend.history.service import get_session_messages
+from backend.history.service import strip_think_blocks
 from backend.utils.logger import get_logger
 
 logger = get_logger("agent.context_manager")
+
+def format_search_results_context(results: list, latest: bool = True, limit: int = 5) -> str:
+    """Форматирует сохранённую search-выдачу как numbered context для LLM."""
+    label = "Последняя поисковая выдача:" if latest else "Предыдущая поисковая выдача:"
+    parts = [label]
+    for index, result in enumerate((results or [])[:limit], start=1):
+        title = str(result.get("title") or "").strip()
+        if not title:
+            continue
+        price = _format_price(result.get("price"))
+        suffix = f", {price}" if price else ""
+        parts.append(f"#{index} {title}{suffix}")
+    return "\n".join(parts)
+
+
+def _format_price(value: object) -> str:
+    if value in (None, ""):
+        return ""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        text = str(value).strip()
+        return text if text.startswith("$") else f"${text}"
+    if number.is_integer():
+        return f"${int(number)}"
+    return f"${number:.2f}".rstrip("0").rstrip(".")
+
 
 def estimate_tokens(text: str) -> int:
     """Грубая оценка токенов: 1 токен ≈ 3 символа."""
@@ -31,18 +59,21 @@ def build_context(
             
         threshold = int(limit * 0.75)
         
+        latest_search_index = None
+        for index, item in enumerate(items):
+            if item.get("mode") == "search" and item.get("results"):
+                latest_search_index = index
+
         history = []
-        for item in items:
+        for index, item in enumerate(items):
             history.append({"role": "user", "content": item["user_query"]})
             if item.get("mode") == "search" and item.get("results"):
-                parts = ["Я нашёл следующие гитары:"]
-                for r in item["results"]:
-                    title = r.get("title", "")
-                    price = r.get("price", "")
-                    parts.append(f"- {title}, ${price}")
-                answer = "\n".join(parts)
+                answer = format_search_results_context(
+                    item["results"],
+                    latest=index == latest_search_index,
+                )
             else:
-                answer = item.get("answer") or ""
+                answer = strip_think_blocks(item.get("answer") or "") or ""
             history.append({"role": "assistant", "content": answer})
             
         # Считаем текущий размер

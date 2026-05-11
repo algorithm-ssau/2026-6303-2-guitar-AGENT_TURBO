@@ -30,7 +30,7 @@ def _get_connection() -> sqlite3.Connection:
     return conn
 
 
-def get_stats() -> dict:
+def get_stats(user_id: int) -> dict:
     """
     Собрать статистику использования.
 
@@ -45,16 +45,26 @@ def get_stats() -> dict:
 
     try:
         # Общее количество сессий
-        row = conn.execute("SELECT COUNT(*) as cnt FROM sessions").fetchone()
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM sessions WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
         total_sessions = row["cnt"] if row else 0
 
         # Общее количество запросов
-        row = conn.execute("SELECT COUNT(*) as cnt FROM chat_history").fetchone()
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM chat_history "
+            "WHERE session_id IN (SELECT id FROM sessions WHERE user_id = ?)",
+            (user_id,),
+        ).fetchone()
         total_queries = row["cnt"] if row else 0
 
         # Распределение по режимам
         rows = conn.execute(
-            "SELECT mode, COUNT(*) as cnt FROM chat_history GROUP BY mode"
+            "SELECT mode, COUNT(*) as cnt FROM chat_history "
+            "WHERE session_id IN (SELECT id FROM sessions WHERE user_id = ?) "
+            "GROUP BY mode",
+            (user_id,),
         ).fetchall()
         mode_distribution = {row["mode"]: row["cnt"] for row in rows}
 
@@ -69,7 +79,9 @@ def get_stats() -> dict:
         search_sessions = conn.execute(
             "SELECT session_id, MIN(id) as first_search_id "
             "FROM chat_history WHERE mode = 'search' "
-            "GROUP BY session_id"
+            "AND session_id IN (SELECT id FROM sessions WHERE user_id = ?) "
+            "GROUP BY session_id",
+            (user_id,),
         ).fetchall()
 
         if search_sessions:

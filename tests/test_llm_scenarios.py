@@ -1,70 +1,98 @@
-"""Сценарные тесты LLM с параметризацией."""
+"""Сценарные тесты LLM-router с параметризацией."""
 
 import pytest
-from unittest.mock import MagicMock
-from backend.agent.service import interpret_query
+
+from backend.agent.service import InvalidRouterResponseError, interpret_query
+
+
+class ScenarioClient:
+    def __init__(self, route_plan, answer="Ответ консультации"):
+        self.route_plan = route_plan
+        self.answer = answer
+
+    def classify_and_plan_query(self, query, history=None, current_state=None):
+        if isinstance(self.route_plan, Exception):
+            raise self.route_plan
+        return self.route_plan
+
+    def ask(self, query, prompt, history=None):
+        return self.answer
+
+
+def search_route(search_params):
+    return {
+        "intent": "search",
+        "enough_for_search": True,
+        "missing_fields": [],
+        "search_params": search_params,
+        "should_offer_search": False,
+    }
+
+
+def consultation_route():
+    return {
+        "intent": "consultation",
+        "enough_for_search": False,
+        "missing_fields": [],
+        "search_params": None,
+        "should_offer_search": False,
+    }
+
 
 scenarios = [
-    # 1. Прямой подбор с четкими параметрами
     (
         "Привет! Ищу яркую электрогитару для блюза и фанка, бюджет до 1000 баксов.",
-        '{"mode": "search", "params": {"search_queries": ["Fender Player Stratocaster", "Squier Classic Vibe Telecaster"], "price_max": 1000}}',
-        "search"
+        search_route({
+            "search_queries": ["Fender Player Stratocaster", "Squier Classic Vibe Telecaster"],
+            "price_max": 1000,
+            "style": "blues",
+            "sound": "bright",
+        }),
+        "search",
     ),
-    # 2. Нехватка данных
-    (
-        "Хочу купить гитару для метала.",
-        '{"mode": "consultation", "answer": "Какой у вас бюджет?"}',
-        "consultation"
-    ),
-    # 3. Теоретический вопрос
     (
         "Чем отличаются синглы от хамбакеров?",
-        '{"mode": "consultation", "answer": "Синглы ярче"}',
-        "consultation"
+        consultation_route(),
+        "consultation",
     ),
-    # 4. Выход за рамки компетенции (Out of Scope)
     (
         "Как сгенерировать картинку в Midjourney?",
-        '{"mode": "consultation", "answer": "Извините, я специализируюсь только на гитарах."}',
-        "consultation"
+        {
+            "intent": "off_topic",
+            "enough_for_search": False,
+            "missing_fields": [],
+            "search_params": None,
+            "should_offer_search": False,
+        },
+        "consultation",
     ),
-    # 5. Акустическая гитара
     (
         "Нужна гитара для костра петь песни, недорогая, до 200 долларов.",
-        '{"mode": "search", "params": {"search_queries": ["Yamaha F310", "Fender CD-60", "Epiphone DR-100"], "price_max": 200}}',
-        "search"
+        search_route({
+            "search_queries": ["Yamaha F310", "Fender CD-60", "Epiphone DR-100"],
+            "price_max": 200,
+            "type": "acoustic",
+        }),
+        "search",
     ),
-    # 6. Противоречивый запрос
-    (
-        "Хочу акустическую гитару с флойд роузом и активными звукоснимателями EMG.",
-        '{"mode": "consultation", "answer": "Акустических гитар с такой комплектацией не выпускают."}',
-        "consultation"
-    ),
-    # 7. Запасной fallback (invalid json)
-    (
-        "Сломани запрос",
-        '{ invalid json }',
-        "consultation"
-    )
 ]
 
-@pytest.mark.parametrize("query, mock_response_text, expected_mode", scenarios)
-def test_interpret_query_scenarios(query, mock_response_text, expected_mode):
-    mock_client = MagicMock()
-    mock_response = MagicMock()
-    mock_response.choices[0].message.content = mock_response_text
-    mock_client.chat.completions.create.return_value = mock_response
-    
-    # We pass the mock_client to interpret_query
-    # Since search_fn isn't supported by our service.py signature anymore, we only mock LLM.
-    result = interpret_query(query, llm_client=mock_client)
-    
-    # Assert mode is correct
+
+@pytest.mark.parametrize("query, route_plan, expected_mode", scenarios)
+def test_interpret_query_scenarios(query, route_plan, expected_mode):
+    result = interpret_query(
+        query,
+        llm_client=ScenarioClient(route_plan, answer="Синглы ярче"),
+        search_fn=lambda *args: [{"title": "Guitar", "price": 100}],
+    )
+
     assert result["mode"] == expected_mode
-    
-    # Assert correct structure based on mode
     if expected_mode == "search":
-        assert "params" in result
+        assert "search_params" in result
     else:
         assert "answer" in result
+
+
+def test_invalid_router_response_is_error():
+    with pytest.raises(InvalidRouterResponseError):
+        interpret_query("Сломани запрос", llm_client=ScenarioClient({"intent": "search"}))

@@ -203,7 +203,8 @@
 }
 
 .sidebar-clear-btn,
-.sidebar-theme-btn {
+.sidebar-theme-btn,
+.sidebar-logout-btn {
   width: 100%;
   padding: 12px;
   background: var(--bg-bubble-ai);
@@ -225,6 +226,16 @@
   color: var(--accent);
   border-color: var(--accent);
   background: var(--surface-hover);
+}
+
+.sidebar-logout-btn {
+  color: var(--text-dim);
+}
+
+.sidebar-logout-btn:hover {
+  color: var(--error-text);
+  border-color: var(--error-border);
+  background: var(--error-bg);
 }
 
 .sidebar-clear-btn:disabled {

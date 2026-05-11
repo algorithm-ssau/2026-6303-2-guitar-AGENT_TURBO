@@ -14,6 +14,7 @@ interface SidebarProps {
   onDeleteSession?: (id: number) => void;
   onClearHistory?: () => void;
   onToggleTheme?: () => void;
+  onLogout?: () => void;
   onToggle: () => void;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
   isLoadingMore?: boolean;
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDeleteSession = () => {},
   onClearHistory = () => {},
   onToggleTheme = () => {},
+  onLogout = () => {},
   onToggle,
   onScroll,
   isLoadingMore,
@@ -131,17 +133,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="sidebar-footer">
           <button
             className="sidebar-clear-btn"
-            onClick={() => {
-              if (window.confirm('Удалить всю историю?')) {
-                onClearHistory();
-              }
-            }}
+            onClick={onClearHistory}
             disabled={isLoadingSessions || sessions.length === 0}
           >
             🗑 Очистить всё
           </button>
           <button className="sidebar-theme-btn" onClick={onToggleTheme}>
             🌓 {theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+          </button>
+          <button className="sidebar-logout-btn" onClick={onLogout}>
+            🚪 Выйти
           </button>
           <div className="sidebar-footer-note">
             {isLoadingSessions && sessions.length === 0 ? 'Загружаем историю...' : '\u00A0'}

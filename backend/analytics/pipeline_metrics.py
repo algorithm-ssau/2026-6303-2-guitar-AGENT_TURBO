@@ -42,24 +42,53 @@ def record_exchange(
     logger.info("Записана метрика pipeline_metrics: session_id=%s mode=%s", session_id, mode)
 
 
-def compute_kpi() -> dict:
+def compute_kpi(user_id: int) -> dict:
     """Посчитать KPI по сохранённым метрикам пайплайна."""
     conn = _get_connection()
 
     total_sessions = _scalar_int(
-        conn.execute("SELECT COUNT(DISTINCT session_id) FROM pipeline_metrics WHERE session_id IS NOT NULL")
+        conn.execute(
+            "SELECT COUNT(DISTINCT pipeline_metrics.session_id) "
+            "FROM pipeline_metrics "
+            "JOIN sessions ON sessions.id = pipeline_metrics.session_id "
+            "WHERE sessions.user_id = ?",
+            (user_id,),
+        )
     )
-    total_exchanges = _scalar_int(conn.execute("SELECT COUNT(*) FROM pipeline_metrics"))
-    avg_elapsed_ms = _scalar_float(conn.execute("SELECT AVG(elapsed_ms) FROM pipeline_metrics"))
+    total_exchanges = _scalar_int(
+        conn.execute(
+            "SELECT COUNT(*) "
+            "FROM pipeline_metrics "
+            "JOIN sessions ON sessions.id = pipeline_metrics.session_id "
+            "WHERE sessions.user_id = ?",
+            (user_id,),
+        )
+    )
+    avg_elapsed_ms = _scalar_float(
+        conn.execute(
+            "SELECT AVG(elapsed_ms) "
+            "FROM pipeline_metrics "
+            "JOIN sessions ON sessions.id = pipeline_metrics.session_id "
+            "WHERE sessions.user_id = ?",
+            (user_id,),
+        )
+    )
     elapsed_values = [
         int(row[0])
-        for row in conn.execute("SELECT elapsed_ms FROM pipeline_metrics ORDER BY elapsed_ms ASC").fetchall()
+        for row in conn.execute(
+            "SELECT elapsed_ms "
+            "FROM pipeline_metrics "
+            "JOIN sessions ON sessions.id = pipeline_metrics.session_id "
+            "WHERE sessions.user_id = ? "
+            "ORDER BY elapsed_ms ASC",
+            (user_id,),
+        ).fetchall()
     ]
 
     p95_elapsed_ms = _percentile_95(elapsed_values)
-    avg_messages_to_first_search = _avg_messages_to_first_search()
-    clarification_rate = _session_rate("clarification", total_sessions)
-    repeat_session_rate = _repeat_search_rate(total_sessions)
+    avg_messages_to_first_search = _avg_messages_to_first_search(user_id)
+    clarification_rate = _session_rate("clarification", total_sessions, user_id)
+    repeat_session_rate = _repeat_search_rate(total_sessions, user_id)
 
     return {
         "total_sessions": total_sessions,
@@ -90,13 +119,15 @@ def _percentile_95(values: list[int]) -> float:
     return float(values[index])
 
 
-def _avg_messages_to_first_search() -> float:
+def _avg_messages_to_first_search(user_id: int) -> float:
     conn = _get_connection()
     first_search_rows = conn.execute(
-        "SELECT session_id, MIN(id) AS first_search_id "
+        "SELECT pipeline_metrics.session_id, MIN(pipeline_metrics.id) AS first_search_id "
         "FROM pipeline_metrics "
-        "WHERE mode = 'search' AND session_id IS NOT NULL "
-        "GROUP BY session_id"
+        "JOIN sessions ON sessions.id = pipeline_metrics.session_id "
+        "WHERE pipeline_metrics.mode = 'search' AND sessions.user_id = ? "
+        "GROUP BY pipeline_metrics.session_id",
+        (user_id,),
     ).fetchall()
 
     if not first_search_rows:
@@ -115,22 +146,24 @@ def _avg_messages_to_first_search() -> float:
     return round(sum(positions) / len(positions), 2)
 
 
-def _session_rate(mode: str, total_sessions: int) -> float:
+def _session_rate(mode: str, total_sessions: int, user_id: int) -> float:
     if total_sessions == 0:
         return 0.0
 
     conn = _get_connection()
     matching_sessions = _scalar_int(
         conn.execute(
-            "SELECT COUNT(DISTINCT session_id) FROM pipeline_metrics "
-            "WHERE mode = ? AND session_id IS NOT NULL",
-            (mode,),
+            "SELECT COUNT(DISTINCT pipeline_metrics.session_id) "
+            "FROM pipeline_metrics "
+            "JOIN sessions ON sessions.id = pipeline_metrics.session_id "
+            "WHERE pipeline_metrics.mode = ? AND sessions.user_id = ?",
+            (mode, user_id),
         )
     )
     return round(matching_sessions / total_sessions * 100, 2)
 
 
-def _repeat_search_rate(total_sessions: int) -> float:
+def _repeat_search_rate(total_sessions: int, user_id: int) -> float:
     if total_sessions == 0:
         return 0.0
 
@@ -138,10 +171,12 @@ def _repeat_search_rate(total_sessions: int) -> float:
     repeat_sessions = _scalar_int(
         conn.execute(
             "SELECT COUNT(*) FROM ("
-            "SELECT session_id FROM pipeline_metrics "
-            "WHERE mode = 'search' AND session_id IS NOT NULL "
-            "GROUP BY session_id HAVING COUNT(*) >= 2"
-            ")"
+            "SELECT pipeline_metrics.session_id FROM pipeline_metrics "
+            "JOIN sessions ON sessions.id = pipeline_metrics.session_id "
+            "WHERE pipeline_metrics.mode = 'search' AND sessions.user_id = ? "
+            "GROUP BY pipeline_metrics.session_id HAVING COUNT(*) >= 2"
+            ")",
+            (user_id,),
         )
     )
     return round(repeat_sessions / total_sessions * 100, 2)

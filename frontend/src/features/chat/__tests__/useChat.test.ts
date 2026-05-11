@@ -52,7 +52,6 @@ class MockWebSocket {
 describe('useChat hook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers();
     window.history.replaceState({}, '', '/');
     mockFetchSessions.mockResolvedValue({ sessions: [], total: 0 });
     mockFetchSessionMessages.mockResolvedValue({ items: [] });
@@ -70,11 +69,6 @@ describe('useChat hook', () => {
   it('должен подключаться к WebSocket при монтировании', async () => {
     const { result } = renderHook(() => useChat());
 
-    // Проматываем время для подключения
-    act(() => {
-      vi.advanceTimersByTime(0);
-    });
-
     await waitFor(() => {
       expect(result.current.connectionStatus).toBe('connected');
     });
@@ -82,11 +76,6 @@ describe('useChat hook', () => {
 
   it('должен отправлять сообщение и получать result с маппингом snake_case → camelCase', async () => {
     const { result } = renderHook(() => useChat());
-
-    // Ждём подключения
-    act(() => {
-      vi.advanceTimersByTime(0);
-    });
 
     await waitFor(() => {
       expect(result.current.connectionStatus).toBe('connected');
@@ -254,10 +243,6 @@ describe('useChat hook', () => {
   it('должен обновлять status при получении type="status"', async () => {
     const { result } = renderHook(() => useChat());
 
-    act(() => {
-      vi.advanceTimersByTime(0);
-    });
-
     await waitFor(() => {
       expect(result.current.connectionStatus).toBe('connected');
     });
@@ -269,10 +254,6 @@ describe('useChat hook', () => {
   it('должен устанавливать error при получении type="error"', async () => {
     const { result } = renderHook(() => useChat());
 
-    act(() => {
-      vi.advanceTimersByTime(0);
-    });
-
     await waitFor(() => {
       expect(result.current.connectionStatus).toBe('connected');
     });
@@ -282,6 +263,7 @@ describe('useChat hook', () => {
   });
 
   it('должен пытаться переподключиться через 3 секунды при обрыве соединения', async () => {
+    vi.useFakeTimers();
     let wsInstance: MockWebSocket | null = null;
 
     // Перехватываем создание WebSocket
@@ -296,13 +278,11 @@ describe('useChat hook', () => {
     const { result } = renderHook(() => useChat());
 
     // Ждём подключения
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(0);
     });
 
-    await waitFor(() => {
-      expect(result.current.connectionStatus).toBe('connected');
-    });
+    expect(result.current.connectionStatus).toBe('connected');
 
     // Симулируем обрыв соединения
     act(() => {
@@ -311,18 +291,14 @@ describe('useChat hook', () => {
       }
     });
 
-    await waitFor(() => {
-      expect(result.current.connectionStatus).toBe('disconnected');
-    });
+    expect(result.current.connectionStatus).toBe('disconnected');
 
     // Проматываем время на 3 секунды для реконнекта
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(3000);
     });
 
     // Проверяем что была попытка реконнекта
-    await waitFor(() => {
-      expect(result.current.connectionStatus).toBe('connecting');
-    });
+    expect(result.current.connectionStatus).toBe('connecting');
   });
 });

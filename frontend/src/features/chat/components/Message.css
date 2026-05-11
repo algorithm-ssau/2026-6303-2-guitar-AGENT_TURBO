@@ -35,6 +35,102 @@
   border-radius: var(--radius-sm);
 }
 
+.message-markdown,
+.message-plain-text {
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.message-markdown p {
+  margin: 0 0 10px;
+}
+
+.message-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.message-markdown h1,
+.message-markdown h2,
+.message-markdown h3,
+.message-markdown h4 {
+  margin: 12px 0 6px;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.message-markdown h1:first-child,
+.message-markdown h2:first-child,
+.message-markdown h3:first-child,
+.message-markdown h4:first-child {
+  margin-top: 0;
+}
+
+.message-markdown ul,
+.message-markdown ol {
+  margin: 6px 0 12px;
+  padding-left: 20px;
+}
+
+.message-markdown li {
+  margin: 4px 0;
+  padding-left: 2px;
+}
+
+.message-markdown li > p {
+  margin: 0;
+}
+
+.message-markdown strong {
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.message-markdown a {
+  color: var(--link);
+  text-decoration: underline;
+}
+
+.message-markdown code {
+  background: var(--code-bg);
+  color: var(--text-main);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.message-markdown blockquote {
+  margin: 10px 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent);
+  color: var(--text-subtle);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.message-think {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.message-think summary {
+  padding-top: 10px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+}
+
+.message-think div {
+  margin-top: 8px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--text-subtle);
+  line-height: 1.5;
+}
+
 .message-thinking-body {
   min-width: 240px;
 }
