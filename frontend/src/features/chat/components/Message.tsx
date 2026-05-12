@@ -102,7 +102,7 @@ export const MessageItem: React.FC<MessageProps> = ({ message, previousMessage }
         )}
 
         {!showThinkingState && showContent && (
-          <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
+          <div style={{ fontSize: '14px', lineHeight: '1.5', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
             {!isUser && isConsultation ? (
               <ReactMarkdown
                 components={{

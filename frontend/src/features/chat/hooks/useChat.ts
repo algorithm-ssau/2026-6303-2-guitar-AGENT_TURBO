@@ -185,7 +185,6 @@ export function useChat(): UseChatReturn {
 
       ws.onopen = () => {
         setConnectionStatus('connected');
-        setError(null);
       };
 
       ws.onclose = () => {
