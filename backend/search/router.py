@@ -47,6 +47,12 @@ async def chat(
             question=result.get("question", ""),
             search_params=result.get("search_params"),
         )
+    if result["mode"] == "conversation":
+        return ChatResponse(
+            mode="conversation",
+            answer=result.get("answer", ""),
+            debug_think=result.get("debug_think"),
+        )
     return ChatResponse(
         mode="consultation",
         answer=result.get("answer", ""),

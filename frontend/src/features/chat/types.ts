@@ -26,6 +26,8 @@ export interface SearchParams {
   style?: string | null;
 }
 
+export type ChatMode = 'search' | 'consultation' | 'conversation' | 'clarification';
+
 /** Сообщение в чате */
 export interface Message {
   id: string;
@@ -33,7 +35,7 @@ export interface Message {
   content: string;
   timestamp: Date;
   results?: GuitarResult[];
-  mode?: 'search' | 'consultation' | 'clarification';
+  mode?: ChatMode;
   answer?: string;
   question?: string;
   explanation?: string;
@@ -93,7 +95,7 @@ export const SearchParamsSchema = z.object({
 
 /** Схема ответа от API */
 export const ChatResponseSchema = z.object({
-  mode: z.enum(['search', 'consultation', 'clarification']),
+  mode: z.enum(['search', 'consultation', 'conversation', 'clarification']),
   answer: z.string().optional(),
   debugThink: z.string().nullable().optional(),
   results: z.array(SearchResultSchema).optional(),
@@ -124,7 +126,7 @@ export const HistoryItemSchema = z.object({
   id: z.number(),
   sessionId: z.number(),
   userQuery: z.string(),
-  mode: z.enum(['search', 'consultation', 'clarification']),
+  mode: z.enum(['search', 'consultation', 'conversation', 'clarification']),
   answer: z.string().nullable().optional(),
   results: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
   searchParams: SearchParamsSchema.nullable().optional(),

@@ -50,7 +50,7 @@ class ChatResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
 
     # Валидация: только конкретные режимы
-    mode: Literal["search", "consultation", "clarification"]
+    mode: Literal["search", "consultation", "conversation", "clarification"]
     results: Optional[List[GuitarResult]] = Field(default=None, description="Результаты поиска")
     answer: Optional[str] = Field(default=None, description="Текстовый ответ LLM")
     debug_think: Optional[str] = Field(default=None, description="Служебные рассуждения LLM для dev UI")

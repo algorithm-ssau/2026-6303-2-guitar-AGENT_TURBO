@@ -175,7 +175,35 @@ async def chat(websocket: WebSocket):
 
             # Отправляем результат
             if result_data:
-                if result_data["mode"] == "consultation":
+                if result_data["mode"] == "conversation":
+                    await websocket.send_json({
+                        "type": "status",
+                        "status": "Формирую ответ..."
+                    })
+
+                    answer = result_data.get("answer", "")
+                    await websocket.send_json({
+                        "type": "result",
+                        "mode": "conversation",
+                        "answer": answer,
+                        "debugThink": result_data.get("debug_think"),
+                        "sessionId": session_id,
+                    })
+                    try:
+                        record_exchange(
+                            session_id,
+                            "conversation",
+                            elapsed_ms,
+                            None,
+                        )
+                    except Exception as e:
+                        logger.error("Ошибка записи метрик пайплайна: %s", e)
+
+                    try:
+                        save_exchange(session_id=session_id, user_query=query, mode="conversation", answer=answer)
+                    except Exception as e:
+                        logger.error("Ошибка сохранения истории: %s", e)
+                elif result_data["mode"] == "consultation":
                     await websocket.send_json({
                         "type": "status",
                         "status": "Формирую ответ..."

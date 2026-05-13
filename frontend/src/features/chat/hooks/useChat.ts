@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Message, ChatState, GuitarResult, Session } from '../types';
+import { Message, ChatState, GuitarResult, Session, ChatMode } from '../types';
 import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession, clearAllHistory } from '../api';
 
 const WS_URL = 'ws://127.0.0.1:8000/chat';
@@ -94,7 +94,7 @@ function historyToMessages(items: any[]): Message[] {
         ? (item.answer || '')
         : (item.answer || `Найдено гитар: ${(normalizedResults || []).length}`),
       timestamp: new Date(item.createdAt),
-      mode: item.mode as 'search' | 'consultation' | 'clarification',
+      mode: item.mode as ChatMode,
       results: normalizedResults,
       searchParams: item.searchParams || null,
     });
@@ -248,7 +248,7 @@ export function useChat(authToken: string, onAuthExpired: () => void): UseChatRe
               let content = '';
               let results: GuitarResult[] | undefined = undefined;
 
-              if (data.mode === 'consultation') {
+              if (data.mode === 'consultation' || data.mode === 'conversation') {
                 content = data.answer || '';
               } else if (data.mode === 'clarification') {
                 // Уточняющий вопрос — продолжаем диалог в той же сессии

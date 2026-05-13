@@ -35,6 +35,7 @@ DEFAULT_ROUTER_ASSISTANT_SNIPPET_CHAR_LIMIT = 450
 DEFAULT_ROUTER_MAX_PROMPT_CHARS = 4200
 
 SEARCH_PARAM_FIELDS = ("search_queries", "price_min", "price_max", "type", "brand", "pickups", "sound", "style")
+ALLOWED_ROUTER_INTENTS = {"search", "consultation", "off_topic", "conversation"}
 ALLOWED_MISSING_FIELDS = {"budget", "type"}
 ALLOWED_NO_PREFERENCE_FIELDS = {"budget", "type", "brand", "pickups", "sound", "style"}
 ALLOWED_DEFAULT_ACTIONS = {"apply_beginner_budget", "accept_beginner_budget"}
@@ -140,6 +141,37 @@ def get_clarification_prompt() -> str:
     )
 
 
+def get_conversation_prompt() -> str:
+    """Загружает prompt для коротких non-search conversational turns."""
+    prompt_path = os.path.join(os.path.dirname(__file__), "../../docs/CONVERSATION_PROMPT.md")
+    if os.path.exists(prompt_path):
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read()
+    return (
+        "You answer a short conversational/meta message inside a guitar search service. "
+        "Do not add guitar advice or claims unless the current user message asks for them. "
+        "For conversation mode, do not mention guitars, searches, results, catalogs, listings, or service context. "
+        "The visible answer must use the same natural language as user_query. "
+        "Answer: 1 short sentence, no links, no lists."
+    )
+
+
+def get_conversation_recovery_prompt() -> str:
+    """Загружает stricter prompt для восстановления invalid conversational answer."""
+    prompt_path = os.path.join(os.path.dirname(__file__), "../../docs/CONVERSATION_RECOVERY_PROMPT.md")
+    if os.path.exists(prompt_path):
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read()
+    return (
+        "Fix only the visible answer to a short conversational/meta message inside a guitar search service. "
+        "Do not start search, name models, provide links, or ask for a budget. "
+        "Do not add guitar advice or claims unless the current user message asks for them. "
+        "For conversation mode, do not mention guitars, searches, results, catalogs, listings, or service context. "
+        "The visible answer must use the same natural language as user_query. "
+        "Answer: 1 short sentence, no markdown, lists, or links."
+    )
+
+
 
 
 
@@ -207,6 +239,15 @@ def interpret_query(
 
     if route_plan["intent"] == "off_topic":
         return _handle_off_topic(text, llm_client, on_status)
+
+    if route_plan["intent"] == "conversation":
+        return _handle_conversation(
+            text,
+            llm_client,
+            on_status,
+            route_plan,
+            current_state,
+        )
 
     if route_plan["intent"] == "consultation":
         from backend.agent.context_manager import build_context
@@ -313,12 +354,59 @@ def _handle_off_topic(
         raise LLMUnavailableError("LLM client is not configured")
 
     prompt = get_off_topic_prompt()
-    answer = _ask_consultation_llm(llm_client, text, prompt, history=None)
+    try:
+        answer = _ask_consultation_llm(llm_client, text, prompt, history=None)
+    except Exception as e:
+        raise LLMUnavailableError(str(e)) from e
     if str(answer or "").startswith("Error:"):
         raise LLMUnavailableError(answer)
     answer, _debug_think = _extract_think_block(answer)
 
-    return {"mode": "consultation", "answer": _sanitize_off_topic_answer(answer)}
+    try:
+        answer = _sanitize_off_topic_answer(answer)
+    except InvalidRouterResponseError as e:
+        logger.warning("off_topic_answer_recovered reason=%s", e)
+        answer = "Я помогаю с подбором гитар и музыкального оборудования. Задайте вопрос по этой теме."
+    return {"mode": "consultation", "answer": answer}
+
+
+def _handle_conversation(
+    text: str,
+    llm_client: Optional[LLMClient],
+    on_status: Optional[Callable[[str], None]],
+    route_plan: dict,
+    current_state: dict,
+) -> dict:
+    """Handles non-search conversational/meta turns without touching search snapshot."""
+    if on_status:
+        on_status("Формирую ответ...")
+
+    if llm_client is None:
+        raise LLMUnavailableError("LLM client is not configured")
+
+    payload = f"user_query:\n{text}"
+    try:
+        try:
+            raw = llm_client.ask(
+                payload,
+                get_conversation_prompt(),
+                history=None,
+            )
+        except TypeError:
+            raw = llm_client.ask(payload, get_conversation_prompt())
+    except Exception as e:
+        raise LLMUnavailableError(str(e)) from e
+
+    if str(raw or "").startswith("Error:"):
+        raise LLMUnavailableError(raw)
+
+    answer, _debug_think = _extract_think_block(raw)
+    try:
+        answer = _sanitize_conversation_answer(answer)
+    except InvalidRouterResponseError as e:
+        logger.warning("conversation_answer_invalid reason=%s", e)
+        answer = _recover_conversation_answer(text, llm_client, str(e))
+    return {"mode": "conversation", "answer": answer}
 
 
 def _handle_clarification(
@@ -348,25 +436,32 @@ def _handle_clarification(
     }
     prompt = get_clarification_prompt()
     try:
-        raw = llm_client.ask(
-            json.dumps(
-                {
-                    "user_query": text,
-                    "clarification_state": payload,
-                },
-                ensure_ascii=False,
-                separators=(",", ":"),
-            ),
-            prompt,
-            history=None,
-        )
-    except TypeError:
-        raw = llm_client.ask(json.dumps(payload, ensure_ascii=False), prompt)
+        try:
+            raw = llm_client.ask(
+                json.dumps(
+                    {
+                        "user_query": text,
+                        "clarification_state": payload,
+                    },
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ),
+                prompt,
+                history=None,
+            )
+        except TypeError:
+            raw = llm_client.ask(json.dumps(payload, ensure_ascii=False), prompt)
+    except Exception as e:
+        raise LLMUnavailableError(str(e)) from e
 
     if str(raw or "").startswith("Error:"):
         raise LLMUnavailableError(raw)
     question, _debug_think = _extract_think_block(raw)
-    question = _sanitize_clarification_question(question)
+    try:
+        question = _sanitize_clarification_question(question)
+    except InvalidRouterResponseError as e:
+        logger.warning("clarification_answer_recovered reason=%s", e)
+        question = _question_from_missing_fields(state.get("missing_fields", []))
     return {"mode": "clarification", "question": question, "search_params": user_search_params or {}}
 
 
@@ -627,6 +722,30 @@ def _router_repair_context_stats(
     }
 
 
+def _router_recovery_context_stats(
+    text: str,
+    candidate: object,
+    errors: list[str],
+    history: list,
+    current_state: dict,
+) -> dict:
+    from backend.agent.llm_client import build_router_recovery_prompt_for_debug, get_router_llm_model
+
+    prompt = build_router_recovery_prompt_for_debug(
+        text,
+        invalid_plan=candidate if isinstance(candidate, dict) else {"raw": candidate},
+        validation_errors=errors,
+        history=history,
+        current_state=current_state,
+    )
+    return {
+        "model": get_router_llm_model(),
+        "history_messages": len(history or []),
+        "history_chars": sum(len(str(item.get("content") or "")) for item in (history or [])),
+        "prompt_chars": len(prompt),
+    }
+
+
 def _router_max_prompt_chars() -> int:
     # Safety budget for router cost/latency; this is not the provider context window.
     return _env_int("ROUTER_MAX_PROMPT_CHARS", DEFAULT_ROUTER_MAX_PROMPT_CHARS, minimum=1200)
@@ -650,6 +769,17 @@ def _log_router_context_stats(tier: str, stats: dict) -> None:
 def _log_router_repair_context_stats(tier: str, stats: dict) -> None:
     logger.info(
         "LLM-router repair context tier=%s model=%s history_messages=%s history_chars=%s prompt_chars=%s",
+        tier,
+        stats["model"],
+        stats["history_messages"],
+        stats["history_chars"],
+        stats["prompt_chars"],
+    )
+
+
+def _log_router_recovery_context_stats(tier: str, stats: dict) -> None:
+    logger.info(
+        "LLM-router recovery context tier=%s model=%s history_messages=%s history_chars=%s prompt_chars=%s",
         tier,
         stats["model"],
         stats["history_messages"],
@@ -686,6 +816,54 @@ def _sanitize_clarification_question(question: str) -> str:
     if _looks_like_catalog_content(text, allowed_titles=[]):
         raise InvalidRouterResponseError("clarification LLM answer contains catalog content")
     return text
+
+
+def _sanitize_conversation_answer(answer: str) -> str:
+    """Guardrail for short conversational answers."""
+    text = (answer or "").strip()
+    lowered = text.lower()
+    if not text:
+        raise InvalidRouterResponseError("conversation LLM answer is empty")
+    if _contains_external_link_or_shop(lowered):
+        raise InvalidRouterResponseError("conversation LLM answer contains links or shops")
+    if "```" in text or re.search(r"(^|\n)\s*(?:[-*]|\d+[.)])\s+", text):
+        raise InvalidRouterResponseError("conversation LLM answer contains code or list")
+    if _looks_like_catalog_content(text, allowed_titles=[]):
+        raise InvalidRouterResponseError("conversation LLM answer contains catalog content")
+    return text
+
+
+def _recover_conversation_answer(
+    text: str,
+    llm_client: LLMClient,
+    validation_error: str,
+) -> str:
+    payload = {
+        "user_query": text,
+        "validation_error": validation_error,
+    }
+    prompt = get_conversation_recovery_prompt()
+    try:
+        try:
+            raw = llm_client.ask(
+                json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+                prompt,
+                history=None,
+            )
+        except TypeError:
+            raw = llm_client.ask(json.dumps(payload, ensure_ascii=False), prompt)
+    except Exception as e:
+        raise LLMUnavailableError(str(e)) from e
+
+    if str(raw or "").startswith("Error:"):
+        raise LLMUnavailableError(raw)
+
+    answer, _debug_think = _extract_think_block(raw)
+    try:
+        return _sanitize_conversation_answer(answer)
+    except InvalidRouterResponseError as e:
+        logger.warning("conversation_answer_recovery_failed reason=%s", e)
+        raise LLMUnavailableError("Conversation answer recovery failed") from e
 
 
 def _contains_external_link_or_shop(lowered: str) -> bool:
@@ -998,43 +1176,87 @@ def _classify_query(
             errors,
             candidate,
         )
-        if not _is_repairable_router_error(errors):
-            logger.info("router_repair_skipped reason=non_repairable errors=%s", errors)
-            raise InvalidRouterResponseError("LLM-router returned invalid response")
-
-        repaired = _repair_route_plan(
-            llm_client,
-            text,
-            candidate,
-            errors,
-            repair_histories or [("current", history or [])],
-            current_state,
-        )
-        route_plan, repair_errors = _validate_route_plan(repaired)
-        if route_plan is not None:
-            state_repair_errors = _validate_route_plan_for_state(route_plan, current_state)
-            if state_repair_errors:
-                route_plan = None
-                repair_errors = state_repair_errors
-        if route_plan is None:
-            logger.error(
-                "Invalid LLM-router response after repair: errors=%s candidate=%r repaired=%r",
-                repair_errors,
-                candidate,
-                repaired,
-            )
-            raise InvalidRouterResponseError("LLM-router returned invalid response")
-
         original_intent = _candidate_intent(candidate)
-        if original_intent is not None and route_plan["intent"] != original_intent:
-            logger.error(
-                "router_repair_failed reason=intent_changed original_intent=%s repaired_intent=%s",
-                original_intent,
-                route_plan["intent"],
-            )
-            raise InvalidRouterResponseError("LLM-router returned invalid response")
 
-        logger.info("router_repair_succeeded intent=%s", route_plan["intent"])
+        repair_errors = errors
+        repaired = None
+        if _is_repairable_router_error(errors):
+            for repaired in _iter_repaired_route_plans(
+                llm_client,
+                text,
+                candidate,
+                errors,
+                repair_histories or [("current", history or [])],
+                current_state,
+            ):
+                route_plan, repair_errors = _validate_route_plan(repaired)
+                if route_plan is not None:
+                    state_repair_errors = _validate_route_plan_for_state(route_plan, current_state)
+                    if state_repair_errors:
+                        route_plan = None
+                        repair_errors = state_repair_errors
+                if route_plan is None:
+                    logger.warning(
+                        "Invalid LLM-router repair candidate: errors=%s repaired=%r",
+                        repair_errors,
+                        repaired,
+                    )
+                    continue
+                if original_intent is not None and route_plan["intent"] != original_intent:
+                    logger.warning(
+                        "router_repair_candidate_rejected reason=intent_changed original_intent=%s repaired_intent=%s",
+                        original_intent,
+                        route_plan["intent"],
+                    )
+                    route_plan = None
+                    repair_errors = ["router repair changed valid original intent"]
+                    continue
+
+                logger.info("router_repair_succeeded intent=%s", route_plan["intent"])
+                break
+        else:
+            logger.info("router_repair_skipped reason=non_repairable errors=%s", errors)
+
+        if route_plan is None:
+            recovery_errors = repair_errors
+            recovered = None
+            for recovered in _iter_recovered_route_plans(
+                llm_client,
+                text,
+                repaired if isinstance(repaired, dict) else candidate,
+                repair_errors,
+                repair_histories or [("current", history or [])],
+                current_state,
+            ):
+                route_plan, recovery_errors = _validate_route_plan(recovered)
+                if route_plan is not None:
+                    state_recovery_errors = _validate_route_plan_for_state(route_plan, current_state)
+                    if state_recovery_errors:
+                        route_plan = None
+                        recovery_errors = state_recovery_errors
+                if route_plan is not None and route_plan.get("enough_for_search"):
+                    route_plan = None
+                    recovery_errors = ["router recovery must not return ready search"]
+                if route_plan is None:
+                    logger.warning(
+                        "Invalid LLM-router recovery candidate: errors=%s recovered=%r",
+                        recovery_errors,
+                        recovered,
+                    )
+                    continue
+                break
+            if route_plan is None:
+                logger.error(
+                    "Invalid LLM-router response after recovery: errors=%s candidate=%r repaired=%r recovered=%r",
+                    recovery_errors,
+                    candidate,
+                    repaired,
+                    recovered,
+                )
+                route_plan = _fallback_incomplete_route_from_state(current_state)
+                logger.warning("router_recovery_fell_back_to_state missing=%s", route_plan["missing_fields"])
+
+            logger.info("router_recovery_succeeded intent=%s", route_plan["intent"])
 
     return route_plan
 
@@ -1054,23 +1276,26 @@ def _router_repair_history_attempts(
     ]
 
 
-def _repair_route_plan(
+def _iter_repaired_route_plans(
     llm_client: LLMClient,
     text: str,
     candidate: object,
     errors: list[str],
     repair_histories: list[tuple[str, list]],
     current_state: dict,
-) -> object:
+):
     repair_method = getattr(llm_client, "repair_router_plan", None)
     if not callable(repair_method):
         logger.info("router_repair_skipped reason=no_repair_method errors=%s", errors)
-        return None
+        return
 
+    attempted = False
+    skipped_for_size = False
     for tier, history in repair_histories:
         stats = _router_repair_context_stats(text, candidate, errors, history or [], current_state)
         _log_router_repair_context_stats(tier, stats)
         if _router_prompt_too_large(stats):
+            skipped_for_size = True
             logger.warning(
                 "router_repair_skipped reason=prompt_too_large tier=%s prompt_chars=%s max=%s",
                 tier,
@@ -1079,8 +1304,9 @@ def _repair_route_plan(
             )
             continue
         try:
+            attempted = True
             logger.info("router_repair_attempted tier=%s errors=%s", tier, errors)
-            return repair_method(
+            yield repair_method(
                 text,
                 candidate if isinstance(candidate, dict) else {"raw": candidate},
                 errors,
@@ -1091,8 +1317,89 @@ def _repair_route_plan(
             logger.error("LLM-router repair unavailable: %s", e)
             raise LLMUnavailableError("LLM-router repair request failed", user_message=_safe_llm_unavailable_message(e)) from e
 
-    logger.info("router_repair_skipped reason=prompt_too_large errors=%s", errors)
-    return None
+    if skipped_for_size and not attempted:
+        logger.info("router_repair_skipped reason=all_prompts_too_large errors=%s", errors)
+
+
+def _iter_recovered_route_plans(
+    llm_client: LLMClient,
+    text: str,
+    invalid_plan: object,
+    errors: list[str],
+    repair_histories: list[tuple[str, list]],
+    current_state: dict,
+) -> object:
+    recovery_method = getattr(llm_client, "recover_router_plan", None)
+    if not callable(recovery_method):
+        logger.info("router_recovery_skipped reason=no_recovery_method errors=%s", errors)
+        return
+
+    attempted = False
+    skipped_for_size = False
+    for tier, history in repair_histories:
+        stats = _router_recovery_context_stats(text, invalid_plan, errors, history or [], current_state)
+        _log_router_recovery_context_stats(tier, stats)
+        if _router_prompt_too_large(stats):
+            skipped_for_size = True
+            logger.warning(
+                "router_recovery_skipped reason=prompt_too_large tier=%s prompt_chars=%s max=%s",
+                tier,
+                stats["prompt_chars"],
+                _router_max_prompt_chars(),
+            )
+            continue
+        try:
+            attempted = True
+            logger.info("router_recovery_attempted tier=%s errors=%s", tier, errors)
+            yield recovery_method(
+                text,
+                invalid_plan if isinstance(invalid_plan, dict) else {"raw": invalid_plan},
+                errors,
+                history=history,
+                current_state=current_state,
+            )
+        except Exception as e:
+            logger.error("LLM-router recovery unavailable: %s", e)
+            raise LLMUnavailableError("LLM-router recovery request failed", user_message=_safe_llm_unavailable_message(e)) from e
+
+    if skipped_for_size and not attempted:
+        logger.info("router_recovery_skipped reason=all_prompts_too_large errors=%s", errors)
+
+
+def _fallback_incomplete_route_from_state(current_state: dict) -> dict:
+    """Last-resort contract fallback: no semantic inference, no executable search."""
+    state = current_state or {}
+    missing_fields = [
+        field for field in (state.get("missing_fields") or ["budget", "type"])
+        if isinstance(field, str) and field in ALLOWED_MISSING_FIELDS
+    ]
+    if not missing_fields:
+        missing_fields = ["budget", "type"]
+    params = {
+        "search_queries": list(state.get("search_queries") or []),
+        "price_min": state.get("price_min"),
+        "price_max": state.get("price_max"),
+        "type": state.get("type"),
+        "brand": state.get("brand"),
+        "pickups": state.get("pickups"),
+        "sound": state.get("sound"),
+        "style": state.get("style"),
+    }
+    return {
+        "intent": "search",
+        "enough_for_search": False,
+        "missing_fields": missing_fields,
+        "no_preference_fields": [
+            field for field in (state.get("no_preference_fields") or [])
+            if isinstance(field, str) and field in ALLOWED_NO_PREFERENCE_FIELDS
+        ],
+        "budget_default_offer": False,
+        "default_actions": [],
+        "state_action": "patch",
+        "search_params": params,
+        "should_offer_search": False,
+        "current_turn_search": False,
+    }
 
 
 def _is_repairable_router_error(errors: list[str]) -> bool:
@@ -1100,14 +1407,15 @@ def _is_repairable_router_error(errors: list[str]) -> bool:
         return False
     non_repairable = {
         "root must be object",
-        "intent must be one of search, consultation, off_topic",
+        "intent must be one of search, consultation, off_topic, conversation",
     }
     return all(error not in non_repairable for error in errors)
 
 
 def _candidate_intent(candidate: object) -> Optional[str]:
-    if isinstance(candidate, dict) and candidate.get("intent") in {"search", "consultation", "off_topic"}:
-        return str(candidate["intent"])
+    intent = candidate.get("intent") if isinstance(candidate, dict) else None
+    if isinstance(intent, str) and intent in ALLOWED_ROUTER_INTENTS:
+        return str(intent)
     return None
 
 
@@ -1124,14 +1432,16 @@ def _validate_route_plan(candidate: object) -> tuple[Optional[dict], list[str]]:
         return None, ["root must be object"]
 
     intent = candidate.get("intent")
-    if intent not in {"search", "consultation", "off_topic"}:
-        errors.append("intent must be one of search, consultation, off_topic")
+    if not isinstance(intent, str) or intent not in ALLOWED_ROUTER_INTENTS:
+        errors.append("intent must be one of search, consultation, off_topic, conversation")
 
     missing_fields = candidate.get("missing_fields")
     if not isinstance(missing_fields, list):
         errors.append("missing_fields must be list")
         normalized_missing_fields = []
     else:
+        if any(not isinstance(field, str) for field in missing_fields):
+            errors.append("missing_fields must contain only strings")
         normalized_missing_fields = [field for field in missing_fields if isinstance(field, str)]
         unknown_missing = [field for field in normalized_missing_fields if field not in ALLOWED_MISSING_FIELDS]
         if unknown_missing:
@@ -1144,8 +1454,11 @@ def _validate_route_plan(candidate: object) -> tuple[Optional[dict], list[str]]:
         errors.append("no_preference_fields must be list")
         normalized_no_preference_fields = []
     else:
+        if any(not isinstance(field, str) for field in no_preference_fields):
+            errors.append("no_preference_fields must contain only strings")
         normalized_no_preference_fields = [
-            field for field in no_preference_fields if field in ALLOWED_NO_PREFERENCE_FIELDS
+            field for field in no_preference_fields
+            if isinstance(field, str) and field in ALLOWED_NO_PREFERENCE_FIELDS
         ]
         if len(normalized_no_preference_fields) != len(no_preference_fields):
             errors.append("no_preference_fields must contain only allowed values")
@@ -1157,20 +1470,27 @@ def _validate_route_plan(candidate: object) -> tuple[Optional[dict], list[str]]:
         errors.append("default_actions must be list")
         normalized_default_actions = []
     else:
+        if any(not isinstance(action, str) for action in default_actions):
+            errors.append("default_actions must contain only strings")
         normalized_default_actions = [
-            action for action in default_actions if action in ALLOWED_DEFAULT_ACTIONS
+            action for action in default_actions
+            if isinstance(action, str) and action in ALLOWED_DEFAULT_ACTIONS
         ]
         if len(normalized_default_actions) != len(default_actions):
             errors.append("default_actions must contain only allowed values")
 
     state_action = candidate.get("state_action", "patch")
-    if state_action not in {"patch", "reset"}:
+    if not isinstance(state_action, str) or state_action not in {"patch", "reset"}:
         errors.append("state_action must be patch or reset")
         state_action = "patch"
 
     budget_default_offer = bool(candidate.get("budget_default_offer"))
 
     enough_for_search = bool(candidate.get("enough_for_search"))
+    current_turn_search = candidate.get("current_turn_search")
+    if current_turn_search is not None and not isinstance(current_turn_search, bool):
+        errors.append("current_turn_search must be boolean")
+        current_turn_search = False
 
     search_params = candidate.get("search_params")
     if intent == "search":
@@ -1195,11 +1515,26 @@ def _validate_route_plan(candidate: object) -> tuple[Optional[dict], list[str]]:
                 ))
         if not enough_for_search and not normalized_missing_fields:
             errors.append("missing_fields must contain budget and/or type when enough_for_search=false")
+    elif intent == "conversation":
+        if enough_for_search:
+            errors.append("conversation must have enough_for_search=false")
+        if normalized_missing_fields:
+            errors.append("conversation must have missing_fields=[]")
+        if search_params is not None:
+            errors.append("search_params must be null for conversation")
+        if candidate.get("should_offer_search"):
+            errors.append("conversation must have should_offer_search=false")
+        normalized_search_params = None
     elif search_params is not None:
         errors.append("search_params must be null for consultation/off_topic")
         normalized_search_params = None
     else:
         normalized_search_params = None
+
+    if intent == "search" and enough_for_search and not current_turn_search:
+        errors.append("ready search must include current_turn_search=true")
+    if current_turn_search and not (intent == "search" and enough_for_search):
+        errors.append("current_turn_search=true is allowed only for ready search")
 
     if errors:
         return None, errors
@@ -1214,6 +1549,7 @@ def _validate_route_plan(candidate: object) -> tuple[Optional[dict], list[str]]:
         "state_action": state_action,
         "search_params": normalized_search_params,
         "should_offer_search": bool(candidate.get("should_offer_search")),
+        "current_turn_search": current_turn_search,
     }, []
 
 
@@ -1223,7 +1559,10 @@ def _validate_route_plan_for_state(route_plan: dict, current_state: dict) -> lis
         return []
 
     params = route_plan.get("search_params") or {}
-    default_actions = set(route_plan.get("default_actions") or [])
+    default_actions = {
+        action for action in (route_plan.get("default_actions") or [])
+        if isinstance(action, str)
+    }
     has_accept_default = "accept_beginner_budget" in default_actions
     pending_budget = ((current_state or {}).get("pending_defaults") or {}).get("budget")
 
@@ -1344,7 +1683,10 @@ def _string_or_none(value: object) -> Optional[str]:
 
 def _question_from_missing_fields(missing_fields: list) -> str:
     """Строит уточняющий вопрос из router-provided missing_fields."""
-    fields = set(missing_fields or [])
+    fields = {
+        field for field in (missing_fields or [])
+        if isinstance(field, str)
+    }
     if fields == {"budget", "type"}:
         return CLARIFICATION_QUESTIONS["both"]
     if fields == {"budget"}:
@@ -1402,7 +1744,7 @@ def _apply_incomplete_search_patch(current_state: dict, route_plan: dict) -> dic
     }
     asked_fields = [
         field for field in ((current_state or {}).get("asked_fields") or [])
-        if field in ALLOWED_NO_PREFERENCE_FIELDS
+        if isinstance(field, str) and field in ALLOWED_NO_PREFERENCE_FIELDS
     ]
     if asked_fields:
         state["asked_fields"] = asked_fields
@@ -1418,6 +1760,8 @@ def _unique_preserving_order(values: list[str]) -> list[str]:
     seen = set()
     result = []
     for value in values:
+        if not isinstance(value, str):
+            continue
         if value not in seen:
             result.append(value)
             seen.add(value)
@@ -1431,7 +1775,10 @@ def _beginner_default_price_max() -> float:
 def _finalize_search_state(state: dict) -> dict:
     """Нормализует route-derived ready_for_search / missing_fields без semantic inference."""
     state = dict(state or {})
-    missing_fields = [field for field in (state.get("missing_fields") or []) if field in {"budget", "type"}]
+    missing_fields = [
+        field for field in (state.get("missing_fields") or [])
+        if isinstance(field, str) and field in {"budget", "type"}
+    ]
     state["missing_fields"] = [] if state.get("ready_for_search") and not missing_fields else missing_fields
     state["ready_for_search"] = bool(state.get("ready_for_search")) and not state["missing_fields"]
     state["last_clarification_target"] = (
@@ -1443,10 +1790,13 @@ def _finalize_search_state(state: dict) -> dict:
 def _prepare_clarification_state(state: dict) -> dict:
     """Stores which structured fields were asked, without parsing user text."""
     state = dict(state or {})
-    missing_fields = [field for field in (state.get("missing_fields") or []) if field in {"budget", "type"}]
+    missing_fields = [
+        field for field in (state.get("missing_fields") or [])
+        if isinstance(field, str) and field in {"budget", "type"}
+    ]
     asked_fields = [
         field for field in (state.get("asked_fields") or [])
-        if field in {"budget", "type", "brand", "pickups", "sound", "style"}
+        if isinstance(field, str) and field in {"budget", "type", "brand", "pickups", "sound", "style"}
     ]
     state["asked_fields"] = _unique_preserving_order(asked_fields + missing_fields)
     state["missing_fields"] = missing_fields

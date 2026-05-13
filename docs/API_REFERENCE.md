@@ -58,6 +58,15 @@ Response (`consultation`):
 }
 ```
 
+Response (`conversation`):
+
+```json
+{
+  "mode": "conversation",
+  "answer": "Sure, I can answer in English."
+}
+```
+
 - Ошибки: `422`, `502`, `503`, `500`
 
 ### `GET /api/sessions?offset=0&limit=20` (`implemented`)
@@ -153,6 +162,7 @@ Response:
   "modeDistribution": {
     "search": 18,
     "consultation": 10,
+    "conversation": 4,
     "clarification": 3
   },
   "avgMessagesPerSession": 2.58,
@@ -303,6 +313,17 @@ Consultation:
 }
 ```
 
+Conversation:
+
+```json
+{
+  "type": "result",
+  "mode": "conversation",
+  "answer": "Sure, I can answer in English.",
+  "sessionId": 12
+}
+```
+
 Clarification:
 
 ```json
@@ -376,6 +397,15 @@ user -> status("Определяю режим...")
 ```json
 {
   "mode": "consultation",
+  "answer": "..."
+}
+```
+
+или
+
+```json
+{
+  "mode": "conversation",
   "answer": "..."
 }
 ```

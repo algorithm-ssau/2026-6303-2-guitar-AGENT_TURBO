@@ -32,6 +32,17 @@
     {
       "id": 2,
       "sessionId": 1,
+      "userQuery": "can you answer in english?",
+      "mode": "conversation",
+      "answer": "Sure, I can answer in English.",
+      "results": null,
+      "searchParams": null,
+      "createdAt": "2026-04-28T10:31:00",
+      "updatedAt": "2026-04-28T10:31:00"
+    },
+    {
+      "id": 3,
+      "sessionId": 1,
       "userQuery": "А покажи подешевле",
       "mode": "search",
       "answer": null,

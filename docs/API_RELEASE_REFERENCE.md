@@ -61,6 +61,14 @@
 }
 ```
 
+**Response body (conversation mode):**
+```json
+{
+  "mode": "conversation",
+  "answer": "Sure, I can answer in English."
+}
+```
+
 **Ошибки:**
 - `422` — невалидный запрос
 - `502` — LLM-router вернул невалидный ответ: `{"detail": "Некорректный ответ LLM-router."}`
@@ -241,6 +249,7 @@ curl -X DELETE http://localhost:8000/api/history
   "modeDistribution": {
     "search": 15,
     "consultation": 8,
+    "conversation": 3,
     "clarification": 2
   },
   "avgMessagesPerSession": 2.5,
@@ -339,6 +348,16 @@ WebSocket соединение для интерактивного чата с �
 }
 ```
 
+Сервер отправляет результат (conversation mode):
+```json
+{
+  "type": "result",
+  "mode": "conversation",
+  "answer": "Sure, I can answer in English.",
+  "sessionId": 1
+}
+```
+
 Сервер отправляет результат (clarification mode):
 ```json
 {
@@ -360,6 +379,7 @@ WebSocket соединение для интерактивного чата с �
 **Режимы работы:**
 - `search` — поиск гитар на Reverb
 - `consultation` — ответ на вопрос о гитарах
+- `conversation` — короткий conversational/meta ответ без изменения search snapshot
 - `clarification` — LLM-generated уточняющий вопрос или подтверждение по недостающим search-полям
 
 **Search params contract:**

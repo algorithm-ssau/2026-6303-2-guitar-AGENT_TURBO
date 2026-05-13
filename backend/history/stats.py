@@ -37,7 +37,7 @@ def get_stats(user_id: int) -> dict:
     Возвращает:
         - total_sessions: общее количество сессий
         - total_queries: общее количество запросов
-        - mode_distribution: распределение по режимам (search, consultation, off_topic)
+        - mode_distribution: распределение по сохранённым режимам
         - avg_messages_per_session: среднее количество сообщений на сессию
         - avg_queries_with_links: среднее количество запросов с выдачей ссылок (mode=search)
     """

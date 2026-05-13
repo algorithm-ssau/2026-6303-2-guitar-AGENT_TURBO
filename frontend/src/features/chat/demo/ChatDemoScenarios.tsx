@@ -8,6 +8,7 @@ import { ErrorMessage } from '../components/ErrorMessage';
 import {
   emptyChatDemo,
   consultationDemo,
+  conversationDemo,
   searchResultsDemo,
   emptyResultsDemo,
   errorDemo,
@@ -22,6 +23,7 @@ interface Scenario {
 const scenarios: Scenario[] = [
   { key: 'emptyChat', label: 'Пустой чат' },
   { key: 'consultation', label: 'Консультация' },
+  { key: 'conversation', label: 'Диалог' },
   { key: 'searchResults', label: 'Результаты поиска' },
   { key: 'emptyResults', label: 'Нет результатов' },
   { key: 'error', label: 'Ошибка' },
@@ -31,6 +33,7 @@ const scenarios: Scenario[] = [
 const scenarioData: Record<string, { messages: React.ComponentProps<typeof MessageList>['messages']; error?: string | null }> = {
   emptyChat: { messages: emptyChatDemo.messages },
   consultation: { messages: consultationDemo.messages },
+  conversation: { messages: conversationDemo.messages },
   searchResults: { messages: searchResultsDemo.messages },
   emptyResults: { messages: emptyResultsDemo.messages },
   error: { messages: errorDemo.messages, error: errorDemo.error },

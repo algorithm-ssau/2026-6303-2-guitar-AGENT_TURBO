@@ -3,7 +3,7 @@ import React from 'react';
 export interface StatusIndicatorProps {
   status: string | null;
   isLoading: boolean;
-  mode?: 'search' | 'consultation';
+  mode?: 'search' | 'consultation' | 'conversation' | 'clarification';
   showSkeletons?: boolean;
 }
 

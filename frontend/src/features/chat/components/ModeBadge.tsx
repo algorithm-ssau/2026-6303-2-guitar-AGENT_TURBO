@@ -1,13 +1,14 @@
 import React from 'react';
 
 interface ModeBadgeProps {
-  mode?: 'search' | 'consultation' | 'clarification';
+  mode?: 'search' | 'consultation' | 'conversation' | 'clarification';
 }
 
 /**
  * Бейдж режима работы агента
  * search → зелёный "Поиск"
  * consultation → синий "Консультация"
+ * conversation → нейтральный "Диалог"
  * clarification → оранжевый "Уточнение"
  */
 export const ModeBadge: React.FC<ModeBadgeProps> = ({ mode }) => {
@@ -16,6 +17,7 @@ export const ModeBadge: React.FC<ModeBadgeProps> = ({ mode }) => {
   const colorMap = {
     search: { bg: 'var(--success-bg)', text: 'var(--success-text)', label: 'Поиск' },
     consultation: { bg: 'var(--info-bg)', text: 'var(--info-text)', label: 'Консультация' },
+    conversation: { bg: 'var(--surface-muted)', text: 'var(--text-secondary)', label: 'Диалог' },
     clarification: { bg: 'var(--warning-bg)', text: 'var(--warning-text)', label: 'Уточнение' },
   };
 

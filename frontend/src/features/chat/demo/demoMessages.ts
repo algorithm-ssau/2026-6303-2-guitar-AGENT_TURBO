@@ -52,6 +52,27 @@ export const consultationDemo: { messages: Message[] } = {
 };
 
 /**
+ * Сценарий: короткий conversational/meta ответ
+ */
+export const conversationDemo: { messages: Message[] } = {
+  messages: [
+    {
+      id: demoId(),
+      role: 'user',
+      content: 'can you answer in english?',
+      timestamp: new Date(now.getTime() - 60000),
+    } as Message,
+    {
+      id: demoId(),
+      role: 'agent',
+      content: 'Sure, I can answer in English.',
+      timestamp: now,
+      mode: 'conversation',
+    } as Message,
+  ],
+};
+
+/**
  * Сценарий: поиск с результатами — минимум 3 гитары
  */
 export const searchResultsDemo: { messages: Message[] } = {

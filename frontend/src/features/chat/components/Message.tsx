@@ -39,9 +39,9 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
     minute: '2-digit',
   });
 
-  const isConsultation = !message.mode || message.mode === 'consultation';
-  const showContent = isConsultation || !message.results || message.results.length === 0;
-  const legacyThink = !isUser && isConsultation ? splitThinkBlock(message.content) : null;
+  const isTextAnswer = !message.mode || message.mode === 'consultation' || message.mode === 'conversation';
+  const showContent = isTextAnswer || !message.results || message.results.length === 0;
+  const legacyThink = !isUser && isTextAnswer ? splitThinkBlock(message.content) : null;
   const visibleContent = legacyThink?.visibleContent ?? message.content;
   const debugThink = message.debugThink || legacyThink?.debugThink || null;
 
@@ -87,7 +87,7 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
             {isUser ? '👤 Вы' : '🤖 Агент'}
             {!isUser && message.mode && <ModeBadge mode={message.mode} />}
           </div>
-          {!isUser && isConsultation && !message.transient && (
+          {!isUser && isTextAnswer && !message.transient && (
             <button
               onClick={handleCopy}
               style={{
@@ -118,8 +118,8 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
         )}
 
         {!showThinkingState && showContent && (
-          <div className={!isUser && isConsultation ? 'message-markdown' : 'message-plain-text'}>
-            {!isUser && isConsultation ? (
+          <div className={!isUser && isTextAnswer ? 'message-markdown' : 'message-plain-text'}>
+            {!isUser && isTextAnswer ? (
               <ReactMarkdown
                 components={{
                   code(props) {
@@ -154,7 +154,7 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
             ) : (
               visibleContent
             )}
-            {!isUser && isConsultation && debugThink && (
+            {!isUser && isTextAnswer && debugThink && (
               <details className="message-think">
                 <summary>Служебные рассуждения модели</summary>
                 <div>{debugThink}</div>
