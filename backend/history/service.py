@@ -7,6 +7,11 @@ import sqlite3
 from typing import Optional
 
 from fastapi import HTTPException, status
+from backend.history.row_mappers import (
+    message_row_to_dict,
+    session_row_to_dict,
+    session_state_row_to_dict,
+)
 from backend.utils.logger import get_logger
 
 logger = get_logger("history")
@@ -133,7 +138,7 @@ def get_sessions(user_id: int, offset: int = 0, limit: int = 20) -> tuple[list[d
         "WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?",
         (user_id, limit, offset),
     ).fetchall()
-    return [dict(row) for row in rows], total
+    return [session_row_to_dict(row) for row in rows], total
 
 
 def get_session_messages(session_id: int, user_id: Optional[int] = None) -> list[dict]:
@@ -148,17 +153,7 @@ def get_session_messages(session_id: int, user_id: Optional[int] = None) -> list
         (session_id,),
     ).fetchall()
 
-    items = []
-    for row in rows:
-        item = dict(row)
-        if item["results"]:
-            item["results"] = json.loads(item["results"])
-        if item.get("search_params"):
-            item["search_params"] = json.loads(item["search_params"])
-        else:
-            item["search_params"] = None
-        items.append(item)
-    return items
+    return [message_row_to_dict(row) for row in rows]
 
 
 def save_exchange(
@@ -224,15 +219,7 @@ def get_session_state(session_id: int) -> dict:
         "SELECT state FROM session_state WHERE session_id = ?",
         (session_id,),
     ).fetchone()
-    if not row:
-        return {}
-
-    try:
-        data = json.loads(row[0])
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return {}
-
-    return data if isinstance(data, dict) else {}
+    return session_state_row_to_dict(row)
 
 
 def save_session_state(session_id: int, state: dict) -> None:
