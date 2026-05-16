@@ -5,6 +5,7 @@
 import os
 import pytest
 from fastapi.testclient import TestClient
+from tests.conftest import auth_ws_path
 
 # Устанавливаем переменную окружения для использования мока Reverb
 os.environ["USE_MOCK_REVERB"] = "true"
@@ -14,12 +15,36 @@ from backend.main import app
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def mock_agent(monkeypatch):
+    def fake_interpret_query(query, on_status=None, session_id=None):
+        if on_status:
+            on_status("Формирую ответ...")
+        if "настро" in query or "бюджет" in query:
+            return {"mode": "consultation", "answer": f"Ответ на запрос: {query}"}
+        return {
+            "mode": "search",
+            "results": [{
+                "id": "test-1",
+                "title": "Fender Stratocaster",
+                "price": 500,
+                "currency": "USD",
+                "image_url": "https://example.com/image.jpg",
+                "listing_url": "https://example.com/listing",
+            }],
+        }
+
+    monkeypatch.setattr("backend.main.interpret_query", fake_interpret_query)
+    monkeypatch.setattr("backend.agent.service.create_llm_client", lambda: None)
+    monkeypatch.setattr("backend.agent.explanation.generate_explanation", lambda *args, **kwargs: "Тестовое объяснение")
+
+
 @pytest.mark.websocket
 def test_search_query_flow():
     """
     Search query → серия status → result с mode="search" и непустыми results.
     """
-    with client.websocket_connect("/chat") as websocket:
+    with client.websocket_connect(auth_ws_path(client)) as websocket:
         # Отправляем search query
         websocket.send_json({"query": "хочу гитару за $500"})
 
@@ -51,7 +76,7 @@ def test_consultation_query_flow():
     """
     Consultation query → status → result с mode="consultation" и непустым answer.
     """
-    with client.websocket_connect("/chat") as websocket:
+    with client.websocket_connect(auth_ws_path(client)) as websocket:
         # Отправляем consultation query
         websocket.send_json({"query": "Как настроить гитару?"})
 
@@ -80,7 +105,7 @@ def test_sequential_requests():
     """
     Два последовательных запроса в одном WS-соединении → оба работают.
     """
-    with client.websocket_connect("/chat") as websocket:
+    with client.websocket_connect(auth_ws_path(client)) as websocket:
         # Первый запрос
         websocket.send_json({"query": "хочу гитару"})
 
@@ -115,7 +140,7 @@ def test_result_format():
     """
     Проверка формата результатов: каждый result содержит id, title, price, listing_url.
     """
-    with client.websocket_connect("/chat") as websocket:
+    with client.websocket_connect(auth_ws_path(client)) as websocket:
         websocket.send_json({"query": "гитара за $1000"})
 
         result = None
@@ -150,11 +175,14 @@ def test_empty_query_error():
     """
     Пустой запрос → type="error".
     """
-    with client.websocket_connect("/chat") as websocket:
+    with client.websocket_connect(auth_ws_path(client)) as websocket:
         # Отправляем пустой запрос
         websocket.send_json({"query": ""})
 
-        data = websocket.receive_json()
+        while True:
+            data = websocket.receive_json()
+            if data["type"] == "error":
+                break
 
         assert data["type"] == "error", "Должна быть ошибка"
         assert "status" in data, "Должен быть ключ status"
@@ -165,7 +193,7 @@ def test_status_updates_order():
     """
     Проверяем что статусы приходят в правильном порядке до result.
     """
-    with client.websocket_connect("/chat") as websocket:
+    with client.websocket_connect(auth_ws_path(client)) as websocket:
         websocket.send_json({"query": "хочу гитару"})
 
         statuses = []

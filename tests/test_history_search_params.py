@@ -10,7 +10,9 @@ def test_history_saves_and_reads_search_params(tmp_path, monkeypatch):
     importlib.reload(history_service)
 
     history_service.init_db()
-    session_id = history_service.create_session("Telecaster")
+    from backend.auth.service import init_auth_db
+    init_auth_db()
+    session_id = history_service.create_session("Telecaster", user_id=1)
     search_params = {
         "searchQueries": ["Fender Telecaster"],
         "priceMax": 800,
@@ -39,7 +41,9 @@ def test_history_old_entries_return_null_search_params(tmp_path, monkeypatch):
     importlib.reload(history_service)
 
     history_service.init_db()
-    session_id = history_service.create_session("Old")
+    from backend.auth.service import init_auth_db
+    init_auth_db()
+    session_id = history_service.create_session("Old", user_id=1)
     history_service.save_exchange(session_id, "Что такое хамбакер?", "consultation", answer="Ответ")
 
     items = history_service.get_session_messages(session_id)

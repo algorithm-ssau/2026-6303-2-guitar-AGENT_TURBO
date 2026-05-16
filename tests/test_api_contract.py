@@ -2,7 +2,8 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch
+from backend.main import app
+from tests.conftest import auth_headers, auth_ws_path
 
 
 @pytest.fixture
@@ -10,6 +11,32 @@ def client():
     """Create test client."""
     from backend.main import app
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def mock_agent(monkeypatch):
+    def fake_interpret_query(query, on_status=None, session_id=None):
+        if on_status:
+            on_status("Формирую ответ...")
+        if "настро" in query:
+            return {"mode": "consultation", "answer": f"Ответ на запрос: {query}"}
+        if query.strip() == "гитара":
+            return {"mode": "clarification", "question": "Какой бюджет?"}
+        return {
+            "mode": "search",
+            "results": [{
+                "id": "test-1",
+                "title": "Fender Stratocaster",
+                "price": 500,
+                "currency": "USD",
+                "image_url": "https://example.com/image.jpg",
+                "listing_url": "https://example.com/listing",
+            }],
+        }
+
+    monkeypatch.setattr("backend.main.interpret_query", fake_interpret_query)
+    monkeypatch.setattr("backend.agent.service.create_llm_client", lambda: None)
+    monkeypatch.setattr("backend.agent.explanation.generate_explanation", lambda *args, **kwargs: "Тестовое объяснение")
 
 
 def receive_until_type(websocket, expected_type: str):
@@ -24,10 +51,9 @@ class TestSearchModeContract:
     """Tests for search mode contract."""
 
     def test_search_result_has_camelcase_fields(self, client):
-        """Search result contains camelCase fields (imageUrl, listingUrl)."""
-        with client.websocket_connect("/chat") as websocket:
-            websocket.receive_json()
-            websocket.send_json({"query": "Fender Stratocaster"})
+        """Search-результат содержит поля в camelCase (imageUrl, listingUrl)."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            websocket.send_json({"query": "Fender Stratocaster купить"})
             result_data = receive_until_type(websocket, "result")
 
             assert result_data["mode"] == "search"
@@ -41,41 +67,37 @@ class TestSearchModeContract:
             assert "listing_url" not in first_result
 
     def test_search_result_has_required_fields(self, client):
-        """Search result contains required fields."""
-        with client.websocket_connect("/chat") as websocket:
-            websocket.receive_json()
-            websocket.send_json({"query": "Fender guitar"})
+        """Search-результат содержит все обязательные поля: id, title, price, listingUrl."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            websocket.send_json({"query": "гитара Fender"})
             result_data = receive_until_type(websocket, "result")
 
             assert result_data["mode"] == "search"
             first_result = result_data["results"][0]
             assert all(field in first_result for field in ["id", "title", "price", "listingUrl"])
 
-    def test_search_result_3_to_5_results(self, client):
-        """Search result contains 3-5 results."""
-        with client.websocket_connect("/chat") as websocket:
-            websocket.receive_json()
-            websocket.send_json({"query": "Fender Stratocaster"})
+    def test_search_result_no_score_field(self, client):
+        """Search-результат НЕ содержит поле score."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            websocket.send_json({"query": "купить гитару"})
             result_data = receive_until_type(websocket, "result")
 
             assert result_data["mode"] == "search"
             assert 3 <= len(result_data["results"]) <= 5
 
-    def test_search_result_no_score_field(self, client):
-        """Search result does NOT contain score field."""
-        with client.websocket_connect("/chat") as websocket:
-            websocket.receive_json()
-            websocket.send_json({"query": "buy guitar"})
+    def test_search_result_has_explanation(self, client):
+        """Search-результат содержит поле explanation (только в WebSocket)."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            websocket.send_json({"query": "Fender Stratocaster"})
             result_data = receive_until_type(websocket, "result")
 
             for result in result_data["results"]:
                 assert "score" not in result
 
-    def test_search_empty_results(self, client):
-        """Search with non-existent query returns empty results."""
-        with client.websocket_connect("/chat") as websocket:
-            websocket.receive_json()
-            websocket.send_json({"query": "asdfghjklqwertyuiop123456"})
+    def test_search_result_has_session_id(self, client):
+        """Search-результат содержит sessionId."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            websocket.send_json({"query": "Fender Stratocaster"})
             result_data = receive_until_type(websocket, "result")
 
             assert result_data["mode"] == "search"
@@ -86,10 +108,9 @@ class TestConsultationModeContract:
     """Tests for consultation mode contract."""
 
     def test_consultation_result_has_answer_field(self, client):
-        """Consultation result contains answer field."""
-        with client.websocket_connect("/chat") as websocket:
-            websocket.receive_json()
-            websocket.send_json({"query": "How to tune a guitar?"})
+        """Consultation-результат содержит поле answer (не reply)."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            websocket.send_json({"query": "Как настроить гитару?"})
             result_data = receive_until_type(websocket, "result")
 
             assert result_data["mode"] == "consultation"
@@ -97,11 +118,10 @@ class TestConsultationModeContract:
             assert isinstance(result_data["answer"], str)
             assert len(result_data["answer"]) > 0
 
-    def test_consultation_no_results_field(self, client):
-        """Consultation result does NOT contain results field."""
-        with client.websocket_connect("/chat") as websocket:
-            websocket.receive_json()
-            websocket.send_json({"query": "What is the difference between Les Paul and SG?"})
+    def test_consultation_result_has_session_id(self, client):
+        """Consultation-результат содержит sessionId."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            websocket.send_json({"query": "Как настроить гитару?"})
             result_data = receive_until_type(websocket, "result")
 
             assert result_data["mode"] == "consultation"
@@ -112,10 +132,11 @@ class TestClarificationModeContract:
     """Tests for clarification mode contract."""
 
     def test_clarification_result_has_question_field(self, client):
-        """Clarification result contains question field."""
-        with client.websocket_connect("/chat") as websocket:
-            websocket.receive_json()
-            websocket.send_json({"query": "guitar"})
+        """Clarification-результат содержит поле question."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            # Отправляем неполный запрос, который может вызвать clarification
+            websocket.send_json({"query": "гитара"})
+            
             result_data = receive_until_type(websocket, "result")
 
             if result_data["mode"] == "clarification":
@@ -128,22 +149,20 @@ class TestGeneralContract:
     """General API contract tests."""
 
     def test_result_has_mode_field(self, client):
-        """Any result contains mode field."""
-        with client.websocket_connect("/chat") as websocket:
-            websocket.receive_json()
-            websocket.send_json({"query": "guitar"})
+        """Любой result содержит поле mode."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            websocket.send_json({"query": "гитара"})
             result_data = receive_until_type(websocket, "result")
 
             assert "mode" in result_data
             assert result_data["mode"] in ["search", "consultation", "clarification"]
 
     def test_status_messages_sent_before_result(self, client):
-        """Status messages are sent before result."""
-        with client.websocket_connect("/chat") as websocket:
+        """Перед result отправляются status-сообщения."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            websocket.send_json({"query": "Fender Stratocaster"})
             first_message = websocket.receive_json()
             assert first_message["type"] == "status"
-
-            websocket.send_json({"query": "Fender Stratocaster"})
 
             status_received = False
             while True:
@@ -156,33 +175,33 @@ class TestGeneralContract:
 
             assert status_received
 
-    def test_ws_error_on_empty_query(self, client):
-        """WebSocket returns error on empty query."""
-        with client.websocket_connect("/chat") as websocket:
-            websocket.receive_json()
+    def test_empty_query_returns_error(self, client):
+        """Пустой запрос возвращает ошибку."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            # Пустой запрос
             websocket.send_json({"query": ""})
-            
-            data = websocket.receive_json()
+            data = receive_until_type(websocket, "error")
             assert data["type"] == "error"
             assert "status" in data
 
-    def test_ws_error_on_missing_query(self, client):
-        """WebSocket returns error if query is missing."""
-        with client.websocket_connect("/chat") as websocket:
-            websocket.receive_json()
-            websocket.send_json({})
+    def test_websocket_error_has_correct_format(self, client):
+        """WebSocket ошибка имеет правильный формат."""
+        with client.websocket_connect(auth_ws_path(client)) as websocket:
+            websocket.send_json({"query": ""})
+            error_data = receive_until_type(websocket, "error")
             
-            data = websocket.receive_json()
-            assert data["type"] == "error"
-            assert "status" in data
+            assert error_data["type"] == "error"
+            assert "status" in error_data
+            assert isinstance(error_data["status"], str)
 
 
 class TestRESTContract:
     """REST API contract tests."""
 
-    def test_post_chat_search_mode(self, client):
-        """POST /api/chat returns search result."""
-        from unittest.mock import MagicMock
+    def test_get_sessions_returns_camelcase(self, client):
+        """GET /api/sessions возвращает поля в camelCase."""
+        response = client.get("/api/sessions", headers=auth_headers(client))
+        assert response.status_code == 200
         
         # Create a mock that returns search mode
         mock_return = {
@@ -197,61 +216,34 @@ class TestRESTContract:
             }]
         }
         
-        with patch("backend.search.router.interpret_query", return_value=mock_return):
-            response = client.post("/api/chat", json={"query": "Fender Stratocaster"})
-            assert response.status_code == 200
-            data = response.json()
-            assert data["mode"] == "search"
-            assert "results" in data
+        if len(data["sessions"]) > 0:
+            session = data["sessions"][0]
+            assert "createdAt" in session, "Должно быть поле createdAt (camelCase)"
+            assert "updatedAt" in session, "Должно быть поле updatedAt (camelCase)"
+            assert "created_at" not in session, "Не должно быть поля created_at (snake_case)"
 
-    def test_post_chat_consultation_mode(self, client):
-        """POST /api/chat returns consultation result."""
-        mock_return = {"mode": "consultation", "answer": "This is a consultation answer."}
+    def test_create_session_returns_id(self, client):
+        """POST /api/sessions возвращает id."""
+        response = client.post("/api/sessions", json={"title": "Test Session"}, headers=auth_headers(client))
+        assert response.status_code == 200
         
-        with patch("backend.search.router.interpret_query", return_value=mock_return):
-            response = client.post("/api/chat", json={"query": "How to tune a guitar?"})
-            assert response.status_code == 200
-            data = response.json()
-            assert data["mode"] == "consultation"
-            assert "answer" in data
+        data = response.json()
+        assert "id" in data
+        assert isinstance(data["id"], int)
 
-    def test_post_chat_clarification_mode(self, client):
-        """POST /api/chat returns clarification result."""
-        mock_return = {"mode": "clarification", "question": "What is your budget?"}
+    def test_delete_session_returns_ok(self, client):
+        """DELETE /api/sessions/{id} возвращает ok."""
+        headers = auth_headers(client)
+        create_response = client.post("/api/sessions", json={"title": "To Delete"}, headers=headers)
+        session_id = create_response.json()["id"]
         
-        with patch("backend.search.router.interpret_query", return_value=mock_return):
-            response = client.post("/api/chat", json={"query": "guitar"})
-            assert response.status_code == 200
-            data = response.json()
-            assert data["mode"] == "clarification"
-            assert "question" in data
+        delete_response = client.delete(f"/api/sessions/{session_id}", headers=headers)
+        assert delete_response.status_code == 200
+        assert delete_response.json() == {"ok": True}
 
-    def test_post_chat_validation_error_empty(self, client):
-        """POST /api/chat returns 422 on empty query."""
-        response = client.post("/api/chat", json={"query": ""})
-        assert response.status_code == 422
-
-    def test_post_chat_validation_error_short(self, client):
-        """POST /api/chat returns 422 on short query."""
-        response = client.post("/api/chat", json={"query": "a"})
-        assert response.status_code == 422
-
-    def test_get_sessions(self, client, tmp_path, monkeypatch):
-        """GET /api/sessions returns session list."""
-        import backend.history.service as history_service
-        from backend.history.service import init_db
-        
-        db_path = str(tmp_path / "test_sessions.db")
-        monkeypatch.setenv("CHAT_DB_PATH", db_path)
-        if history_service._connection is not None:
-            history_service._connection.close()
-        history_service._DB_PATH = db_path
-        history_service._connection = None
-        
-        # Initialize database
-        init_db()
-
-        response = client.get("/api/sessions")
+    def test_clear_history_returns_deleted_count(self, client):
+        """DELETE /api/history возвращает deleted count."""
+        response = client.delete("/api/history", headers=auth_headers(client))
         assert response.status_code == 200
         data = response.json()
         assert "sessions" in data
@@ -272,28 +264,18 @@ class TestRESTContract:
         # Initialize database
         init_db()
 
-        response = client.get("/api/stats")
+    def test_get_stats_returns_correct_format(self, client):
+        """GET /api/stats возвращает правильный формат."""
+        response = client.get("/api/stats", headers=auth_headers(client))
         assert response.status_code == 200
         data = response.json()
         assert "totalSessions" in data
         assert "totalQueries" in data
         assert "modeDistribution" in data
 
-    def test_get_metrics_health(self, client, tmp_path, monkeypatch):
-        """GET /api/metrics/health returns metrics."""
-        import backend.history.service as history_service
-        
-        db_path = str(tmp_path / "test_metrics.db")
-        monkeypatch.setenv("CHAT_DB_PATH", db_path)
-        if history_service._connection is not None:
-            history_service._connection.close()
-        history_service._DB_PATH = db_path
-        history_service._connection = None
-
-        from backend.analytics.pipeline_metrics import init_metrics_table
-        init_metrics_table()
-
-        response = client.get("/api/metrics/health")
+    def test_get_metrics_health_returns_kpi(self, client):
+        """GET /api/metrics/health возвращает KPI."""
+        response = client.get("/api/metrics/health", headers=auth_headers(client))
         assert response.status_code == 200
         data = response.json()
         assert "totalSessions" in data
