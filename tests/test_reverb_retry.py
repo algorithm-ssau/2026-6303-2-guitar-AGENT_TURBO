@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch, call
 import pytest
 import requests
 
-from backend.search.search_reverb import _search_reverb_api
+from backend.search.reverb_client import _search_reverb_api
 
 
 def _make_mock_response(status_code: int, json_data: Optional[dict] = None) -> Mock:
@@ -26,7 +26,7 @@ def _make_mock_response(status_code: int, json_data: Optional[dict] = None) -> M
 class TestRetrySuccessAfterFailures:
     """Retry: 2 неудачи + 1 успех → успешный результат."""
 
-    @patch("backend.search.search_reverb.time.sleep")
+    @patch("backend.search.reverb_client.time.sleep")
     def test_retry_after_two_timeouts_then_success(self, mock_sleep):
         """2 Timeout + 1 success → успех, 3 вызова requests.get."""
         success_resp = _make_mock_response(
@@ -44,7 +44,7 @@ class TestRetrySuccessAfterFailures:
             },
         )
 
-        with patch("backend.search.search_reverb.requests.get") as mock_get:
+        with patch("backend.search.reverb_client.requests.get") as mock_get:
             mock_get.side_effect = [
                 requests.exceptions.Timeout(),
                 requests.exceptions.Timeout(),
@@ -58,7 +58,7 @@ class TestRetrySuccessAfterFailures:
             assert mock_sleep.call_count == 2
             assert len(result) == 1
 
-    @patch("backend.search.search_reverb.time.sleep")
+    @patch("backend.search.reverb_client.time.sleep")
     def test_retry_after_two_502_then_success(self, mock_sleep):
         """2 HTTP 502 + 1 success → успех."""
         error_resp1 = _make_mock_response(502)
@@ -78,7 +78,7 @@ class TestRetrySuccessAfterFailures:
             },
         )
 
-        with patch("backend.search.search_reverb.requests.get") as mock_get:
+        with patch("backend.search.reverb_client.requests.get") as mock_get:
             mock_get.side_effect = [error_resp1, error_resp2, success_resp]
             with patch.dict("os.environ", {"REVERB_API_TOKEN": "fake-token"}):
                 result = _search_reverb_api(["test"])
@@ -90,10 +90,10 @@ class TestRetrySuccessAfterFailures:
 class TestRetryAllFailures:
     """Retry: 3 неудачи → пустой результат."""
 
-    @patch("backend.search.search_reverb.time.sleep")
+    @patch("backend.search.reverb_client.time.sleep")
     def test_three_timeouts_returns_empty(self, mock_sleep):
         """3 Timeout → пустой список."""
-        with patch("backend.search.search_reverb.requests.get") as mock_get:
+        with patch("backend.search.reverb_client.requests.get") as mock_get:
             mock_get.side_effect = [
                 requests.exceptions.Timeout(),
                 requests.exceptions.Timeout(),
@@ -105,11 +105,11 @@ class TestRetryAllFailures:
             assert mock_get.call_count == 3
             assert result == []
 
-    @patch("backend.search.search_reverb.time.sleep")
+    @patch("backend.search.reverb_client.time.sleep")
     def test_three_503_returns_empty(self, mock_sleep):
         """3 HTTP 503 → пустой список."""
         error_resp = _make_mock_response(503)
-        with patch("backend.search.search_reverb.requests.get") as mock_get:
+        with patch("backend.search.reverb_client.requests.get") as mock_get:
             mock_get.side_effect = [error_resp, error_resp, error_resp]
             with patch.dict("os.environ", {"REVERB_API_TOKEN": "fake-token"}):
                 result = _search_reverb_api(["test"])
@@ -121,11 +121,11 @@ class TestRetryAllFailures:
 class TestNoRetryOn4xx:
     """HTTP 4xx — ретрая нет, сразу []."""
 
-    @patch("backend.search.search_reverb.time.sleep")
+    @patch("backend.search.reverb_client.time.sleep")
     def test_404_no_retry(self, mock_sleep):
         """HTTP 404 → 1 вызов requests.get, без ретрая."""
         error_resp = _make_mock_response(404)
-        with patch("backend.search.search_reverb.requests.get") as mock_get:
+        with patch("backend.search.reverb_client.requests.get") as mock_get:
             mock_get.return_value = error_resp
             with patch.dict("os.environ", {"REVERB_API_TOKEN": "fake-token"}):
                 result = _search_reverb_api(["test"])
@@ -134,11 +134,11 @@ class TestNoRetryOn4xx:
             assert mock_sleep.call_count == 0
             assert result == []
 
-    @patch("backend.search.search_reverb.time.sleep")
+    @patch("backend.search.reverb_client.time.sleep")
     def test_401_no_retry(self, mock_sleep):
         """HTTP 401 → 1 вызов requests.get, без ретрая."""
         error_resp = _make_mock_response(401)
-        with patch("backend.search.search_reverb.requests.get") as mock_get:
+        with patch("backend.search.reverb_client.requests.get") as mock_get:
             mock_get.return_value = error_resp
             with patch.dict("os.environ", {"REVERB_API_TOKEN": "fake-token"}):
                 result = _search_reverb_api(["test"])
@@ -147,11 +147,11 @@ class TestNoRetryOn4xx:
             assert mock_sleep.call_count == 0
             assert result == []
 
-    @patch("backend.search.search_reverb.time.sleep")
+    @patch("backend.search.reverb_client.time.sleep")
     def test_429_no_retry(self, mock_sleep):
         """HTTP 429 (rate limit) → 1 вызов requests.get, без ретрая."""
         error_resp = _make_mock_response(429)
-        with patch("backend.search.search_reverb.requests.get") as mock_get:
+        with patch("backend.search.reverb_client.requests.get") as mock_get:
             mock_get.return_value = error_resp
             with patch.dict("os.environ", {"REVERB_API_TOKEN": "fake-token"}):
                 result = _search_reverb_api(["test"])
@@ -164,10 +164,10 @@ class TestNoRetryOn4xx:
 class TestConnectionErrorRetry:
     """ConnectionError — ретраится."""
 
-    @patch("backend.search.search_reverb.time.sleep")
+    @patch("backend.search.reverb_client.time.sleep")
     def test_connection_error_retries(self, mock_sleep):
         """ConnectionError → ретраится до 3 раз."""
-        with patch("backend.search.search_reverb.requests.get") as mock_get:
+        with patch("backend.search.reverb_client.requests.get") as mock_get:
             mock_get.side_effect = requests.exceptions.ConnectionError("Connection refused")
             with patch.dict("os.environ", {"REVERB_API_TOKEN": "fake-token"}):
                 result = _search_reverb_api(["test"])
@@ -186,7 +186,7 @@ class TestMalformedResponse:
         malformed_resp.raise_for_status.return_value = None
         malformed_resp.json.side_effect = ValueError("invalid json")
 
-        with patch("backend.search.search_reverb.requests.get") as mock_get:
+        with patch("backend.search.reverb_client.requests.get") as mock_get:
             mock_get.return_value = malformed_resp
             with patch.dict("os.environ", {"REVERB_API_TOKEN": "fake-token"}):
                 result = _search_reverb_api(["test"])
@@ -201,7 +201,7 @@ class TestMalformedResponse:
         malformed_resp.raise_for_status.return_value = None
         malformed_resp.json.return_value = ["not", "a", "mapping"]
 
-        with patch("backend.search.search_reverb.requests.get") as mock_get:
+        with patch("backend.search.reverb_client.requests.get") as mock_get:
             mock_get.return_value = malformed_resp
             with patch.dict("os.environ", {"REVERB_API_TOKEN": "fake-token"}):
                 result = _search_reverb_api(["test"])
