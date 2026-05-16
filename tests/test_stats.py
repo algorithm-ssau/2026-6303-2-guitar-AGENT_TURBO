@@ -14,8 +14,16 @@ def clean_db(tmp_path):
 
     conn = sqlite3.connect(db_path)
     conn.executescript("""
+        CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            login         TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+        );
+
         CREATE TABLE IF NOT EXISTS sessions (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
             title      TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
             updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
@@ -31,6 +39,7 @@ def clean_db(tmp_path):
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
         );
     """)
+    conn.execute("INSERT INTO users (id, login, password_hash) VALUES (?, ?, ?)", (1, "admin", "test"))
     conn.commit()
     conn.close()
 
@@ -59,7 +68,7 @@ def populated_db(clean_db):
 
     conn = sqlite3.connect(db_path)
     # Сессия 1: 2 search
-    conn.execute("INSERT INTO sessions (title) VALUES (?)", ("Fender Strat",))
+    conn.execute("INSERT INTO sessions (user_id, title) VALUES (?, ?)", (1, "Fender Strat"))
     conn.execute(
         "INSERT INTO chat_history (session_id, user_query, mode, answer, results) VALUES (?, ?, ?, ?, ?)",
         (1, "Fender Stratocaster", "search", "Вот варианты", "[]"),
@@ -70,7 +79,7 @@ def populated_db(clean_db):
     )
 
     # Сессия 2: 1 search + 1 consultation
-    conn.execute("INSERT INTO sessions (title) VALUES (?)", ("Consultation",))
+    conn.execute("INSERT INTO sessions (user_id, title) VALUES (?, ?)", (1, "Consultation"))
     conn.execute(
         "INSERT INTO chat_history (session_id, user_query, mode, answer, results) VALUES (?, ?, ?, ?, ?)",
         (2, "Strat для фанка", "search", "Ищу", "[]"),
@@ -81,7 +90,7 @@ def populated_db(clean_db):
     )
 
     # Сессия 3: 1 off_topic
-    conn.execute("INSERT INTO sessions (title) VALUES (?)", ("Off topic",))
+    conn.execute("INSERT INTO sessions (user_id, title) VALUES (?, ?)", (1, "Off topic"))
     conn.execute(
         "INSERT INTO chat_history (session_id, user_query, mode, answer, results) VALUES (?, ?, ?, ?, ?)",
         (3, "Привет", "off_topic", "Привет!", None),
@@ -97,7 +106,7 @@ class TestGetStats:
 
     def test_empty_db_returns_zeros(self, clean_db):
         """Пустая БД → все метрики = 0."""
-        stats = get_stats()
+        stats = get_stats(user_id=1)
 
         assert stats["total_sessions"] == 0
         assert stats["total_queries"] == 0
@@ -107,7 +116,7 @@ class TestGetStats:
 
     def test_stats_after_sessions(self, populated_db):
         """После нескольких save_exchange → метрики корректны."""
-        stats = get_stats()
+        stats = get_stats(user_id=1)
 
         assert stats["total_sessions"] == 3
         assert stats["total_queries"] == 5
@@ -123,7 +132,7 @@ class TestGetStats:
         conn = sqlite3.connect(db_path)
 
         # 3 search, 2 consultation в одной сессии
-        conn.execute("INSERT INTO sessions (title) VALUES (?)", ("Test",))
+        conn.execute("INSERT INTO sessions (user_id, title) VALUES (?, ?)", (1, "Test"))
         for i in range(3):
             conn.execute(
                 "INSERT INTO chat_history (session_id, user_query, mode) VALUES (?, ?, ?)",
@@ -137,7 +146,7 @@ class TestGetStats:
         conn.commit()
         conn.close()
 
-        stats = get_stats()
+        stats = get_stats(user_id=1)
 
         assert stats["mode_distribution"]["search"] == 3
         assert stats["mode_distribution"]["consultation"] == 2
@@ -147,7 +156,7 @@ class TestGetStats:
         """Одна сессия, один search-запрос."""
         db_path = clean_db
         conn = sqlite3.connect(db_path)
-        conn.execute("INSERT INTO sessions (title) VALUES (?)", ("Single",))
+        conn.execute("INSERT INTO sessions (user_id, title) VALUES (?, ?)", (1, "Single"))
         conn.execute(
             "INSERT INTO chat_history (session_id, user_query, mode) VALUES (?, ?, ?)",
             (1, "Fender Strat", "search"),
@@ -155,7 +164,7 @@ class TestGetStats:
         conn.commit()
         conn.close()
 
-        stats = get_stats()
+        stats = get_stats(user_id=1)
 
         assert stats["total_sessions"] == 1
         assert stats["total_queries"] == 1
@@ -166,7 +175,7 @@ class TestGetStats:
         """Только consultation — avg_queries_with_links = 0."""
         db_path = clean_db
         conn = sqlite3.connect(db_path)
-        conn.execute("INSERT INTO sessions (title) VALUES (?)", ("Consult only",))
+        conn.execute("INSERT INTO sessions (user_id, title) VALUES (?, ?)", (1, "Consult only"))
         conn.execute(
             "INSERT INTO chat_history (session_id, user_query, mode) VALUES (?, ?, ?)",
             (1, "Как играть?", "consultation"),
@@ -174,7 +183,7 @@ class TestGetStats:
         conn.commit()
         conn.close()
 
-        stats = get_stats()
+        stats = get_stats(user_id=1)
 
         assert stats["total_sessions"] == 1
         assert stats["total_queries"] == 1

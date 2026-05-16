@@ -5,6 +5,8 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.conftest import auth_headers, auth_ws_path
+
 
 @pytest.fixture
 def history_client(tmp_path, monkeypatch):
@@ -42,8 +44,9 @@ def _receive_result(websocket):
 def test_history_rest_and_websocket_flow(history_client):
     first_query = "Как выбрать гитару для джаза?"
     second_query = "Чем P90 отличаются от хамбакеров?"
+    headers = auth_headers(history_client)
 
-    create_response = history_client.post("/api/sessions", json={"title": first_query})
+    create_response = history_client.post("/api/sessions", json={"title": first_query}, headers=headers)
     assert create_response.status_code == 200
     session_id = create_response.json()["id"]
 
@@ -56,7 +59,7 @@ def test_history_rest_and_websocket_flow(history_client):
         }
 
     with patch("backend.main.interpret_query", side_effect=fake_interpret_query):
-        with history_client.websocket_connect("/chat") as websocket:
+        with history_client.websocket_connect(auth_ws_path(history_client)) as websocket:
             websocket.send_json({"query": first_query, "sessionId": session_id})
             first_result = _receive_result(websocket)
             assert first_result["mode"] == "consultation"
@@ -65,28 +68,28 @@ def test_history_rest_and_websocket_flow(history_client):
             second_result = _receive_result(websocket)
             assert second_result["mode"] == "consultation"
 
-    sessions_response = history_client.get("/api/sessions")
+    sessions_response = history_client.get("/api/sessions", headers=headers)
     assert sessions_response.status_code == 200
     sessions = sessions_response.json()["sessions"]
     assert any(item["id"] == session_id and item["title"] == first_query for item in sessions)
 
-    messages_response = history_client.get(f"/api/sessions/{session_id}/messages")
+    messages_response = history_client.get(f"/api/sessions/{session_id}/messages", headers=headers)
     assert messages_response.status_code == 200
     messages = messages_response.json()["items"]
     assert len(messages) == 2
     assert [item["userQuery"] for item in messages] == [first_query, second_query]
 
-    delete_response = history_client.delete(f"/api/sessions/{session_id}")
+    delete_response = history_client.delete(f"/api/sessions/{session_id}", headers=headers)
     assert delete_response.status_code == 200
 
-    sessions_after_delete = history_client.get("/api/sessions").json()["sessions"]
+    sessions_after_delete = history_client.get("/api/sessions", headers=headers).json()["sessions"]
     assert all(item["id"] != session_id for item in sessions_after_delete)
 
-    extra_response = history_client.post("/api/sessions", json={"title": "Временная сессия"})
+    extra_response = history_client.post("/api/sessions", json={"title": "Временная сессия"}, headers=headers)
     assert extra_response.status_code == 200
 
-    clear_response = history_client.delete("/api/history")
+    clear_response = history_client.delete("/api/history", headers=headers)
     assert clear_response.status_code == 200
 
-    final_sessions = history_client.get("/api/sessions").json()["sessions"]
+    final_sessions = history_client.get("/api/sessions", headers=headers).json()["sessions"]
     assert final_sessions == []
