@@ -9,12 +9,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.search.search_reverb import (
+from backend.search.mock_reverb import _filter_by_price
+from backend.search.reverb_normalizer import (
     _deduplicate_listings,
     _normalize_reverb_response,
-    _search_reverb_api,
 )
-from backend.search.mock_reverb import _filter_by_price
+from backend.search.search_reverb import _search_reverb_api
 
 # JSON-фикстура с реальным форматом ответа Reverb API
 REVERB_API_RESPONSE_FIXTURE = {

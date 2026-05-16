@@ -64,7 +64,7 @@ class TestReverbApiAuth:
 
     def test_normalization_handles_real_api_format(self, mock_response):
         """Нормализация корректно обрабатывает реальный формат Reverb API."""
-        from backend.search.search_reverb import _normalize_reverb_response
+        from backend.search.reverb_normalizer import _normalize_reverb_response
 
         raw_listing = mock_response.json()["listings"][0]
         result = _normalize_reverb_response(raw_listing)
@@ -110,7 +110,7 @@ class TestReverbApiAuth:
 
     def test_deduplication_by_id(self):
         """Одинаковые id — один результат (дедупликация)."""
-        from backend.search.search_reverb import (
+        from backend.search.reverb_normalizer import (
             _deduplicate_listings,
             _normalize_reverb_response,
         )
