@@ -34,9 +34,9 @@ class TestReverbApiAuth:
     def test_request_contains_auth_header(self, mock_response):
         """Запрос к API содержит заголовок Authorization с Bearer-токеном."""
         import requests
-        from backend.search.search_reverb import _search_reverb_api
+        from backend.search.reverb_client import _search_reverb_api
 
-        with patch("backend.search.search_reverb.requests.get") as mock_get, \
+        with patch("backend.search.reverb_client.requests.get") as mock_get, \
              patch.dict(os.environ, {"REVERB_API_TOKEN": "test-token-123"}):
             mock_get.return_value = mock_response
 
@@ -50,9 +50,9 @@ class TestReverbApiAuth:
 
     def test_request_uses_correct_endpoint(self, mock_response):
         """Запрос использует правильный URL endpoint."""
-        from backend.search.search_reverb import _search_reverb_api
+        from backend.search.reverb_client import _search_reverb_api
 
-        with patch("backend.search.search_reverb.requests.get") as mock_get, \
+        with patch("backend.search.reverb_client.requests.get") as mock_get, \
              patch.dict(os.environ, {"REVERB_API_TOKEN": "test-token"}):
             mock_get.return_value = mock_response
 
@@ -64,7 +64,7 @@ class TestReverbApiAuth:
 
     def test_normalization_handles_real_api_format(self, mock_response):
         """Нормализация корректно обрабатывает реальный формат Reverb API."""
-        from backend.search.search_reverb import _normalize_reverb_response
+        from backend.search.reverb_normalizer import _normalize_reverb_response
 
         raw_listing = mock_response.json()["listings"][0]
         result = _normalize_reverb_response(raw_listing)
@@ -97,9 +97,9 @@ class TestReverbApiAuth:
 
     def test_pagination_limits_to_three_queries(self, mock_response):
         """Пагинация ограничивает до 3 запросов."""
-        from backend.search.search_reverb import _search_reverb_api
+        from backend.search.reverb_client import _search_reverb_api
 
-        with patch("backend.search.search_reverb.requests.get") as mock_get, \
+        with patch("backend.search.reverb_client.requests.get") as mock_get, \
              patch.dict(os.environ, {"REVERB_API_TOKEN": "test-token"}):
             mock_get.return_value = mock_response
 
@@ -110,7 +110,7 @@ class TestReverbApiAuth:
 
     def test_deduplication_by_id(self):
         """Одинаковые id — один результат (дедупликация)."""
-        from backend.search.search_reverb import (
+        from backend.search.reverb_normalizer import (
             _deduplicate_listings,
             _normalize_reverb_response,
         )

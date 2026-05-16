@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.search.search_reverb import _normalize_reverb_response
+from backend.search.reverb_normalizer import _normalize_reverb_response
 
 PLACEHOLDER = "https://placehold.co/400x300?text=No+Image"
 

@@ -9,12 +9,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.search.search_reverb import (
+from backend.search.mock_reverb import _filter_by_price
+from backend.search.reverb_normalizer import (
     _deduplicate_listings,
-    _filter_by_price,
     _normalize_reverb_response,
-    _search_reverb_api,
 )
+from backend.search.reverb_client import _search_reverb_api
 
 # JSON-фикстура с реальным форматом ответа Reverb API
 REVERB_API_RESPONSE_FIXTURE = {
@@ -193,7 +193,7 @@ class TestReverbApiRequestWithFixture:
         mock_response.status_code = 200
         mock_response.json.return_value = REVERB_API_RESPONSE_FIXTURE
 
-        with patch("backend.search.search_reverb.requests.get") as mock_get, \
+        with patch("backend.search.reverb_client.requests.get") as mock_get, \
              patch.dict(os.environ, {"REVERB_API_TOKEN": "test-token"}):
             mock_get.return_value = mock_response
 
@@ -208,7 +208,7 @@ class TestReverbApiRequestWithFixture:
         mock_response.status_code = 200
         mock_response.json.return_value = REVERB_API_RESPONSE_FIXTURE
 
-        with patch("backend.search.search_reverb.requests.get") as mock_get, \
+        with patch("backend.search.reverb_client.requests.get") as mock_get, \
              patch.dict(os.environ, {"REVERB_API_TOKEN": "my-secret-token"}):
             mock_get.return_value = mock_response
 
@@ -224,7 +224,7 @@ class TestReverbApiRequestWithFixture:
         # Фикстура содержит 2 элемента с id=123
         mock_response.json.return_value = REVERB_API_RESPONSE_FIXTURE
 
-        with patch("backend.search.search_reverb.requests.get") as mock_get, \
+        with patch("backend.search.reverb_client.requests.get") as mock_get, \
              patch.dict(os.environ, {"REVERB_API_TOKEN": "test-token"}):
             mock_get.return_value = mock_response
 
@@ -239,7 +239,7 @@ class TestReverbApiRequestWithFixture:
         mock_response.status_code = 200
         mock_response.json.return_value = REVERB_API_RESPONSE_FIXTURE
 
-        with patch("backend.search.search_reverb.requests.get") as mock_get, \
+        with patch("backend.search.reverb_client.requests.get") as mock_get, \
              patch.dict(os.environ, {"REVERB_API_TOKEN": "test-token"}):
             mock_get.return_value = mock_response
 
