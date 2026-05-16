@@ -23,6 +23,7 @@ cp .env.example .env
 
 Откройте `.env` и заполните:
 - `GROQ_API_KEY` — получить на [console.groq.com](https://console.groq.com/) (обязательно)
+- `LLM_MODEL` — модель Groq для router/consultation, например `llama-3.3-70b-versatile` или `qwen/qwen3-32b`
 - `USE_MOCK_REVERB=true` — для работы без обращения к Reverb (используются локальные мок-данные)
 
 > Без `GROQ_API_KEY` проект запустится, но LLM-ответы будут в ограниченном режиме.

@@ -12,16 +12,17 @@
 
 | # | PRD пункт | Сценарий | Ожидаемый режим | Где проверяется | Статус |
 |---|-----------|----------|-----------------|-----------------|--------|
-| 1 | §5.1 Поиск по описанию звука | "тёплый джазовый звук до 1000" | search | `test_mode_detector.py::search_jazz_budget`, `test_prompt_snapshot.py` | ready |
-| 2 | §5.1 Поиск по модели | "Telecaster до 800 долларов" | search | `test_mode_detector.py::search_blues_budget`, `test_prompt_snapshot.py` | ready |
-| 3 | §5.3 Консультация (теория) | "P90 vs humbucker" / "что такое хамбакер" | consultation | `test_mode_detector.py::consultation_pickup_diff`, `test_mode_detector_edge_cases.py::p90_compromise_consultation` | ready |
-| 4 | §5.1 Начинающий | "beginner guitar" / "гитару для начинающего" | search | `test_prompt_snapshot.py` (акустика для начинающего) | ready |
-| 5 | §5.2 Маппинг абстракций | "metal high output" / "мясную палку" | search | `test_prompt_snapshot.py`, `MAPPING.md` (23 абстракции) | ready |
-| 6 | §5.2 Vintage | "винтажный стратокастер 70-х до 3000$" | search | `test_prompt_snapshot.py` | ready |
-| 7 | §5.2 Бюджет в рублях | "ищу теле до 80 тыс руб" → price_max=800 | search | `test_prompt_snapshot.py`, few-shot в `param_extractor.py` | ready |
-| 8 | §5.4 Противоречивый запрос | "Хочу акустику с флойдом и EMG" | search (graceful) | `test_prompt_snapshot.py`, few-shot в `param_extractor.py` | ready |
-| 9 | §5.3 Слишком общий запрос | "гитара?" / пустая строка | consultation | `test_mode_detector_edge_cases.py::test_very_short_query`, `test_mode_detector_edge_cases.py::test_empty_string` | ready |
-| 10 | §9 Off-topic | "напиши код на python" / "какая погода" | off_topic | `test_mode_detector.py` (off-topic паттерны в `mode_detector.py`) | ready |
+| 1 | §5.1 Поиск по описанию звука | "тёплый джазовый звук до 1000" | search | LLM-router prompt + `test_llm_router_contract.py` | ready |
+| 2 | §5.1 Поиск по модели | "Telecaster до 800 долларов" | search | LLM-router prompt + `test_llm_router_contract.py` | ready |
+| 3 | §5.3 Консультация (теория) | "P90 vs humbucker" / "что такое хамбакер" | consultation | LLM-router prompt + `test_agent_integration.py` | ready |
+| 3a | §5.3 Консультация по найденным вариантам | "чем 1ый лучше 2го" / "что новичку взять из этих" после search | consultation | numbered search context + `test_context_manager.py`, `test_agent.py` | ready |
+| 4 | §5.1 Начинающий | "beginner guitar" / "гитару для начинающего" | search | LLM-router prompt | ready |
+| 5 | §5.2 Маппинг абстракций | "metal high output" / "мясную палку" | search | LLM-router prompt, `MAPPING.md` (23 абстракции) | ready |
+| 6 | §5.2 Vintage | "винтажный стратокастер 70-х до 3000$" | search | LLM-router prompt | ready |
+| 7 | §5.2 Бюджет в рублях | "ищу теле до 80 тыс руб" → price_max=800 | search | LLM-router prompt few-shot/rules | ready |
+| 8 | §5.4 Противоречивый запрос | "Хочу акустику с флойдом и EMG" | search (graceful) | LLM-router prompt rules | ready |
+| 9 | §5.3 Слишком общий запрос | "гитара?" / пустая строка | clarification или validation error для пустого input | `test_llm_router_contract.py`, API validation | ready |
+| 10 | §9 Off-topic | "напиши код на python" / "какая погода" | off_topic internally, `consultation` externally | LLM-router intent + dedicated off-topic prompt + `test_off_topic.py` | ready |
 
 ## Ограничения (антигаллюцинации) — PRD §7
 
@@ -29,20 +30,23 @@
 |-------------|-------------------|--------|
 | Не выдумывать цены | Цены берутся только из Reverb API, LLM не генерирует цены | ready |
 | Не выдумывать ссылки | Ссылки берутся только из `search_reverb`, consultation-ответы фильтруются `_sanitize_consultation_answer` | ready |
+| Не придумывать catalog content в консультации | Sanitizer разрешает только модели из последней search-выдачи и блокирует ссылки/магазины/новые списки моделей | ready |
 | Не проверять продавцов | Промпт не содержит инструкций о продавцах, ограничение в `AGENT_PROMPT.md` | ready |
 | Не обсуждать доставку/оплату | Явный запрет в `AGENT_PROMPT.md` строка "Не обсуждай доставку, оплату" | ready |
-| Search только для search-запросов | `mode_detector.py` + `_classify_query()` в `service.py` | ready |
+| Search только для search-запросов | `LLMClient.classify_and_plan_query()` + strict route validation в `service.py` | ready |
 | Consultation без поиска | `_handle_consultation` не вызывает `search_reverb` | ready |
+| Ready search без скрытых defaults | LLM-router возвращает полный effective `search_params`; backend валидирует/repair и не применяет `$500` или старый state сам | ready |
+| Public `searchParams` совпадают с execution params | Search исполняется из текущего router snapshot, response строится из того же snapshot | ready |
 
 ## Degraded Mode — поведение без API
 
 | Сценарий | Поведение | Статус |
 |----------|-----------|--------|
-| Без `GROQ_API_KEY` | `create_llm_client()` → None, consultation fallback "сервис недоступен", search fallback `search_queries=[text]` | degraded |
+| Без `GROQ_API_KEY` | REST `503` / WebSocket `error`, regex fallback не используется | degraded |
 | `USE_MOCK_REVERB=true` | Mock-данные из `search_reverb`, ранжирование работает | degraded |
-| LLM вернул невалидный JSON | `extract_params_from_llm_response` → fallback `{search_queries: [], price_min: None, price_max: None}` | ready |
-| Reverb вернул 0 результатов | `_build_relaxed_queries` пробует ослабленный запрос | ready |
-| Пустой запрос | `mode_detector` → consultation | ready |
+| LLM вернул невалидный JSON | REST `502` / WebSocket `error`, regex fallback не используется | ready |
+| Reverb вернул 0 результатов | Agent path возвращает `results: []` без backend-generated relaxed query retry; будущий retry должен быть LLM-owned | ready |
+| Пустой запрос | REST validation `422`, WebSocket error | ready |
 
 ## Покрытие PRD
 

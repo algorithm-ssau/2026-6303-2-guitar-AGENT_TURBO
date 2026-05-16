@@ -8,17 +8,29 @@ import { Sidebar } from './Sidebar';
 import { useChat } from '../hooks/useChat';
 import { Theme } from '../../../shared/theme/useTheme';
 import { Message } from '../types';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import './Chat.css';
 
 interface ChatProps {
   theme: Theme;
+  authToken: string;
+  currentUserLogin: string;
+  onAuthExpired: () => void;
+  onLogout: () => void;
   onToggleTheme: () => void;
 }
 
 /**
  * Главный компонент чата с сайдбаром истории
  */
-export const Chat: React.FC<Partial<ChatProps>> = ({ theme = 'dark', onToggleTheme = () => {} }) => {
+export const Chat: React.FC<ChatProps> = ({
+  theme,
+  authToken,
+  currentUserLogin,
+  onAuthExpired,
+  onLogout,
+  onToggleTheme,
+}) => {
   const {
     messages = [],
     isLoading = false,
@@ -38,13 +50,14 @@ export const Chat: React.FC<Partial<ChatProps>> = ({ theme = 'dark', onToggleThe
     hasMoreSessions = false,
     isLoadingMoreSessions = false,
     isLoadingSessionMessages = false,
-  } = useChat();
+  } = useChat(authToken, onAuthExpired);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [revealedMessageId, setRevealedMessageId] = useState<string | null>(null);
   const [revealedContent, setRevealedContent] = useState('');
   const [showRevealedResults, setShowRevealedResults] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState<'logout' | 'clear-history' | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -158,6 +171,31 @@ export const Chat: React.FC<Partial<ChatProps>> = ({ theme = 'dark', onToggleThe
     }
   };
 
+  const handleRequestLogout = () => {
+    setPendingConfirm('logout');
+  };
+
+  const handleRequestClearHistory = () => {
+    setPendingConfirm('clear-history');
+  };
+
+  const handleCancelConfirm = () => {
+    setPendingConfirm(null);
+  };
+
+  const handleConfirmAction = () => {
+    const action = pendingConfirm;
+    setPendingConfirm(null);
+
+    if (action === 'logout') {
+      onLogout();
+    }
+
+    if (action === 'clear-history') {
+      clearHistory();
+    }
+  };
+
   const handleRetry = () => {
     const lastUserMessage = messages.slice().reverse().find(m => m.role === 'user')?.content;
     if (lastUserMessage) {
@@ -221,8 +259,9 @@ export const Chat: React.FC<Partial<ChatProps>> = ({ theme = 'dark', onToggleThe
           onSelectSession={handleSelectSession}
           onNewChat={handleNewChat}
           onDeleteSession={deleteSession}
-          onClearHistory={clearHistory}
+          onClearHistory={handleRequestClearHistory}
           onToggleTheme={onToggleTheme}
+          onLogout={handleRequestLogout}
           onToggle={handleToggleSidebar}
           onScroll={handleSidebarScroll}
           isLoadingMore={isLoadingMoreSessions}
@@ -250,9 +289,12 @@ export const Chat: React.FC<Partial<ChatProps>> = ({ theme = 'dark', onToggleThe
               </div>
             </div>
 
-            <button className="chat-reset-button" onClick={handleNewChat}>
-              ↻ Новый поиск
-            </button>
+            <div className="chat-header-actions">
+              <span className="chat-current-user">{currentUserLogin}</span>
+              <button className="chat-reset-button" onClick={handleNewChat}>
+                ↻ Новый поиск
+              </button>
+            </div>
           </header>
 
           <main className="chat-messages">
@@ -284,6 +326,18 @@ export const Chat: React.FC<Partial<ChatProps>> = ({ theme = 'dark', onToggleThe
           <InputForm onSend={handleSend} disabled={isLoading || isLoadingSessionMessages} />
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={pendingConfirm !== null}
+        title={pendingConfirm === 'clear-history' ? 'Очистить историю?' : 'Выйти из аккаунта?'}
+        message={
+          pendingConfirm === 'clear-history'
+            ? 'Вы уверены, что хотите удалить всю историю чатов? Это действие нельзя отменить.'
+            : 'Вы уверены, что хотите выйти? Текущий чат останется в истории.'
+        }
+        onCancel={handleCancelConfirm}
+        onConfirm={handleConfirmAction}
+      />
     </div>
   );
 };

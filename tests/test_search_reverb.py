@@ -119,3 +119,11 @@ class TestSearchReverbMockData:
         # Все должны вернуть одинаковый результат
         assert len(result_lower) == len(result_upper) == len(result_mixed)
         assert len(result_lower) > 0
+
+    def test_default_search_expands_synonyms_but_exact_mode_does_not(self):
+        """Direct search keeps synonym expansion; exact mode preserves router-owned queries."""
+        expanded = search_reverb(["lp"])
+        exact = search_reverb(["lp"], expand_query_synonyms=False)
+
+        assert any("les paul" in item["title"].lower() for item in expanded)
+        assert exact == []

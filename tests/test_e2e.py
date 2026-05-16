@@ -11,15 +11,29 @@ from backend.main import app
 class MockLLMClient:
     """Мок LLM-клиента для e2e тестов."""
 
-    def ask(self, text: str, system_prompt: str) -> str:
-        return "Хамбакеры дают более плотный и насыщенный звук по сравнению с синглами."
-
-    def extract_search_params(self, text: str) -> dict:
+    def classify_and_plan_query(self, text: str, history=None, current_state=None) -> dict:
+        if "разница" in text.lower():
+            return {
+                "intent": "consultation",
+                "enough_for_search": False,
+                "missing_fields": [],
+                "search_params": None,
+                "should_offer_search": False,
+            }
         return {
-            "search_queries": ["Fender Stratocaster"],
-            "price_min": None,
-            "price_max": 1000,
+            "intent": "search",
+            "enough_for_search": True,
+            "missing_fields": [],
+            "search_params": {
+                "search_queries": ["Fender Stratocaster"],
+                "price_min": None,
+                "price_max": 1000,
+            },
+            "should_offer_search": False,
         }
+
+    def ask(self, text: str, system_prompt: str, history=None) -> str:
+        return "Хамбакеры дают более плотный и насыщенный звук по сравнению с синглами."
 
 
 @pytest.fixture
@@ -86,7 +100,7 @@ def test_empty_query(mock_llm):
         ws.send_json({"query": ""})
         msg = ws.receive_json()
         assert msg["type"] == "error"
-        assert "text" in msg
+        assert "status" in msg
 
 
 def test_status_order(mock_llm):
@@ -102,7 +116,7 @@ def test_status_order(mock_llm):
             if msg.get("type") == "result":
                 break
 
-        status_texts = [m["text"] for m in messages if m["type"] == "status"]
+        status_texts = [m["status"] for m in messages if m["type"] == "status"]
 
         # Проверяем правильный порядок статусов для search
         expected_order = [

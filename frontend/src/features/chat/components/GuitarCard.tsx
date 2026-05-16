@@ -7,8 +7,6 @@ interface GuitarCardProps {
     priceMin?: number;
     priceMax?: number;
     position?: number;
-    onFeedback?: (id: string, rating: 'up' | 'down') => void;
-    feedbackGiven?: boolean;
 }
 
 /**
@@ -43,7 +41,7 @@ const formatPrice = (price: number, currency: string | undefined): string => {
     return `${price} ${currency || 'USD'}`;
 };
 
-export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceMax, position, onFeedback, feedbackGiven }) => {
+export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceMax, position }) => {
     const [imageError, setImageError] = React.useState(false);
     const hasImage = result.imageUrl && !imageError;
     const priceColor = getPriceColor(result.price ?? 0, priceMax);
@@ -165,34 +163,6 @@ export const GuitarCard: React.FC<GuitarCardProps> = ({ result, priceMin, priceM
                     </div>
                 )}
 
-                <div style={{ marginTop: '10px', display: 'flex', gap: '5px' }}>
-                    <button 
-                        disabled={feedbackGiven}
-                        onClick={(e) => {
-                            e.preventDefault(); 
-                            e.stopPropagation(); 
-                            if (result.id) {
-                                onFeedback?.(result.id, 'up');
-                            }
-                        }}
-                        style={{ cursor: feedbackGiven ? 'not-allowed' : 'pointer' }}
-                    >
-                        👍
-                    </button>
-                    <button 
-                        disabled={feedbackGiven}
-                        onClick={(e) => {
-                            e.preventDefault(); 
-                            e.stopPropagation();
-                            if (result.id) {
-                                onFeedback?.(result.id, 'down');
-                            }
-                        }}
-                        style={{ cursor: feedbackGiven ? 'not-allowed' : 'pointer' }}
-                    >
-                        👎
-                    </button>
-                </div>
             </a>
         </div>
     );

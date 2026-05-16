@@ -5,9 +5,9 @@ import { SearchParamsPanel } from '../components/SearchParamsPanel';
 
 describe('SearchParamsPanel', () => {
   it('renders non-empty params', () => {
-    render(<SearchParamsPanel params={{ type: 'Stratocaster', budget: '≤ $500' }} />);
+    render(<SearchParamsPanel params={{ type: 'stratocaster', priceMax: 500 }} />);
     expect(screen.getByText(/Stratocaster/i)).toBeInTheDocument();
-    expect(screen.getByText(/≤ \$500/i)).toBeInTheDocument();
+    expect(screen.getByText(/до \$500/i)).toBeInTheDocument();
   });
 
   it('does not render when params are empty', () => {

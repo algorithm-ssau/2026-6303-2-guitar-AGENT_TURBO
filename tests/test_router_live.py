@@ -1,46 +1,18 @@
 """Тесты POST /api/chat — проверка подключения к реальному пайплайну."""
 
-import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.agent.service import InvalidRouterResponseError, LLMUnavailableError
 
 
 @pytest.fixture
 def client():
     """Фикстура для создания тестового клиента."""
     return TestClient(app)
-
-
-class MockLLMClient:
-    """Мок LLM-клиента для тестов роутера."""
-
-    def ask(self, text: str, system_prompt: str) -> str:
-        return "Хамбакер — это тип звукоснимателя с двумя катушками."
-
-    def extract_search_params(self, text: str) -> dict:
-        return {
-            "search_queries": ["Fender Stratocaster"],
-            "price_min": None,
-            "price_max": 1000,
-        }
-
-
-def mock_search_fn(search_queries, price_min=None, price_max=None):
-    """Мок функции поиска."""
-    return [
-        {
-            "id": "1",
-            "title": "Fender Stratocaster MIM",
-            "price": 800,
-            "currency": "USD",
-            "image_url": "https://example.com/img.jpg",
-            "listing_url": "https://reverb.com/item/1",
-        },
-    ]
 
 
 class TestRouterLive:
@@ -61,6 +33,11 @@ class TestRouterLive:
                         "listing_url": "https://reverb.com/item/1",
                     }
                 ],
+                "search_params": {
+                    "search_queries": ["Fender Stratocaster"],
+                    "price_max": 1000,
+                    "type": "stratocaster",
+                },
             }
 
             response = client.post(
@@ -74,7 +51,8 @@ class TestRouterLive:
         assert isinstance(data["results"], list)
         assert len(data["results"]) > 0
         assert "title" in data["results"][0]
-        assert "listing_url" in data["results"][0]
+        assert "listingUrl" in data["results"][0]
+        assert data["searchParams"]["type"] == "stratocaster"
 
     def test_consultation_query_returns_consultation_mode(self, client):
         """POST /api/chat с консультационным запросом → mode='consultation', answer не пустой."""
@@ -110,3 +88,19 @@ class TestRouterLive:
             json={}
         )
         assert response.status_code == 422
+
+    def test_llm_unavailable_returns_503(self, client):
+        """POST /api/chat мапит недоступную LLM в 503."""
+        with patch("backend.search.router.interpret_query", side_effect=LLMUnavailableError("no key")):
+            response = client.post("/api/chat", json={"query": "Найди Telecaster"})
+
+        assert response.status_code == 503
+        assert "detail" in response.json()
+
+    def test_invalid_router_response_returns_502(self, client):
+        """POST /api/chat мапит невалидный router response в 502."""
+        with patch("backend.search.router.interpret_query", side_effect=InvalidRouterResponseError("bad json")):
+            response = client.post("/api/chat", json={"query": "Найди Telecaster"})
+
+        assert response.status_code == 502
+        assert "detail" in response.json()

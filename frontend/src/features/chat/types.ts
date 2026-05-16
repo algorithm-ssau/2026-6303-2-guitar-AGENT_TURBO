@@ -15,12 +15,18 @@ export interface GuitarResult {
   listingUrl: string;
 }
 
-export interface ParsedParams {
-  type?: string;
-  budget?: string;
-  brand?: string;
-  tags?: string[];
+export interface SearchParams {
+  searchQueries?: string[];
+  priceMin?: number | null;
+  priceMax?: number | null;
+  type?: string | null;
+  brand?: string | null;
+  pickups?: string | null;
+  sound?: string | null;
+  style?: string | null;
 }
+
+export type ChatMode = 'search' | 'consultation' | 'conversation' | 'clarification';
 
 /** Сообщение в чате */
 export interface Message {
@@ -29,16 +35,17 @@ export interface Message {
   content: string;
   timestamp: Date;
   results?: GuitarResult[];
-  mode?: 'search' | 'consultation' | 'clarification';
+  mode?: ChatMode;
   answer?: string;
   question?: string;
   explanation?: string;
   sessionId?: number;
+  debugThink?: string | null;
   transient?: {
     phase: 'thinking' | 'revealing';
     status?: string | null;
   };
-  parsedParams?: ParsedParams | null;
+  searchParams?: SearchParams | null;
 }
 
 /** Состояние чата */
@@ -75,13 +82,26 @@ export const SearchResultSchema = z.object({
 
 export type SearchResult = z.infer<typeof SearchResultSchema>;
 
+export const SearchParamsSchema = z.object({
+  searchQueries: z.array(z.string()).optional().default([]),
+  priceMin: z.number().nullable().optional(),
+  priceMax: z.number().nullable().optional(),
+  type: z.string().nullable().optional(),
+  brand: z.string().nullable().optional(),
+  pickups: z.string().nullable().optional(),
+  sound: z.string().nullable().optional(),
+  style: z.string().nullable().optional(),
+});
+
 /** Схема ответа от API */
 export const ChatResponseSchema = z.object({
-  mode: z.enum(['search', 'consultation', 'clarification']),
+  mode: z.enum(['search', 'consultation', 'conversation', 'clarification']),
   answer: z.string().optional(),
+  debugThink: z.string().nullable().optional(),
   results: z.array(SearchResultSchema).optional(),
   question: z.string().optional(),
   explanation: z.string().optional(),
+  searchParams: SearchParamsSchema.nullable().optional(),
   sessionId: z.number().optional(),
 });
 
@@ -106,9 +126,10 @@ export const HistoryItemSchema = z.object({
   id: z.number(),
   sessionId: z.number(),
   userQuery: z.string(),
-  mode: z.enum(['search', 'consultation', 'clarification']),
+  mode: z.enum(['search', 'consultation', 'conversation', 'clarification']),
   answer: z.string().nullable().optional(),
   results: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+  searchParams: SearchParamsSchema.nullable().optional(),
   createdAt: z.string(),
 });
 

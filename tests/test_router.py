@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from backend.main import app
 
@@ -15,10 +16,11 @@ class TestChatRouter:
 
     def test_valid_chat_request_returns_200(self, client):
         """Корректный запрос возвращает 200."""
-        response = client.post(
-            "/api/chat",
-            json={"query": "Нужна гитара для металла до 45 тысяч"}
-        )
+        with patch("backend.search.router.interpret_query", return_value={"mode": "consultation", "answer": "Ответ"}):
+            response = client.post(
+                "/api/chat",
+                json={"query": "Нужна гитара для металла до 45 тысяч"}
+            )
         assert response.status_code == 200
         data = response.json()
         assert "mode" in data
@@ -42,11 +44,12 @@ class TestChatRouter:
 
     def test_response_structure(self, client):
         """Проверка структуры ответа."""
-        response = client.post(
-            "/api/chat",
-            json={"query": "Fender Stratocaster"}
-        )
+        with patch("backend.search.router.interpret_query", return_value={"mode": "search", "results": []}):
+            response = client.post(
+                "/api/chat",
+                json={"query": "Fender Stratocaster"}
+            )
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data["mode"], str)
-        assert data["mode"] in ["search", "consultation"]
+        assert data["mode"] in ["search", "consultation", "clarification"]

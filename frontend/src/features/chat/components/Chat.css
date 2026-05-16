@@ -88,6 +88,23 @@
   color: var(--text-dim);
 }
 
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chat-current-user {
+  max-width: 160px;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -184,6 +201,15 @@
   .chat-header {
     gap: 8px;
     align-items: flex-start;
+  }
+
+  .chat-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .chat-current-user {
+    max-width: 120px;
   }
 
   .chat-reset-button {

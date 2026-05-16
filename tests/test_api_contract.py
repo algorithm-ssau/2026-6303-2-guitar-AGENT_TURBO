@@ -261,13 +261,7 @@ class TestRESTContract:
         assert "totalSessions" in data
         assert "kpiMet" in data
 
-    def test_parse_query_returns_camelcase(self, client):
-        """POST /api/query/parse возвращает поля в camelCase."""
+    def test_parse_query_endpoint_is_removed(self, client):
+        """POST /api/query/parse больше не существует."""
         response = client.post("/api/query/parse", json={"query": "Fender до 1000$"})
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert "type" in data
-        assert "budget" in data
-        assert "brand" in data
-        assert "tags" in data
+        assert response.status_code == 404

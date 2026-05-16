@@ -47,6 +47,7 @@ class HistoryItem(BaseModel):
     mode: str
     answer: Optional[str] = None
     results: Optional[List[dict]] = None
+    search_params: Optional[dict] = None
     created_at: str
 
 

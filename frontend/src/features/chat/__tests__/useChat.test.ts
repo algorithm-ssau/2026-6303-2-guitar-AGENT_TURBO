@@ -151,7 +151,7 @@ describe('useChat hook', () => {
     const { result } = renderHook(() => useChat());
 
     await waitFor(() => {
-      expect(mockFetchSessionMessages).toHaveBeenCalledWith(19);
+      expect(mockFetchSessionMessages).toHaveBeenCalledWith(19, undefined);
       expect(result.current.currentSessionId).toBe(19);
     });
   });
@@ -263,6 +263,7 @@ describe('useChat hook', () => {
   });
 
   it('должен пытаться переподключиться через 3 секунды при обрыве соединения', async () => {
+    vi.useFakeTimers();
     let wsInstance: MockWebSocket | null = null;
 
     const OriginalWebSocket = (window as any).WebSocket;
@@ -275,11 +276,11 @@ describe('useChat hook', () => {
 
     const { result } = renderHook(() => useChat());
 
-    await waitFor(() => {
-      expect(result.current.connectionStatus).toBe('connected');
+    await act(async () => {
+      vi.advanceTimersByTime(0);
     });
 
-    vi.useFakeTimers();
+    expect(result.current.connectionStatus).toBe('connected');
 
     act(() => {
       if (wsInstance) {
@@ -289,7 +290,7 @@ describe('useChat hook', () => {
 
     expect(result.current.connectionStatus).toBe('disconnected');
 
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(3000);
     });
 

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="420" viewBox="0 0 1120 420" role="img" aria-labelledby="title desc">
+  <title id="title">Схема взвешенной многокритериальной оценки</title>
+  <desc id="desc">Итоговая релевантность объявления вычисляется как сумма произведений весов критериев на частные оценки.</desc>
+  <defs>
+    <style>
+      .bg { fill: #ffffff; }
+      .panel { fill: #f7f9fc; stroke: #9aacbf; stroke-width: 2; rx: 16; }
+      .formula { font-family: Georgia, serif; fill: #172033; font-size: 36px; font-weight: 700; }
+      .head { font-family: Arial, sans-serif; fill: #172033; font-size: 20px; font-weight: 700; }
+      .txt { font-family: Arial, sans-serif; fill: #344258; font-size: 17px; }
+      .chip { fill: #eef5ff; stroke: #5b7cfa; stroke-width: 1.5; rx: 12; }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1120" height="420"/>
+  <rect class="panel" x="40" y="36" width="1040" height="112"/>
+  <text class="formula" x="560" y="104" text-anchor="middle">R(l, q) = Σ wₖ · sₖ(l, q)</text>
+  <text class="txt" x="560" y="132" text-anchor="middle">l — объявление, q — пользовательский запрос, sₖ — оценка по критерию, wₖ — вес критерия</text>
+
+  <text class="head" x="80" y="204">Критерии расширенной модели</text>
+  <g transform="translate(80,230)">
+    <rect class="chip" x="0" y="0" width="130" height="48"/>
+    <text class="txt" x="65" y="30" text-anchor="middle">бюджет 0,25</text>
+    <rect class="chip" x="146" y="0" width="112" height="48"/>
+    <text class="txt" x="202" y="30" text-anchor="middle">тип 0,20</text>
+    <rect class="chip" x="274" y="0" width="180" height="48"/>
+    <text class="txt" x="364" y="30" text-anchor="middle">звукосниматели 0,15</text>
+    <rect class="chip" x="470" y="0" width="132" height="48"/>
+    <text class="txt" x="536" y="30" text-anchor="middle">бренд 0,10</text>
+    <rect class="chip" x="618" y="0" width="118" height="48"/>
+    <text class="txt" x="677" y="30" text-anchor="middle">звук 0,10</text>
+    <rect class="chip" x="752" y="0" width="122" height="48"/>
+    <text class="txt" x="813" y="30" text-anchor="middle">стиль 0,10</text>
+    <rect class="chip" x="890" y="0" width="146" height="48"/>
+    <text class="txt" x="963" y="30" text-anchor="middle">заголовок 0,10</text>
+  </g>
+
+  <rect class="panel" x="80" y="326" width="960" height="58"/>
+  <text class="txt" x="560" y="361" text-anchor="middle">При минимальном наборе параметров используется модель: бюджет 0,55 и релевантность заголовка 0,45.</text>
+</svg>

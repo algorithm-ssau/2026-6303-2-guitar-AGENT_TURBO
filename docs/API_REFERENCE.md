@@ -35,7 +35,17 @@ Response (`search`):
       "listingUrl": "https://reverb.com/item/10000005-squier-classic-vibe-50s-telecaster-2024-butterscotch-blonde",
       "imageUrl": "https://images.reverb.com/image/upload/mock/squier-classic-vibe-telecaster.jpg"
     }
-  ]
+  ],
+  "searchParams": {
+    "searchQueries": ["Squier Classic Vibe Stratocaster"],
+    "priceMin": null,
+    "priceMax": 500,
+    "type": "stratocaster",
+    "brand": "Squier",
+    "pickups": null,
+    "sound": null,
+    "style": null
+  }
 }
 ```
 
@@ -48,33 +58,16 @@ Response (`consultation`):
 }
 ```
 
-- Ошибки: `400`, `422`, `500`
-
-### `POST /api/query/parse` (`implemented`)
-
-- Headers: `Content-Type: application/json`
-- Назначение: parse-only режим без LLM и без побочных эффектов
-
-Request:
+Response (`conversation`):
 
 ```json
 {
-  "query": "Найди Fender Strat до 500$"
+  "mode": "conversation",
+  "answer": "Sure, I can answer in English."
 }
 ```
 
-Response:
-
-```json
-{
-  "type": "Stratocaster",
-  "budget": "≤ $500",
-  "brand": "Fender",
-  "tags": []
-}
-```
-
-- Ошибки: `400`, `422`, `500`
+- Ошибки: `422`, `502`, `503`, `500`
 
 ### `GET /api/sessions?offset=0&limit=20` (`implemented`)
 
@@ -116,6 +109,7 @@ Response:
       "mode": "consultation",
       "answer": "P90 - это тип синглового звукоснимателя...",
       "results": null,
+      "searchParams": null,
       "createdAt": "2026-04-25T08:11:05Z"
     }
   ]
@@ -168,6 +162,7 @@ Response:
   "modeDistribution": {
     "search": 18,
     "consultation": 10,
+    "conversation": 4,
     "clarification": 3
   },
   "avgMessagesPerSession": 2.58,
@@ -318,6 +313,17 @@ Consultation:
 }
 ```
 
+Conversation:
+
+```json
+{
+  "type": "result",
+  "mode": "conversation",
+  "answer": "Sure, I can answer in English.",
+  "sessionId": 12
+}
+```
+
 Clarification:
 
 ```json
@@ -391,6 +397,15 @@ user -> status("Определяю режим...")
 ```json
 {
   "mode": "consultation",
+  "answer": "..."
+}
+```
+
+или
+
+```json
+{
+  "mode": "conversation",
   "answer": "..."
 }
 ```

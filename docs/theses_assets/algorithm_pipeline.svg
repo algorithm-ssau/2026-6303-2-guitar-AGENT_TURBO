@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="360" viewBox="0 0 1120 360" role="img" aria-labelledby="title desc">
+  <title id="title">Схема интеллектуального контура агента</title>
+  <desc id="desc">Последовательность обработки запроса: пользовательский запрос, LLM-маршрутизатор, JSON-план, валидация, поиск объявлений, ранжирование, top-5.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#40516b"/>
+    </marker>
+    <style>
+      .bg { fill: #f7f9fc; }
+      .box { fill: #ffffff; stroke: #9aacbf; stroke-width: 2; rx: 14; }
+      .box2 { fill: #eef5ff; stroke: #5b7cfa; stroke-width: 2; rx: 14; }
+      .text { font-family: Arial, sans-serif; fill: #172033; font-size: 20px; font-weight: 700; }
+      .small { font-family: Arial, sans-serif; fill: #3e4b5f; font-size: 15px; }
+      .line { stroke: #40516b; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1120" height="360"/>
+  <rect class="box" x="32" y="88" width="132" height="110"/>
+  <text class="text" x="98" y="128" text-anchor="middle">Запрос</text>
+  <text class="small" x="98" y="158" text-anchor="middle">естественный</text>
+  <text class="small" x="98" y="178" text-anchor="middle">язык</text>
+
+  <rect class="box2" x="208" y="88" width="154" height="110"/>
+  <text class="text" x="285" y="123" text-anchor="middle">LLM</text>
+  <text class="text" x="285" y="149" text-anchor="middle">маршрутизатор</text>
+  <text class="small" x="285" y="178" text-anchor="middle">режим и параметры</text>
+
+  <rect class="box" x="406" y="88" width="132" height="110"/>
+  <text class="text" x="472" y="128" text-anchor="middle">JSON</text>
+  <text class="small" x="472" y="158" text-anchor="middle">план</text>
+  <text class="small" x="472" y="178" text-anchor="middle">поиска</text>
+
+  <rect class="box" x="582" y="88" width="132" height="110"/>
+  <text class="text" x="648" y="128" text-anchor="middle">Валидация</text>
+  <text class="small" x="648" y="158" text-anchor="middle">контракт</text>
+  <text class="small" x="648" y="178" text-anchor="middle">полей</text>
+
+  <rect class="box" x="758" y="88" width="132" height="110"/>
+  <text class="text" x="824" y="128" text-anchor="middle">Каталог</text>
+  <text class="small" x="824" y="158" text-anchor="middle">объявления</text>
+  <text class="small" x="824" y="178" text-anchor="middle">Reverb/mock</text>
+
+  <rect class="box2" x="934" y="88" width="154" height="110"/>
+  <text class="text" x="1011" y="123" text-anchor="middle">Top-5</text>
+  <text class="text" x="1011" y="149" text-anchor="middle">выдача</text>
+  <text class="small" x="1011" y="178" text-anchor="middle">по релевантности</text>
+
+  <path class="line" d="M164 143 H203"/>
+  <path class="line" d="M362 143 H401"/>
+  <path class="line" d="M538 143 H577"/>
+  <path class="line" d="M714 143 H753"/>
+  <path class="line" d="M890 143 H929"/>
+
+  <rect class="box" x="354" y="244" width="412" height="76"/>
+  <text class="text" x="560" y="276" text-anchor="middle">Многокритериальная оценка</text>
+  <text class="small" x="560" y="302" text-anchor="middle">бюджет, тип, звукосниматели, бренд, звук, стиль, заголовок</text>
+  <path class="line" d="M824 198 C824 235 750 282 772 282"/>
+  <path class="line" d="M766 282 C850 282 934 238 980 198"/>
+</svg>

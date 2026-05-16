@@ -39,7 +39,17 @@
       "imageUrl": "https://reverb.com/item/12345.jpg",
       "listingUrl": "https://reverb.com/item/12345"
     }
-  ]
+  ],
+  "searchParams": {
+    "searchQueries": ["Fender Player Stratocaster"],
+    "priceMin": null,
+    "priceMax": 500,
+    "type": "stratocaster",
+    "brand": "Fender",
+    "pickups": null,
+    "sound": null,
+    "style": null
+  }
 }
 ```
 
@@ -51,8 +61,18 @@
 }
 ```
 
+**Response body (conversation mode):**
+```json
+{
+  "mode": "conversation",
+  "answer": "Sure, I can answer in English."
+}
+```
+
 **Ошибки:**
-- `400` — пустой запрос: `{"detail": "Запрос не может быть пустым"}`
+- `422` — невалидный запрос
+- `502` — LLM-router вернул невалидный ответ: `{"detail": "Некорректный ответ LLM-router."}`
+- `503` — LLM недоступна: `{"detail": "Сервис временно недоступен: не удалось обработать запрос через LLM."}`
 - `500` — внутренняя ошибка сервера
 
 **Пример запроса:**
@@ -61,44 +81,6 @@ curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
   -d '{"query": "Найди гитару до 1000$"}'
 ```
-
----
-
-### POST /api/query/parse
-
-**Статус:** `ready`
-
-**Назначение:**  
-Быстрый парсинг параметров запроса без вызова LLM. Использует регулярные выражения для извлечения типа гитары, бюджета, бренда и тегов.
-
-**Request body:**
-```json
-{
-  "query": "Найди стратокастер до 500$"
-}
-```
-
-**Response body:**
-```json
-{
-  "type": "electric",
-  "budget": "500",
-  "brand": "Fender",
-  "tags": ["stratocaster"]
-}
-```
-
-**Ошибки:**
-- `400` — некорректный запрос
-
-**Пример запроса:**
-```bash
-curl -X POST http://localhost:8000/api/query/parse \
-  -H "Content-Type: application/json" \
-  -d '{"query": "электрогитара Gibson до 2000$"}'
-```
-
----
 
 ### GET /api/sessions
 
@@ -267,6 +249,7 @@ curl -X DELETE http://localhost:8000/api/history
   "modeDistribution": {
     "search": 15,
     "consultation": 8,
+    "conversation": 3,
     "clarification": 2
   },
   "avgMessagesPerSession": 2.5,
@@ -365,12 +348,22 @@ WebSocket соединение для интерактивного чата с �
 }
 ```
 
+Сервер отправляет результат (conversation mode):
+```json
+{
+  "type": "result",
+  "mode": "conversation",
+  "answer": "Sure, I can answer in English.",
+  "sessionId": 1
+}
+```
+
 Сервер отправляет результат (clarification mode):
 ```json
 {
   "type": "result",
   "mode": "clarification",
-  "question": "Уточните, какой бренд вы предпочитаете?",
+  "question": "Ок, показать недорогие варианты для новичка до $500?",
   "sessionId": 1
 }
 ```
@@ -386,7 +379,14 @@ WebSocket соединение для интерактивного чата с �
 **Режимы работы:**
 - `search` — поиск гитар на Reverb
 - `consultation` — ответ на вопрос о гитарах
-- `clarification` — уточняющий вопрос (недостаточно данных)
+- `conversation` — короткий conversational/meta ответ без изменения search snapshot
+- `clarification` — LLM-generated уточняющий вопрос или подтверждение по недостающим search-полям
+
+**Search params contract:**
+- Для `mode="search"` поле `searchParams` отражает текущий effective snapshot, который вернул LLM-router и который был исполнен в search.
+- Ready search требует 1-3 `searchQueries`, явный `priceMax`/`priceMin` и явный `type` или `any`.
+- Defaults вроде beginner `$500` должны быть явно в `searchParams`; backend не применяет `default_actions` как скрытые runtime defaults.
+- Clarification responses не возвращают stale `searchParams` из предыдущего ready search.
 
 **Ошибки:**
 - `4001` — пустой запрос
@@ -421,7 +421,6 @@ ws.onerror = (error) => {
 | Endpoint | Method | Статус |
 |----------|--------|--------|
 | `/api/chat` | POST | ✅ ready |
-| `/api/query/parse` | POST | ✅ ready |
 | `/api/sessions` | GET | ✅ ready |
 | `/api/sessions` | POST | ✅ ready |
 | `/api/sessions/{id}/messages` | GET | ✅ ready |

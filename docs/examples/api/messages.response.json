@@ -16,11 +16,32 @@
           "listingUrl": "https://reverb.com/item/12345"
         }
       ],
+      "searchParams": {
+        "searchQueries": ["Fender Player Stratocaster"],
+        "priceMin": null,
+        "priceMax": 500,
+        "type": "stratocaster",
+        "brand": "Fender",
+        "pickups": "SSS",
+        "sound": "bright",
+        "style": null
+      },
       "createdAt": "2026-04-28T10:30:00",
       "updatedAt": "2026-04-28T10:32:00"
     },
     {
       "id": 2,
+      "sessionId": 1,
+      "userQuery": "can you answer in english?",
+      "mode": "conversation",
+      "answer": "Sure, I can answer in English.",
+      "results": null,
+      "searchParams": null,
+      "createdAt": "2026-04-28T10:31:00",
+      "updatedAt": "2026-04-28T10:31:00"
+    },
+    {
+      "id": 3,
       "sessionId": 1,
       "userQuery": "А покажи подешевле",
       "mode": "search",
@@ -35,6 +56,16 @@
           "listingUrl": "https://reverb.com/item/67890"
         }
       ],
+      "searchParams": {
+        "searchQueries": ["Squier Classic Vibe 60s Stratocaster"],
+        "priceMin": null,
+        "priceMax": 450,
+        "type": "stratocaster",
+        "brand": "Squier",
+        "pickups": "SSS",
+        "sound": "bright",
+        "style": null
+      },
       "createdAt": "2026-04-28T10:32:00",
       "updatedAt": "2026-04-28T10:34:00"
     }
