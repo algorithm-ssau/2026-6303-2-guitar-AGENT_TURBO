@@ -1,9 +1,9 @@
-/**
- * Типы для модуля чата
- */
 import { z } from 'zod';
 
-/** Роль отправителя сообщения */
+/*
+ * Domain types
+ */
+
 export type MessageRole = 'user' | 'agent';
 
 export interface GuitarResult {
@@ -28,7 +28,6 @@ export interface SearchParams {
 
 export type ChatMode = 'search' | 'consultation' | 'conversation' | 'clarification';
 
-/** Сообщение в чате */
 export interface Message {
   id: string;
   role: MessageRole;
@@ -44,14 +43,12 @@ export interface Message {
   searchParams?: SearchParams | null;
 }
 
-/** Состояние чата */
 export interface ChatState {
   messages: Message[];
   isLoading: boolean;
   error: string | null;
 }
 
-/** Сессия чата */
 export interface Session {
   id: number;
   title: string;
@@ -59,14 +56,20 @@ export interface Session {
   updatedAt: string;
 }
 
-/** Схема запроса к API */
+/*
+ * Request schemas
+ */
+
 export const ChatRequestSchema = z.object({
   query: z.string().min(2, 'Запрос не может быть пустым').max(500, 'Запрос слишком длинный'),
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
 
-/** Схема результата поиска (одна гитара) */
+/*
+ * Search schemas
+ */
+
 export const SearchResultSchema = z.object({
   id: z.string().optional(),
   title: z.string(),
@@ -89,7 +92,10 @@ export const SearchParamsSchema = z.object({
   style: z.string().nullable().optional(),
 });
 
-/** Схема ответа от API */
+/*
+ * Response schemas
+ */
+
 export const ChatResponseSchema = z.object({
   mode: z.enum(['search', 'consultation', 'clarification']),
   answer: z.string().optional(),
@@ -101,7 +107,6 @@ export const ChatResponseSchema = z.object({
 
 export type ChatResponse = z.infer<typeof ChatResponseSchema>;
 
-/** Схема сессии */
 export const SessionSchema = z.object({
   id: z.number(),
   title: z.string(),
@@ -109,13 +114,11 @@ export const SessionSchema = z.object({
   updatedAt: z.string(),
 });
 
-/** Схема ответа GET /api/sessions */
 export const SessionsResponseSchema = z.object({
   sessions: z.array(SessionSchema),
   total: z.number(),
 });
 
-/** Схема элемента истории */
 export const HistoryItemSchema = z.object({
   id: z.number(),
   sessionId: z.number(),
@@ -129,7 +132,6 @@ export const HistoryItemSchema = z.object({
 
 export type HistoryItem = z.infer<typeof HistoryItemSchema>;
 
-/** Схема ответа GET /api/sessions/{id}/messages */
 export const HistoryResponseSchema = z.object({
   items: z.array(HistoryItemSchema),
 });
