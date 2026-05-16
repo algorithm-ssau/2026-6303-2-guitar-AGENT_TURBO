@@ -61,11 +61,7 @@ export interface Session {
 
 /** Схема запроса к API */
 export const ChatRequestSchema = z.object({
-<<<<<<< HEAD
-  query: z.string().min(2, 'Запрос не может быть короче 2 символов').max(500, 'Запрос слишком длинный'),
-=======
   query: z.string().min(2, 'Запрос не может быть пустым').max(500, 'Запрос слишком длинный'),
->>>>>>> bc230c1 (fix: freeze frontend backend contract (step 2))
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
