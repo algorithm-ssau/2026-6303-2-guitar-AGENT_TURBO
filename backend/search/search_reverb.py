@@ -6,80 +6,17 @@
 """
 from __future__ import annotations
 
-import json
 import os
 import time
-from pathlib import Path
 from typing import Any
 
 import requests
 
+from backend.search.mock_reverb import _filter_by_price, _search_mock_reverb
 from backend.search.synonyms import expand_queries
 from backend.utils.logger import get_logger
 
 _search_logger = get_logger("search.reverb")
-
-
-def _get_mock_data_path() -> Path:
-    """Возвращает путь к файлу с мок-данными."""
-    # Ищем mock_reverb.json относительно корня проекта
-    current_file = Path(__file__)
-    project_root = current_file.parent.parent.parent
-    return project_root / "tests" / "mock_reverb.json"
-
-
-def _load_mock_data() -> list[dict[str, Any]]:
-    """Загружает мок-данные из JSON файла."""
-    mock_path = _get_mock_data_path()
-    with open(mock_path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def _filter_by_queries(
-    listings: list[dict[str, Any]],
-    search_queries: list[str],
-) -> list[dict[str, Any]]:
-    """
-    Фильтрует объявления по поисковым запросам (регистронезависимо).
-    
-    Args:
-        listings: Список объявлений для фильтрации.
-        search_queries: Список поисковых запросов.
-    
-    Returns:
-        Отфильтрованный список объявлений, где title содержит хотя бы один запрос.
-    """
-    if not search_queries:
-        return listings
-    
-    # Нормализуем запросы к нижнему регистру и разбиваем на отдельные слова
-    queries_lower = [q.lower() for q in search_queries]
-
-    # Оставляем объявления, где title содержит ВСЕ слова хотя бы одного запроса
-    result = []
-    for item in listings:
-        title_lower = item.get("title", "").lower()
-        for query in queries_lower:
-            words = query.split()
-            if all(word in title_lower for word in words):
-                result.append(item)
-                break
-    
-    return result
-
-
-def _filter_by_price(
-    listings: list[dict[str, Any]],
-    price_min: int | None,
-    price_max: int | None,
-) -> list[dict[str, Any]]:
-    """Фильтрует объявления по диапазону цен."""
-    result = listings
-    if price_min is not None:
-        result = [item for item in result if item.get("price", 0) >= price_min]
-    if price_max is not None:
-        result = [item for item in result if item.get("price", 0) <= price_max]
-    return result
 
 
 def _normalize_reverb_response(listing: dict[str, Any]) -> dict[str, Any]:
@@ -332,20 +269,12 @@ def search_reverb(
     use_mock = os.getenv("USE_MOCK_REVERB", "false").lower() == "true"
 
     if use_mock:
-        # Мок-режим: загружаем данные из файла и фильтруем
-        mock_data = _load_mock_data()
-        # Сначала фильтруем по поисковым запросам
-        filtered_by_query = _filter_by_queries(mock_data, search_queries)
-        # Затем фильтруем по цене
-        return _filter_by_price(filtered_by_query, price_min, price_max)
+        return _search_mock_reverb(search_queries, price_min, price_max)
 
     # Проверяем наличие токена — если нет, fallback на mock
     api_token = os.getenv("REVERB_API_TOKEN")
     if not api_token:
-        # Fallback: используем mock-данные как при мок-режиме
-        mock_data = _load_mock_data()
-        filtered_by_query = _filter_by_queries(mock_data, search_queries)
-        return _filter_by_price(filtered_by_query, price_min, price_max)
+        return _search_mock_reverb(search_queries, price_min, price_max)
 
     # Реальный режим: делаем запрос к API с авторизацией
     results = _search_reverb_api(search_queries, price_min, price_max)
@@ -355,10 +284,7 @@ def search_reverb(
 
     # Если API вернул пустой результат, используем мок-данные как fallback
     if not results:
-        mock_data = _load_mock_data()
-        # Применяем фильтрацию по запросам и цене к мок-данным
-        filtered_by_query = _filter_by_queries(mock_data, search_queries)
-        results = _filter_by_price(filtered_by_query, price_min, price_max)
+        results = _search_mock_reverb(search_queries, price_min, price_max)
 
     return results
 

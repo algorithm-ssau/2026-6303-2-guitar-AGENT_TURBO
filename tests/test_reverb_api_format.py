@@ -11,10 +11,10 @@ import pytest
 
 from backend.search.search_reverb import (
     _deduplicate_listings,
-    _filter_by_price,
     _normalize_reverb_response,
     _search_reverb_api,
 )
+from backend.search.mock_reverb import _filter_by_price
 
 # JSON-фикстура с реальным форматом ответа Reverb API
 REVERB_API_RESPONSE_FIXTURE = {
