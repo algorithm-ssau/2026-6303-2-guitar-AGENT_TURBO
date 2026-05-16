@@ -12,6 +12,7 @@ vi.mock('../api', () => ({
   fetchSessionMessages: (...args: unknown[]) => mockFetchSessionMessages(...args),
   deleteSession: (...args: unknown[]) => mockDeleteSession(...args),
   clearAllHistory: (...args: unknown[]) => mockClearAllHistory(...args),
+  parseQuery: () => Promise.resolve({}),
 }));
 
 // Мок отправки WebSocket
@@ -62,7 +63,6 @@ describe('useChat hook', () => {
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.clearAllTimers();
   });
 
@@ -151,7 +151,7 @@ describe('useChat hook', () => {
     const { result } = renderHook(() => useChat());
 
     await waitFor(() => {
-      expect(mockFetchSessionMessages).toHaveBeenCalledWith(19);
+      expect(mockFetchSessionMessages).toHaveBeenCalledWith(19, undefined);
       expect(result.current.currentSessionId).toBe(19);
     });
   });
@@ -266,7 +266,6 @@ describe('useChat hook', () => {
     vi.useFakeTimers();
     let wsInstance: MockWebSocket | null = null;
 
-    // Перехватываем создание WebSocket
     const OriginalWebSocket = (window as any).WebSocket;
     (window as any).WebSocket = class extends OriginalWebSocket {
       constructor(url: string) {
@@ -277,14 +276,12 @@ describe('useChat hook', () => {
 
     const { result } = renderHook(() => useChat());
 
-    // Ждём подключения
     await act(async () => {
       vi.advanceTimersByTime(0);
     });
 
     expect(result.current.connectionStatus).toBe('connected');
 
-    // Симулируем обрыв соединения
     act(() => {
       if (wsInstance) {
         wsInstance.onclose?.();
@@ -293,12 +290,12 @@ describe('useChat hook', () => {
 
     expect(result.current.connectionStatus).toBe('disconnected');
 
-    // Проматываем время на 3 секунды для реконнекта
     await act(async () => {
       vi.advanceTimersByTime(3000);
     });
 
-    // Проверяем что была попытка реконнекта
     expect(result.current.connectionStatus).toBe('connecting');
+
+    vi.useRealTimers();
   });
 });

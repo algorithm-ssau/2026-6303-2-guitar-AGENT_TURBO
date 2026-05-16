@@ -209,7 +209,7 @@ export function useChat(authToken: string, onAuthExpired: () => void): UseChatRe
         if (isUnmountingRef.current) {
           return;
         }
-        if (event.code === 1008) {
+        if (event?.code === 1008) {
           onAuthExpiredRef.current();
           return;
         }
