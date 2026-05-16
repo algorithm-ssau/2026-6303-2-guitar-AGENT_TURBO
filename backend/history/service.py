@@ -1,12 +1,12 @@
 """Логика хранения истории чата в SQLite с поддержкой сессий."""
 
-import json
 import os
 import re
 import sqlite3
 from typing import Optional
 
 from fastapi import HTTPException, status
+from backend.history import queries
 from backend.history.row_mappers import (
     message_row_to_dict,
     session_row_to_dict,
@@ -113,10 +113,7 @@ def _strip_think_blocks_from_existing_answers(conn: sqlite3.Connection) -> int:
 def create_session(title: str, user_id: int) -> int:
     """Создать новую сессию. Возвращает id."""
     conn = _get_connection()
-    cursor = conn.execute(
-        "INSERT INTO sessions (user_id, title) VALUES (?, ?)",
-        (user_id, title[:100]),
-    )
+    cursor = queries.insert_session(conn, title, user_id)
     conn.commit()
     logger.info("Создана сессия #%d: %s", cursor.lastrowid, title[:50])
     return cursor.lastrowid
@@ -128,16 +125,8 @@ def get_sessions(user_id: int, offset: int = 0, limit: int = 20) -> tuple[list[d
     Возвращает кортеж: (список сессий, общее количество).
     """
     conn = _get_connection()
-    # Считаем общее количество
-    total_row = conn.execute("SELECT COUNT(*) FROM sessions WHERE user_id = ?", (user_id,)).fetchone()
-    total = total_row[0]
-
-    # Выбираем с пагинацией
-    rows = conn.execute(
-        "SELECT id, title, created_at, updated_at FROM sessions "
-        "WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?",
-        (user_id, limit, offset),
-    ).fetchall()
+    total = queries.count_sessions(conn, user_id)
+    rows = queries.select_sessions(conn, user_id, offset, limit)
     return [session_row_to_dict(row) for row in rows], total
 
 
@@ -147,13 +136,7 @@ def get_session_messages(session_id: int, user_id: Optional[int] = None) -> list
     if user_id is not None:
         ensure_session_owner(session_id, user_id)
 
-    rows = conn.execute(
-        "SELECT id, session_id, user_query, mode, answer, results, search_params, created_at "
-        "FROM chat_history WHERE session_id = ? ORDER BY created_at ASC",
-        (session_id,),
-    ).fetchall()
-
-    return [message_row_to_dict(row) for row in rows]
+    return [message_row_to_dict(row) for row in queries.select_session_messages(conn, session_id)]
 
 
 def save_exchange(
@@ -167,22 +150,8 @@ def save_exchange(
     """Сохранить пару запрос-ответ. Возвращает id записи."""
     conn = _get_connection()
     answer = strip_think_blocks(answer)
-    cursor = conn.execute(
-        "INSERT INTO chat_history (session_id, user_query, mode, answer, results, search_params) VALUES (?, ?, ?, ?, ?, ?)",
-        (
-            session_id,
-            user_query,
-            mode,
-            answer,
-            json.dumps(results, ensure_ascii=False) if results else None,
-            json.dumps(search_params, ensure_ascii=False) if search_params else None,
-        ),
-    )
-    # Обновляем updated_at у сессии
-    conn.execute(
-        "UPDATE sessions SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
-        (session_id,),
-    )
+    cursor = queries.insert_exchange(conn, session_id, user_query, mode, answer, results, search_params)
+    queries.touch_session(conn, session_id)
     conn.commit()
     logger.info("Сохранена запись #%d в сессии #%d", cursor.lastrowid, session_id)
     return cursor.lastrowid
@@ -191,11 +160,7 @@ def save_exchange(
 def ensure_session_owner(session_id: int, user_id: int) -> None:
     """Проверить, что сессия принадлежит пользователю."""
     conn = _get_connection()
-    row = conn.execute(
-        "SELECT id FROM sessions WHERE id = ? AND user_id = ?",
-        (session_id, user_id),
-    ).fetchone()
-    if row:
+    if queries.select_owned_session(conn, session_id, user_id):
         return
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -207,7 +172,7 @@ def delete_session(session_id: int, user_id: int) -> None:
     """Удалить сессию и все её сообщения."""
     conn = _get_connection()
     ensure_session_owner(session_id, user_id)
-    conn.execute("DELETE FROM sessions WHERE id = ? AND user_id = ?", (session_id, user_id))
+    queries.delete_owned_session(conn, session_id, user_id)
     conn.commit()
     logger.info("Удалена сессия #%d", session_id)
 
@@ -215,31 +180,21 @@ def delete_session(session_id: int, user_id: int) -> None:
 def get_session_state(session_id: int) -> dict:
     """Возвращает структурированное состояние поискового контекста сессии."""
     conn = _get_connection()
-    row = conn.execute(
-        "SELECT state FROM session_state WHERE session_id = ?",
-        (session_id,),
-    ).fetchone()
-    return session_state_row_to_dict(row)
+    return session_state_row_to_dict(queries.select_session_state(conn, session_id))
 
 
 def save_session_state(session_id: int, state: dict) -> None:
     """Сохраняет/обновляет структурированное состояние поискового контекста."""
     conn = _get_connection()
-    payload = json.dumps(state or {}, ensure_ascii=False)
-    conn.execute(
-        "INSERT INTO session_state (session_id, state, updated_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')) "
-        "ON CONFLICT(session_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at",
-        (session_id, payload),
-    )
+    queries.upsert_session_state(conn, session_id, state)
     conn.commit()
 
 
 def clear_history(user_id: int) -> int:
     """Очистить всю историю. Возвращает количество удалённых сессий."""
     conn = _get_connection()
-    cursor = conn.execute("SELECT COUNT(*) FROM sessions WHERE user_id = ?", (user_id,))
-    count = cursor.fetchone()[0]
-    conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    count = queries.count_sessions(conn, user_id)
+    queries.delete_user_sessions(conn, user_id)
     conn.commit()
     logger.info("Очищена история: %d сессий", count)
     return count
