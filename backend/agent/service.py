@@ -47,6 +47,29 @@ from backend.agent.state import (
     clarification_target_from_missing_fields as _clarification_target_from_missing_fields,
     question_from_missing_fields as _question_from_missing_fields,
 )
+from backend.agent.exceptions import (
+    LLMUnavailableError,
+    InvalidRouterResponseError,
+    _safe_llm_unavailable_message,
+)
+from backend.agent.guardrails import (
+    CATALOG_GUARDRAIL_ANSWER,
+    MODEL_BRANDS,
+    sanitize_consultation_answer as _sanitize_consultation_answer,
+    sanitize_consultation_answer_result as _sanitize_consultation_answer_result,
+    extract_think_block as _extract_think_block,
+    compact_llm_visible_text as _compact_llm_visible_text,
+    sanitize_off_topic_answer as _sanitize_off_topic_answer,
+    sanitize_clarification_question as _sanitize_clarification_question,
+    sanitize_conversation_answer as _sanitize_conversation_answer,
+    contains_external_link_or_shop as _contains_external_link_or_shop,
+    looks_like_catalog_content as _looks_like_catalog_content,
+    extract_branded_model_mentions as _extract_branded_model_mentions,
+    normalize_model_text as _normalize_model_text,
+    is_allowed_model_mention as _is_allowed_model_mention,
+    maybe_append_search_offer as _maybe_append_search_offer,
+)
+
 from backend.ranking.ranking import rank_results
 from backend.search.search_reverb import search_reverb_exact
 from backend.history.service import get_session_messages, get_session_state, save_session_state, strip_think_blocks
@@ -54,16 +77,7 @@ from backend.utils.logger import get_logger
 
 logger = get_logger("agent.service")
 
-CATALOG_GUARDRAIL_ANSWER = (
-    "Сейчас это выглядит как запрос на подбор, а не консультацию. "
-    "Чтобы показать только реальные варианты из каталога со ссылками, "
-    "напишите тип гитары и бюджет, например: `Stratocaster до 1200$`."
-)
 
-MODEL_BRANDS = (
-    "Fender", "Squier", "Gibson", "Epiphone", "Ibanez", "Jackson", "PRS",
-    "Yamaha", "ESP", "Schecter", "Gretsch", "Charvel", "Cort", "G&L",
-)
 
 DEFAULT_ROUTER_CONTEXT_CHAR_LIMIT = 2500
 DEFAULT_ROUTER_ASSISTANT_SNIPPET_CHAR_LIMIT = 450
@@ -79,31 +93,7 @@ ALLOWED_DEFAULT_ACTIONS = {"apply_beginner_budget", "accept_beginner_budget"}
 _ROUTER_BAD_TIER_CACHE: dict[tuple[Optional[int], str, str], float] = {}
 
 
-class LLMUnavailableError(RuntimeError):
-    """LLM недоступна или не смогла обработать обязательный вызов."""
 
-    def __init__(self, message: str, user_message: Optional[str] = None):
-        super().__init__(message)
-        self.user_message = user_message or _safe_llm_unavailable_message(message)
-
-
-class InvalidRouterResponseError(RuntimeError):
-    """LLM-router вернул невалидный JSON/shape."""
-
-
-def _safe_llm_unavailable_message(error: object) -> str:
-    """Возвращает безопасное пользовательское описание причины LLM-сбоя."""
-    text = str(error or "")
-    lowered = text.lower()
-    if "rate_limit" in lowered or "rate limit" in lowered or "tokens per day" in lowered or "tpd" in lowered:
-        retry_match = re.search(r"try again in ([0-9dhms. ]+)", text, flags=re.IGNORECASE)
-        if retry_match:
-            retry_after = retry_match.group(1).strip().rstrip(".")
-            return f"Лимит LLM на сегодня исчерпан. Попробуйте снова примерно через {retry_after}."
-        return "Лимит LLM на сегодня исчерпан. Попробуйте повторить запрос позже."
-    if "request_too_large" in lowered or "request entity too large" in lowered or "413" in lowered:
-        return "Не получилось обработать этот запрос через LLM. Попробуйте переформулировать последний вопрос."
-    return "Сервис временно недоступен: не удалось обработать запрос через LLM."
 
 
 def get_system_prompt() -> str:
@@ -545,25 +535,7 @@ def _ask_consultation_llm(
         return llm_client.ask(text, prompt)
 
 
-def _sanitize_consultation_answer(answer: str, allowed_titles: Optional[list[str]] = None) -> str:
-    """Блокирует ответы консультации, похожие на каталог или ссылки."""
-    text, reason = _sanitize_consultation_answer_result(answer, allowed_titles=allowed_titles)
-    return CATALOG_GUARDRAIL_ANSWER if reason else text
 
-
-def _sanitize_consultation_answer_result(
-    answer: str,
-    allowed_titles: Optional[list[str]] = None,
-) -> tuple[str, Optional[str]]:
-    """Возвращает очищенный consultation answer или typed block reason."""
-    text = (answer or "").strip()
-    if not text:
-        return text, None
-
-    if _looks_like_catalog_content(text, allowed_titles=allowed_titles):
-        return "", "catalog_content"
-
-    return text, None
 
 
 def _consultation_guardrail_recovery(
@@ -614,30 +586,7 @@ def _consultation_guardrail_recovery(
     )
 
 
-def _extract_think_block(answer: str) -> tuple[str, Optional[str]]:
-    """Отделяет Qwen-style <think>...</think> от видимого ответа."""
-    text = str(answer or "")
-    matches = list(re.finditer(r"<think>(.*?)</think>", text, flags=re.IGNORECASE | re.DOTALL))
-    if not matches:
-        if re.search(r"<think>", text, flags=re.IGNORECASE):
-            visible = strip_think_blocks(text) or ""
-            debug = re.split(r"<think>", text, maxsplit=1, flags=re.IGNORECASE)[-1].strip()
-            return visible, debug or None
-        return text.strip(), None
 
-    debug_parts = [match.group(1).strip() for match in matches if match.group(1).strip()]
-    visible = re.sub(r"<think>.*?</think>", "", text, flags=re.IGNORECASE | re.DOTALL).strip()
-    debug_think = "\n\n".join(debug_parts).strip() or None
-    return visible, debug_think
-
-
-def _compact_llm_visible_text(text: object, limit: int) -> str:
-    """Готовит короткий visible snippet для router context."""
-    visible = strip_think_blocks(str(text or "")) or ""
-    visible = re.sub(r"\s+", " ", visible).strip()
-    if limit > 0 and len(visible) > limit:
-        return f"{visible[:limit].rstrip()}..."
-    return visible
 
 
 def _env_int(name: str, default: int, minimum: int = 0) -> int:
@@ -796,49 +745,7 @@ def _log_router_recovery_context_stats(tier: str, stats: dict) -> None:
     )
 
 
-def _sanitize_off_topic_answer(answer: str) -> str:
-    """Строгий guardrail для LLM-generated off-topic refusal."""
-    text = (answer or "").strip()
-    lowered = text.lower()
-    if not text:
-        raise InvalidRouterResponseError("off-topic LLM answer is empty")
-    if _contains_external_link_or_shop(lowered):
-        raise InvalidRouterResponseError("off-topic LLM answer contains links or shops")
-    if "```" in text or re.search(r"(^|\n)\s*(?:[-*]|\d+[.)])\s+", text):
-        raise InvalidRouterResponseError("off-topic LLM answer contains code or list")
-    if re.search(r"\b(def|class|import|for|while)\s+[A-Za-z_]", text):
-        raise InvalidRouterResponseError("off-topic LLM answer appears to answer the coding task")
-    return text
 
-
-def _sanitize_clarification_question(question: str) -> str:
-    """Guardrail для LLM-generated clarification: только короткий вопрос/подтверждение."""
-    text = (question or "").strip()
-    if not text:
-        raise InvalidRouterResponseError("clarification LLM answer is empty")
-    lowered = text.lower()
-    if _contains_external_link_or_shop(lowered):
-        raise InvalidRouterResponseError("clarification LLM answer contains links or shops")
-    if "```" in text or re.search(r"(^|\n)\s*(?:[-*]|\d+[.)])\s+", text):
-        raise InvalidRouterResponseError("clarification LLM answer contains code or list")
-    if _looks_like_catalog_content(text, allowed_titles=[]):
-        raise InvalidRouterResponseError("clarification LLM answer contains catalog content")
-    return text
-
-
-def _sanitize_conversation_answer(answer: str) -> str:
-    """Guardrail for short conversational answers."""
-    text = (answer or "").strip()
-    lowered = text.lower()
-    if not text:
-        raise InvalidRouterResponseError("conversation LLM answer is empty")
-    if _contains_external_link_or_shop(lowered):
-        raise InvalidRouterResponseError("conversation LLM answer contains links or shops")
-    if "```" in text or re.search(r"(^|\n)\s*(?:[-*]|\d+[.)])\s+", text):
-        raise InvalidRouterResponseError("conversation LLM answer contains code or list")
-    if _looks_like_catalog_content(text, allowed_titles=[]):
-        raise InvalidRouterResponseError("conversation LLM answer contains catalog content")
-    return text
 
 
 def _recover_conversation_answer(
@@ -874,37 +781,7 @@ def _recover_conversation_answer(
         raise LLMUnavailableError("Conversation answer recovery failed") from e
 
 
-def _contains_external_link_or_shop(lowered: str) -> bool:
-    if re.search(r"https?://|www\.|\b[a-z0-9-]+\.(com|ru|net|org)\b", lowered):
-        return True
-    if re.search(r"\b(reverb|amazon|sweetwater|guitarcenter|musician'?s friend)\b", lowered):
-        return True
-    return False
 
-
-def _looks_like_catalog_content(text: str, allowed_titles: Optional[list[str]] = None) -> bool:
-    """Определяет, что LLM начал перечислять товары, магазины или ссылки."""
-    lowered = text.lower()
-
-    if _contains_external_link_or_shop(lowered):
-        return True
-
-    if "ссылка на пример" in lowered or "примеры телекастеров" in lowered:
-        return True
-
-    branded_models = _extract_branded_model_mentions(text)
-    if not branded_models:
-        return False
-
-    allowed = [_normalize_model_text(title) for title in (allowed_titles or []) if str(title or "").strip()]
-    if not allowed:
-        return True
-
-    uncovered = [
-        mention for mention in branded_models
-        if not _is_allowed_model_mention(_normalize_model_text(mention), allowed)
-    ]
-    return bool(uncovered)
 
 
 def _latest_search_result_titles(session_id: Optional[int]) -> list[str]:
@@ -928,50 +805,7 @@ def _latest_search_result_titles(session_id: Optional[int]) -> list[str]:
     return []
 
 
-def _extract_branded_model_mentions(text: str) -> list[str]:
-    brands = "|".join(re.escape(brand) for brand in MODEL_BRANDS)
-    pattern = re.compile(
-        rf"\b(?:{brands})\b(?:\s+[A-Z0-9][A-Za-z0-9'&./+-]*){{1,7}}",
-        re.IGNORECASE,
-    )
-    mentions = []
-    seen = set()
-    for match in pattern.finditer(text):
-        mention = match.group(0).strip(" ,.;:!?()[]{}")
-        normalized = _normalize_model_text(mention)
-        if len(normalized.split()) < 2 or normalized in seen:
-            continue
-        mentions.append(mention)
-        seen.add(normalized)
-    return mentions
 
-
-def _normalize_model_text(text: str) -> str:
-    lowered = str(text or "").lower()
-    lowered = re.sub(r"[^a-z0-9а-яё]+", " ", lowered)
-    return re.sub(r"\s+", " ", lowered).strip()
-
-
-def _is_allowed_model_mention(mention: str, allowed_titles: list[str]) -> bool:
-    if not mention or len(mention.split()) < 2:
-        return False
-    return any(mention in title or title in mention for title in allowed_titles)
-
-
-def _maybe_append_search_offer(answer: str, should_offer_search: bool) -> str:
-    """Добавляет вариативное предложение перейти к реальным Reverb-вариантам."""
-    if not should_offer_search:
-        return answer
-
-    offers = [
-        "Если хотите, могу подобрать конкретные варианты с Reverb и показать ссылки.",
-        "Если хотите, дальше покажу реальные варианты с Reverb со ссылками.",
-        "Если хотите, могу сразу перейти к подбору на Reverb и показать конкретные объявления.",
-        "Если хотите, подберу реальные варианты на Reverb и дам прямые ссылки на объявления.",
-    ]
-    index = sum(ord(char) for char in answer) % len(offers)
-    suffix = offers[index]
-    return f"{answer.rstrip()}\n\n{suffix}" if answer.strip() else suffix
 
 
 def _build_router_history(session_id: Optional[int]) -> list:
