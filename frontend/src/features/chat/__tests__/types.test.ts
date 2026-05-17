@@ -15,21 +15,22 @@ describe('Chat API Zod Schemas', () => {
       expect(result.success).toBe(false);
     });
 
-    it('должен бросать ошибку со слишком коротким запросом', () => {
-      const invalidData = { query: 'a' };
-      const result = ChatRequestSchema.safeParse(invalidData);
-      expect(result.success).toBe(false);
-    });
 
     it('должен бросать ошибку с отсутствующим полем query', () => {
       const invalidData = {};
       const result = ChatRequestSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
     });
+
+    it('должен бросать ошибку с запросом короче 2 символов', () => {
+      const invalidData = { query: 'a' };
+      const result = ChatRequestSchema.safeParse(invalidData);
+      expect(result.success).toBe(false);
+    });
   });
 
   describe('ChatResponseSchema', () => {
-    it('должен проходить валидацию с корректным ответом (search mode)', () => {
+    it('должен проходить валидацию с корректным search ответом', () => {
       const validData = {
         mode: 'search',
         results: [
@@ -40,14 +41,14 @@ describe('Chat API Zod Schemas', () => {
       expect(result.success).toBe(true);
     });
 
-    it('должен проходить валидацию с корректным ответом (consultation mode)', () => {
-      const validData = { mode: 'consultation', answer: 'Рекомендую Fender' };
+    it('должен проходить валидацию с consultation ответом', () => {
+      const validData = { mode: 'consultation', answer: 'Привет! Чем помочь?' };
       const result = ChatResponseSchema.safeParse(validData);
       expect(result.success).toBe(true);
     });
 
-    it('должен проходить валидацию с корректным ответом (clarification mode)', () => {
-      const validData = { mode: 'clarification', question: 'Какой бренд предпочитаете?' };
+    it('должен проходить валидацию с clarification ответом', () => {
+      const validData = { mode: 'clarification', question: 'Какой у вас бюджет?' };
       const result = ChatResponseSchema.safeParse(validData);
       expect(result.success).toBe(true);
     });
@@ -85,6 +86,12 @@ describe('Chat API Zod Schemas', () => {
       const validData = { title: 'Guitar', listingUrl: 'https://reverb.com/item/789' };
       const result = SearchResultSchema.safeParse(validData);
       expect(result.success).toBe(true);
+    });
+
+    it('должен требовать обязательное поле title', () => {
+      const invalidData = { listingUrl: 'https://reverb.com/item/789' };
+      const result = SearchResultSchema.safeParse(invalidData);
+      expect(result.success).toBe(false);
     });
 
     it('должен требовать обязательное поле listingUrl', () => {

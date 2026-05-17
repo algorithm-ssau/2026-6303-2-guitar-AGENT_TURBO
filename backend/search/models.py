@@ -53,6 +53,14 @@ class ChatResponse(BaseModel):
     mode: Literal["search", "consultation", "conversation", "clarification"]
     results: Optional[List[GuitarResult]] = Field(default=None, description="Результаты поиска")
     answer: Optional[str] = Field(default=None, description="Текстовый ответ LLM")
-    debug_think: Optional[str] = Field(default=None, description="Служебные рассуждения LLM для dev UI")
-    question: Optional[str] = Field(default=None, description="Уточняющий вопрос")
-    search_params: Optional[SearchParams] = Field(default=None, description="Параметры поиска из LLM-router")
+    question: Optional[str] = Field(default=None, description="Уточняющий вопрос для режима clarification")
+
+
+class ParseQueryResponse(BaseModel):
+    """Модель ответа для эндпоинта парсинга параметров."""
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
+    type: Optional[str] = None
+    budget: Optional[str] = None
+    brand: Optional[str] = None
+    tags: List[str] = []
