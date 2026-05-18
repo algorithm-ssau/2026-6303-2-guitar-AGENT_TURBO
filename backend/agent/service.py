@@ -12,6 +12,64 @@ from typing import Callable, Optional
 
 from backend.agent.llm_client import LLMClient
 from backend.agent.clarification import CLARIFICATION_QUESTIONS
+from backend.agent.route_plan import (
+    candidate_intent as _candidate_intent,
+    validate_route_plan as _validate_route_plan,
+    validate_route_plan_for_state as _validate_route_plan_for_state,
+    validate_ready_search_params as _validate_ready_search_params,
+    normalize_route_plan as _normalize_route_plan,
+    normalize_search_params as _normalize_search_params,
+    normalize_type_value as _normalize_type_value,
+    normalize_pickups_value as _normalize_pickups_value,
+    number_or_none as _number_or_none,
+    string_or_none as _string_or_none,
+    ALLOWED_ROUTER_INTENTS,
+    ALLOWED_MISSING_FIELDS,
+    ALLOWED_NO_PREFERENCE_FIELDS,
+    ALLOWED_DEFAULT_ACTIONS,
+    TYPE_ALIASES,
+    ALLOWED_TYPES,
+    PICKUPS_ALIASES,
+    ALLOWED_PICKUPS,
+)
+from backend.agent.state import (
+    apply_ready_search_snapshot as _apply_ready_search_snapshot,
+    apply_incomplete_search_patch as _apply_incomplete_search_patch,
+    unique_preserving_order as _unique_preserving_order,
+    beginner_default_price_max as _beginner_default_price_max,
+    finalize_search_state as _finalize_search_state,
+    prepare_clarification_state as _prepare_clarification_state,
+    state_to_search_params as _state_to_search_params,
+    state_to_user_search_params as _state_to_user_search_params,
+    search_params_to_user_search_params as _search_params_to_user_search_params,
+    empty_search_params as _empty_search_params,
+    safe_router_params_for_log as _safe_router_params_for_log,
+    clarification_target_from_missing_fields as _clarification_target_from_missing_fields,
+    question_from_missing_fields as _question_from_missing_fields,
+)
+from backend.agent.exceptions import (
+    LLMUnavailableError,
+    InvalidRouterResponseError,
+    _safe_llm_unavailable_message,
+)
+from backend.agent.guardrails import (
+    CATALOG_GUARDRAIL_ANSWER,
+    MODEL_BRANDS,
+    sanitize_consultation_answer as _sanitize_consultation_answer,
+    sanitize_consultation_answer_result as _sanitize_consultation_answer_result,
+    extract_think_block as _extract_think_block,
+    compact_llm_visible_text as _compact_llm_visible_text,
+    sanitize_off_topic_answer as _sanitize_off_topic_answer,
+    sanitize_clarification_question as _sanitize_clarification_question,
+    sanitize_conversation_answer as _sanitize_conversation_answer,
+    contains_external_link_or_shop as _contains_external_link_or_shop,
+    looks_like_catalog_content as _looks_like_catalog_content,
+    extract_branded_model_mentions as _extract_branded_model_mentions,
+    normalize_model_text as _normalize_model_text,
+    is_allowed_model_mention as _is_allowed_model_mention,
+    maybe_append_search_offer as _maybe_append_search_offer,
+)
+
 from backend.ranking.ranking import rank_results
 from backend.search.search_reverb import search_reverb_exact
 from backend.history.service import get_session_messages, get_session_state, save_session_state, strip_think_blocks
@@ -19,16 +77,7 @@ from backend.utils.logger import get_logger
 
 logger = get_logger("agent.service")
 
-CATALOG_GUARDRAIL_ANSWER = (
-    "Сейчас это выглядит как запрос на подбор, а не консультацию. "
-    "Чтобы показать только реальные варианты из каталога со ссылками, "
-    "напишите тип гитары и бюджет, например: `Stratocaster до 1200$`."
-)
 
-MODEL_BRANDS = (
-    "Fender", "Squier", "Gibson", "Epiphone", "Ibanez", "Jackson", "PRS",
-    "Yamaha", "ESP", "Schecter", "Gretsch", "Charvel", "Cort", "G&L",
-)
 
 DEFAULT_ROUTER_CONTEXT_CHAR_LIMIT = 2500
 DEFAULT_ROUTER_ASSISTANT_SNIPPET_CHAR_LIMIT = 450
@@ -39,63 +88,12 @@ ALLOWED_ROUTER_INTENTS = {"search", "consultation", "off_topic", "conversation"}
 ALLOWED_MISSING_FIELDS = {"budget", "type"}
 ALLOWED_NO_PREFERENCE_FIELDS = {"budget", "type", "brand", "pickups", "sound", "style"}
 ALLOWED_DEFAULT_ACTIONS = {"apply_beginner_budget", "accept_beginner_budget"}
-TYPE_ALIASES = {
-    "les_paul": "les paul",
-    "les paul": "les paul",
-    "strat": "stratocaster",
-    "tele": "telecaster",
-}
-ALLOWED_TYPES = {
-    "stratocaster", "telecaster", "les paul", "sg", "superstrat",
-    "acoustic", "classical", "bass", "seven_string", "any",
-}
-PICKUPS_ALIASES = {
-    "sss": "SSS",
-    "ss": "SS",
-    "hss": "HSS",
-    "hsh": "HSH",
-    "hh": "HH",
-    "p90": "P90",
-    "p_90": "P90",
-    "p-90": "P90",
-    "single coil": "single_coil",
-    "single_coil": "single_coil",
-    "humbuckers": "humbucker",
-    "humbucker": "humbucker",
-}
-ALLOWED_PICKUPS = {
-    "SSS", "SS", "HSS", "HSH", "HH", "P90",
-    "single_coil", "humbucker", "active", "passive",
-}
+# TYPE_ALIASES, ALLOWED_TYPES, PICKUPS_ALIASES, ALLOWED_PICKUPS imported from route_plan
 
 _ROUTER_BAD_TIER_CACHE: dict[tuple[Optional[int], str, str], float] = {}
 
 
-class LLMUnavailableError(RuntimeError):
-    """LLM недоступна или не смогла обработать обязательный вызов."""
 
-    def __init__(self, message: str, user_message: Optional[str] = None):
-        super().__init__(message)
-        self.user_message = user_message or _safe_llm_unavailable_message(message)
-
-
-class InvalidRouterResponseError(RuntimeError):
-    """LLM-router вернул невалидный JSON/shape."""
-
-
-def _safe_llm_unavailable_message(error: object) -> str:
-    """Возвращает безопасное пользовательское описание причины LLM-сбоя."""
-    text = str(error or "")
-    lowered = text.lower()
-    if "rate_limit" in lowered or "rate limit" in lowered or "tokens per day" in lowered or "tpd" in lowered:
-        retry_match = re.search(r"try again in ([0-9dhms. ]+)", text, flags=re.IGNORECASE)
-        if retry_match:
-            retry_after = retry_match.group(1).strip().rstrip(".")
-            return f"Лимит LLM на сегодня исчерпан. Попробуйте снова примерно через {retry_after}."
-        return "Лимит LLM на сегодня исчерпан. Попробуйте повторить запрос позже."
-    if "request_too_large" in lowered or "request entity too large" in lowered or "413" in lowered:
-        return "Не получилось обработать этот запрос через LLM. Попробуйте переформулировать последний вопрос."
-    return "Сервис временно недоступен: не удалось обработать запрос через LLM."
 
 
 def get_system_prompt() -> str:
@@ -537,25 +535,7 @@ def _ask_consultation_llm(
         return llm_client.ask(text, prompt)
 
 
-def _sanitize_consultation_answer(answer: str, allowed_titles: Optional[list[str]] = None) -> str:
-    """Блокирует ответы консультации, похожие на каталог или ссылки."""
-    text, reason = _sanitize_consultation_answer_result(answer, allowed_titles=allowed_titles)
-    return CATALOG_GUARDRAIL_ANSWER if reason else text
 
-
-def _sanitize_consultation_answer_result(
-    answer: str,
-    allowed_titles: Optional[list[str]] = None,
-) -> tuple[str, Optional[str]]:
-    """Возвращает очищенный consultation answer или typed block reason."""
-    text = (answer or "").strip()
-    if not text:
-        return text, None
-
-    if _looks_like_catalog_content(text, allowed_titles=allowed_titles):
-        return "", "catalog_content"
-
-    return text, None
 
 
 def _consultation_guardrail_recovery(
@@ -606,30 +586,7 @@ def _consultation_guardrail_recovery(
     )
 
 
-def _extract_think_block(answer: str) -> tuple[str, Optional[str]]:
-    """Отделяет Qwen-style <think>...</think> от видимого ответа."""
-    text = str(answer or "")
-    matches = list(re.finditer(r"<think>(.*?)</think>", text, flags=re.IGNORECASE | re.DOTALL))
-    if not matches:
-        if re.search(r"<think>", text, flags=re.IGNORECASE):
-            visible = strip_think_blocks(text) or ""
-            debug = re.split(r"<think>", text, maxsplit=1, flags=re.IGNORECASE)[-1].strip()
-            return visible, debug or None
-        return text.strip(), None
 
-    debug_parts = [match.group(1).strip() for match in matches if match.group(1).strip()]
-    visible = re.sub(r"<think>.*?</think>", "", text, flags=re.IGNORECASE | re.DOTALL).strip()
-    debug_think = "\n\n".join(debug_parts).strip() or None
-    return visible, debug_think
-
-
-def _compact_llm_visible_text(text: object, limit: int) -> str:
-    """Готовит короткий visible snippet для router context."""
-    visible = strip_think_blocks(str(text or "")) or ""
-    visible = re.sub(r"\s+", " ", visible).strip()
-    if limit > 0 and len(visible) > limit:
-        return f"{visible[:limit].rstrip()}..."
-    return visible
 
 
 def _env_int(name: str, default: int, minimum: int = 0) -> int:
@@ -788,49 +745,7 @@ def _log_router_recovery_context_stats(tier: str, stats: dict) -> None:
     )
 
 
-def _sanitize_off_topic_answer(answer: str) -> str:
-    """Строгий guardrail для LLM-generated off-topic refusal."""
-    text = (answer or "").strip()
-    lowered = text.lower()
-    if not text:
-        raise InvalidRouterResponseError("off-topic LLM answer is empty")
-    if _contains_external_link_or_shop(lowered):
-        raise InvalidRouterResponseError("off-topic LLM answer contains links or shops")
-    if "```" in text or re.search(r"(^|\n)\s*(?:[-*]|\d+[.)])\s+", text):
-        raise InvalidRouterResponseError("off-topic LLM answer contains code or list")
-    if re.search(r"\b(def|class|import|for|while)\s+[A-Za-z_]", text):
-        raise InvalidRouterResponseError("off-topic LLM answer appears to answer the coding task")
-    return text
 
-
-def _sanitize_clarification_question(question: str) -> str:
-    """Guardrail для LLM-generated clarification: только короткий вопрос/подтверждение."""
-    text = (question or "").strip()
-    if not text:
-        raise InvalidRouterResponseError("clarification LLM answer is empty")
-    lowered = text.lower()
-    if _contains_external_link_or_shop(lowered):
-        raise InvalidRouterResponseError("clarification LLM answer contains links or shops")
-    if "```" in text or re.search(r"(^|\n)\s*(?:[-*]|\d+[.)])\s+", text):
-        raise InvalidRouterResponseError("clarification LLM answer contains code or list")
-    if _looks_like_catalog_content(text, allowed_titles=[]):
-        raise InvalidRouterResponseError("clarification LLM answer contains catalog content")
-    return text
-
-
-def _sanitize_conversation_answer(answer: str) -> str:
-    """Guardrail for short conversational answers."""
-    text = (answer or "").strip()
-    lowered = text.lower()
-    if not text:
-        raise InvalidRouterResponseError("conversation LLM answer is empty")
-    if _contains_external_link_or_shop(lowered):
-        raise InvalidRouterResponseError("conversation LLM answer contains links or shops")
-    if "```" in text or re.search(r"(^|\n)\s*(?:[-*]|\d+[.)])\s+", text):
-        raise InvalidRouterResponseError("conversation LLM answer contains code or list")
-    if _looks_like_catalog_content(text, allowed_titles=[]):
-        raise InvalidRouterResponseError("conversation LLM answer contains catalog content")
-    return text
 
 
 def _recover_conversation_answer(
@@ -866,37 +781,7 @@ def _recover_conversation_answer(
         raise LLMUnavailableError("Conversation answer recovery failed") from e
 
 
-def _contains_external_link_or_shop(lowered: str) -> bool:
-    if re.search(r"https?://|www\.|\b[a-z0-9-]+\.(com|ru|net|org)\b", lowered):
-        return True
-    if re.search(r"\b(reverb|amazon|sweetwater|guitarcenter|musician'?s friend)\b", lowered):
-        return True
-    return False
 
-
-def _looks_like_catalog_content(text: str, allowed_titles: Optional[list[str]] = None) -> bool:
-    """Определяет, что LLM начал перечислять товары, магазины или ссылки."""
-    lowered = text.lower()
-
-    if _contains_external_link_or_shop(lowered):
-        return True
-
-    if "ссылка на пример" in lowered or "примеры телекастеров" in lowered:
-        return True
-
-    branded_models = _extract_branded_model_mentions(text)
-    if not branded_models:
-        return False
-
-    allowed = [_normalize_model_text(title) for title in (allowed_titles or []) if str(title or "").strip()]
-    if not allowed:
-        return True
-
-    uncovered = [
-        mention for mention in branded_models
-        if not _is_allowed_model_mention(_normalize_model_text(mention), allowed)
-    ]
-    return bool(uncovered)
 
 
 def _latest_search_result_titles(session_id: Optional[int]) -> list[str]:
@@ -920,50 +805,7 @@ def _latest_search_result_titles(session_id: Optional[int]) -> list[str]:
     return []
 
 
-def _extract_branded_model_mentions(text: str) -> list[str]:
-    brands = "|".join(re.escape(brand) for brand in MODEL_BRANDS)
-    pattern = re.compile(
-        rf"\b(?:{brands})\b(?:\s+[A-Z0-9][A-Za-z0-9'&./+-]*){{1,7}}",
-        re.IGNORECASE,
-    )
-    mentions = []
-    seen = set()
-    for match in pattern.finditer(text):
-        mention = match.group(0).strip(" ,.;:!?()[]{}")
-        normalized = _normalize_model_text(mention)
-        if len(normalized.split()) < 2 or normalized in seen:
-            continue
-        mentions.append(mention)
-        seen.add(normalized)
-    return mentions
 
-
-def _normalize_model_text(text: str) -> str:
-    lowered = str(text or "").lower()
-    lowered = re.sub(r"[^a-z0-9а-яё]+", " ", lowered)
-    return re.sub(r"\s+", " ", lowered).strip()
-
-
-def _is_allowed_model_mention(mention: str, allowed_titles: list[str]) -> bool:
-    if not mention or len(mention.split()) < 2:
-        return False
-    return any(mention in title or title in mention for title in allowed_titles)
-
-
-def _maybe_append_search_offer(answer: str, should_offer_search: bool) -> str:
-    """Добавляет вариативное предложение перейти к реальным Reverb-вариантам."""
-    if not should_offer_search:
-        return answer
-
-    offers = [
-        "Если хотите, могу подобрать конкретные варианты с Reverb и показать ссылки.",
-        "Если хотите, дальше покажу реальные варианты с Reverb со ссылками.",
-        "Если хотите, могу сразу перейти к подбору на Reverb и показать конкретные объявления.",
-        "Если хотите, подберу реальные варианты на Reverb и дам прямые ссылки на объявления.",
-    ]
-    index = sum(ord(char) for char in answer) % len(offers)
-    suffix = offers[index]
-    return f"{answer.rstrip()}\n\n{suffix}" if answer.strip() else suffix
 
 
 def _build_router_history(session_id: Optional[int]) -> list:
@@ -1412,462 +1254,14 @@ def _is_repairable_router_error(errors: list[str]) -> bool:
     return all(error not in non_repairable for error in errors)
 
 
-def _candidate_intent(candidate: object) -> Optional[str]:
-    intent = candidate.get("intent") if isinstance(candidate, dict) else None
-    if isinstance(intent, str) and intent in ALLOWED_ROUTER_INTENTS:
-        return str(intent)
-    return None
+# _candidate_intent, _normalize_route_plan, _validate_route_plan imported from route_plan
 
 
-def _normalize_route_plan(candidate: object) -> Optional[dict]:
-    """Нормализует ответ router-LLM и отбрасывает невалидные структуры."""
-    route_plan, _errors = _validate_route_plan(candidate)
-    return route_plan
 
 
-def _validate_route_plan(candidate: object) -> tuple[Optional[dict], list[str]]:
-    """Нормализует router-ответ и возвращает конкретные ошибки контракта."""
-    errors: list[str] = []
-    if not isinstance(candidate, dict):
-        return None, ["root must be object"]
 
-    intent = candidate.get("intent")
-    if not isinstance(intent, str) or intent not in ALLOWED_ROUTER_INTENTS:
-        errors.append("intent must be one of search, consultation, off_topic, conversation")
-
-    missing_fields = candidate.get("missing_fields")
-    if not isinstance(missing_fields, list):
-        errors.append("missing_fields must be list")
-        normalized_missing_fields = []
-    else:
-        if any(not isinstance(field, str) for field in missing_fields):
-            errors.append("missing_fields must contain only strings")
-        normalized_missing_fields = [field for field in missing_fields if isinstance(field, str)]
-        unknown_missing = [field for field in normalized_missing_fields if field not in ALLOWED_MISSING_FIELDS]
-        if unknown_missing:
-            errors.append("missing_fields must contain only budget/type")
-
-    no_preference_fields = candidate.get("no_preference_fields", [])
-    if no_preference_fields is None:
-        no_preference_fields = []
-    if not isinstance(no_preference_fields, list):
-        errors.append("no_preference_fields must be list")
-        normalized_no_preference_fields = []
-    else:
-        if any(not isinstance(field, str) for field in no_preference_fields):
-            errors.append("no_preference_fields must contain only strings")
-        normalized_no_preference_fields = [
-            field for field in no_preference_fields
-            if isinstance(field, str) and field in ALLOWED_NO_PREFERENCE_FIELDS
-        ]
-        if len(normalized_no_preference_fields) != len(no_preference_fields):
-            errors.append("no_preference_fields must contain only allowed values")
-
-    default_actions = candidate.get("default_actions", [])
-    if default_actions is None:
-        default_actions = []
-    if not isinstance(default_actions, list):
-        errors.append("default_actions must be list")
-        normalized_default_actions = []
-    else:
-        if any(not isinstance(action, str) for action in default_actions):
-            errors.append("default_actions must contain only strings")
-        normalized_default_actions = [
-            action for action in default_actions
-            if isinstance(action, str) and action in ALLOWED_DEFAULT_ACTIONS
-        ]
-        if len(normalized_default_actions) != len(default_actions):
-            errors.append("default_actions must contain only allowed values")
-
-    state_action = candidate.get("state_action", "patch")
-    if not isinstance(state_action, str) or state_action not in {"patch", "reset"}:
-        errors.append("state_action must be patch or reset")
-        state_action = "patch"
-
-    budget_default_offer = bool(candidate.get("budget_default_offer"))
-
-    enough_for_search = bool(candidate.get("enough_for_search"))
-    current_turn_search = candidate.get("current_turn_search")
-    if current_turn_search is not None and not isinstance(current_turn_search, bool):
-        errors.append("current_turn_search must be boolean")
-        current_turn_search = False
-
-    search_params = candidate.get("search_params")
-    if intent == "search":
-        if not enough_for_search and normalized_missing_fields:
-            normalized_search_params = (
-                _normalize_search_params(search_params)[0]
-                if isinstance(search_params, dict)
-                else None
-            )
-        elif not isinstance(search_params, dict):
-            errors.append("search_params must be object for search intent")
-            normalized_search_params = None
-        else:
-            normalized_search_params, param_errors = _normalize_search_params(search_params)
-            errors.extend(param_errors)
-            if enough_for_search:
-                errors.extend(_validate_ready_search_params(
-                    normalized_search_params,
-                    normalized_missing_fields,
-                    normalized_no_preference_fields,
-                    normalized_default_actions,
-                ))
-        if not enough_for_search and not normalized_missing_fields:
-            errors.append("missing_fields must contain budget and/or type when enough_for_search=false")
-    elif intent == "conversation":
-        if enough_for_search:
-            errors.append("conversation must have enough_for_search=false")
-        if normalized_missing_fields:
-            errors.append("conversation must have missing_fields=[]")
-        if search_params is not None:
-            errors.append("search_params must be null for conversation")
-        if candidate.get("should_offer_search"):
-            errors.append("conversation must have should_offer_search=false")
-        normalized_search_params = None
-    elif search_params is not None:
-        errors.append("search_params must be null for consultation/off_topic")
-        normalized_search_params = None
-    else:
-        normalized_search_params = None
-
-    if intent == "search" and enough_for_search and not current_turn_search:
-        errors.append("ready search must include current_turn_search=true")
-    if current_turn_search and not (intent == "search" and enough_for_search):
-        errors.append("current_turn_search=true is allowed only for ready search")
-
-    if errors:
-        return None, errors
-
-    return {
-        "intent": intent,
-        "enough_for_search": enough_for_search,
-        "missing_fields": normalized_missing_fields,
-        "no_preference_fields": normalized_no_preference_fields,
-        "budget_default_offer": budget_default_offer,
-        "default_actions": normalized_default_actions,
-        "state_action": state_action,
-        "search_params": normalized_search_params,
-        "should_offer_search": bool(candidate.get("should_offer_search")),
-        "current_turn_search": current_turn_search,
-    }, []
-
-
-def _validate_route_plan_for_state(route_plan: dict, current_state: dict) -> list[str]:
-    """Validates route contract that depends on current structured session state."""
-    if route_plan.get("intent") != "search" or not route_plan.get("enough_for_search"):
-        return []
-
-    params = route_plan.get("search_params") or {}
-    default_actions = {
-        action for action in (route_plan.get("default_actions") or [])
-        if isinstance(action, str)
-    }
-    has_accept_default = "accept_beginner_budget" in default_actions
-    pending_budget = ((current_state or {}).get("pending_defaults") or {}).get("budget")
-
-    errors: list[str] = []
-    if has_accept_default and not pending_budget:
-        errors.append("default_actions.accept_beginner_budget requires pending budget default")
-    if has_accept_default and route_plan.get("state_action") == "reset":
-        errors.append("default_actions.accept_beginner_budget cannot be used with state_action reset")
-    if "accept_beginner_budget" in default_actions and params.get("price_max") is None:
-        errors.append("accept_beginner_budget requires explicit final price_max")
-    return errors
-
-
-def _validate_ready_search_params(
-    params: Optional[dict],
-    missing_fields: list[str],
-    no_preference_fields: list[str],
-    default_actions: list[str],
-) -> list[str]:
-    errors: list[str] = []
-    params = params or {}
-    queries = params.get("search_queries") or []
-    if not queries:
-        errors.append("ready search must include final search_params.search_queries")
-    if not (1 <= len(queries) <= 3):
-        errors.append("ready search must include 1-3 final search_params.search_queries")
-    if params.get("price_max") is None and params.get("price_min") is None:
-        errors.append("ready search must include explicit final search_params.price_max or price_min")
-    if params.get("type") is None:
-        errors.append("ready search must include explicit final search_params.type or type='any'")
-    if missing_fields:
-        errors.append("ready search must have missing_fields=[]")
-    if params.get("price_min") is not None and params.get("price_max") is not None:
-        if params["price_min"] > params["price_max"]:
-            errors.append("ready search price_min must be <= price_max")
-    if "apply_beginner_budget" in default_actions and params.get("price_max") is None:
-        errors.append("apply_beginner_budget requires explicit final price_max")
-    if "accept_beginner_budget" in default_actions and params.get("price_max") is None:
-        errors.append("accept_beginner_budget requires explicit final price_max")
-    if "type" in no_preference_fields and params.get("type") != "any":
-        errors.append("type no_preference requires explicit final type='any'")
-    if "budget" in no_preference_fields:
-        errors.append("budget no_preference cannot make ready search without explicit safe budget")
-    return errors
-
-
-def _normalize_search_params(params: dict) -> tuple[dict, list[str]]:
-    """Приводит router search_params к стабильной внутренней форме."""
-    errors: list[str] = []
-
-    raw_queries = params.get("search_queries")
-    queries = []
-    if isinstance(raw_queries, list):
-        queries = [str(query).strip() for query in raw_queries if str(query or "").strip()]
-
-    guitar_type, type_error = _normalize_type_value(params.get("type"))
-    if type_error:
-        errors.append(type_error)
-
-    pickups, pickups_error = _normalize_pickups_value(params.get("pickups"))
-    if pickups_error:
-        errors.append(pickups_error)
-
-    normalized = {
-        "search_queries": queries,
-        "price_min": _number_or_none(params.get("price_min")),
-        "price_max": _number_or_none(params.get("price_max")),
-        "type": guitar_type,
-        "brand": _string_or_none(params.get("brand")),
-        "pickups": pickups,
-        "sound": _string_or_none(params.get("sound")),
-        "style": _string_or_none(params.get("style")),
-    }
-    return normalized, errors
-
-
-def _normalize_type_value(value: object) -> tuple[Optional[str], Optional[str]]:
-    if value is None:
-        return None, None
-    raw = str(value).strip().lower().replace("-", "_")
-    if not raw:
-        return None, None
-    normalized = TYPE_ALIASES.get(raw, raw)
-    if normalized not in ALLOWED_TYPES:
-        return None, f"search_params.type must be one of {sorted(ALLOWED_TYPES)}"
-    return normalized, None
-
-
-def _normalize_pickups_value(value: object) -> tuple[Optional[str], Optional[str]]:
-    if value is None:
-        return None, None
-    raw = str(value).strip()
-    if not raw:
-        return None, None
-    alias_key = raw.lower().replace("-", "_")
-    normalized = PICKUPS_ALIASES.get(alias_key, PICKUPS_ALIASES.get(raw.lower(), raw))
-    if normalized not in ALLOWED_PICKUPS:
-        return None, f"search_params.pickups must be one of {sorted(ALLOWED_PICKUPS)}"
-    return normalized, None
-
-
-def _number_or_none(value: object) -> Optional[float]:
-    if value in (None, ""):
-        return None
-    if isinstance(value, bool):
-        return None
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return None
-    return number if number >= 0 else None
-
-
-def _string_or_none(value: object) -> Optional[str]:
-    text = str(value or "").strip()
-    return text or None
-
-
-def _question_from_missing_fields(missing_fields: list) -> str:
-    """Строит уточняющий вопрос из router-provided missing_fields."""
-    fields = {
-        field for field in (missing_fields or [])
-        if isinstance(field, str)
-    }
-    if fields == {"budget", "type"}:
-        return CLARIFICATION_QUESTIONS["both"]
-    if fields == {"budget"}:
-        return CLARIFICATION_QUESTIONS["budget"]
-    if fields == {"type"}:
-        return CLARIFICATION_QUESTIONS["type"]
-    return CLARIFICATION_QUESTIONS["both"]
-
-
-def _apply_ready_search_snapshot(route_plan: dict, current_state: Optional[dict] = None) -> dict:
-    """Persists the current router-owned final search_params snapshot."""
-    params = route_plan["search_params"]
-    pending = dict((current_state or {}).get("pending_defaults") or {})
-    pending.pop("budget", None)
-    return {
-        "state_schema": "ready_search_snapshot_v1",
-        "state_source": "router_search_params",
-        "last_intent": "search",
-        "ready_for_search": True,
-        "missing_fields": [],
-        "search_queries": list(params.get("search_queries") or []),
-        "price_min": params.get("price_min"),
-        "price_max": params.get("price_max"),
-        "type": params.get("type"),
-        "brand": params.get("brand"),
-        "pickups": params.get("pickups"),
-        "sound": params.get("sound"),
-        "style": params.get("style"),
-        "no_preference_fields": list(route_plan.get("no_preference_fields") or []),
-        "default_actions": list(route_plan.get("default_actions") or []),
-        "state_action": route_plan.get("state_action", "patch"),
-        "pending_defaults": pending,
-        "last_clarification_target": None,
-    }
-
-
-def _apply_incomplete_search_patch(current_state: dict, route_plan: dict) -> dict:
-    """Builds clarification state from current router output without stale executable params."""
-    params = route_plan.get("search_params") if isinstance(route_plan.get("search_params"), dict) else {}
-    state = {
-        "last_intent": "search",
-        "ready_for_search": False,
-        "missing_fields": list(route_plan.get("missing_fields") or []),
-        "search_queries": list(params.get("search_queries") or []),
-        "price_min": params.get("price_min"),
-        "price_max": params.get("price_max"),
-        "type": params.get("type"),
-        "brand": params.get("brand"),
-        "pickups": params.get("pickups"),
-        "sound": params.get("sound"),
-        "style": params.get("style"),
-        "no_preference_fields": list(route_plan.get("no_preference_fields") or []),
-        "default_actions": list(route_plan.get("default_actions") or []),
-        "state_action": route_plan.get("state_action", "patch"),
-    }
-    asked_fields = [
-        field for field in ((current_state or {}).get("asked_fields") or [])
-        if isinstance(field, str) and field in ALLOWED_NO_PREFERENCE_FIELDS
-    ]
-    if asked_fields:
-        state["asked_fields"] = asked_fields
-    pending = dict((current_state or {}).get("pending_defaults") or {})
-    if route_plan.get("budget_default_offer") and state.get("price_max") is None and state.get("price_min") is None:
-        pending["budget"] = {"kind": "beginner_cheap", "price_max": _beginner_default_price_max()}
-    if pending:
-        state["pending_defaults"] = pending
-    return state
-
-
-def _unique_preserving_order(values: list[str]) -> list[str]:
-    seen = set()
-    result = []
-    for value in values:
-        if not isinstance(value, str):
-            continue
-        if value not in seen:
-            result.append(value)
-            seen.add(value)
-    return result
-
-
-def _beginner_default_price_max() -> float:
-    return float(_env_int("BEGINNER_DEFAULT_PRICE_MAX", 500, minimum=1))
-
-
-def _finalize_search_state(state: dict) -> dict:
-    """Нормализует route-derived ready_for_search / missing_fields без semantic inference."""
-    state = dict(state or {})
-    missing_fields = [
-        field for field in (state.get("missing_fields") or [])
-        if isinstance(field, str) and field in {"budget", "type"}
-    ]
-    state["missing_fields"] = [] if state.get("ready_for_search") and not missing_fields else missing_fields
-    state["ready_for_search"] = bool(state.get("ready_for_search")) and not state["missing_fields"]
-    state["last_clarification_target"] = (
-        None if state["ready_for_search"] else _clarification_target_from_missing_fields(state["missing_fields"])
-    )
-    return state
-
-
-def _prepare_clarification_state(state: dict) -> dict:
-    """Stores which structured fields were asked, without parsing user text."""
-    state = dict(state or {})
-    missing_fields = [
-        field for field in (state.get("missing_fields") or [])
-        if isinstance(field, str) and field in {"budget", "type"}
-    ]
-    asked_fields = [
-        field for field in (state.get("asked_fields") or [])
-        if isinstance(field, str) and field in {"budget", "type", "brand", "pickups", "sound", "style"}
-    ]
-    state["asked_fields"] = _unique_preserving_order(asked_fields + missing_fields)
-    state["missing_fields"] = missing_fields
-    state["ready_for_search"] = False
-    state["last_clarification_target"] = _clarification_target_from_missing_fields(missing_fields)
-    return state
-
-
-def _state_to_search_params(state: dict) -> dict:
-    """Преобразует session state в execution search params."""
-    if state.get("ready_for_search") and state.get("state_schema") != "ready_search_snapshot_v1":
-        return _empty_search_params()
-    params = {
-        "search_queries": state.get("search_queries") or [],
-        "price_min": state.get("price_min"),
-        "price_max": state.get("price_max"),
-        "type": None if str(state.get("type") or "").strip().lower() == "any" else state.get("type"),
-        "brand": state.get("brand"),
-        "pickups": state.get("pickups"),
-        "sound": state.get("sound"),
-        "style": state.get("style"),
-    }
-
-    return params
-
-
-def _state_to_user_search_params(state: dict) -> dict:
-    """Преобразует session state в user-facing searchParams."""
-    params = _state_to_search_params(state)
-    params["type"] = state.get("type")
-    return params
-
-
-def _search_params_to_user_search_params(params: dict) -> dict:
-    return {
-        "search_queries": list(params.get("search_queries") or []),
-        "price_min": params.get("price_min"),
-        "price_max": params.get("price_max"),
-        "type": params.get("type"),
-        "brand": params.get("brand"),
-        "pickups": params.get("pickups"),
-        "sound": params.get("sound"),
-        "style": params.get("style"),
-    }
-
-
-def _empty_search_params() -> dict:
-    return {
-        "search_queries": [],
-        "price_min": None,
-        "price_max": None,
-        "type": None,
-        "brand": None,
-        "pickups": None,
-        "sound": None,
-        "style": None,
-    }
-
-
-def _safe_router_params_for_log(params: object) -> dict:
-    if not isinstance(params, dict):
-        return {}
-    safe = {key: params.get(key) for key in SEARCH_PARAM_FIELDS}
-    if isinstance(safe.get("search_queries"), list):
-        safe["search_queries"] = [str(query)[:120] for query in safe["search_queries"][:5]]
-    return safe
-
-
-def _clarification_target_from_missing_fields(missing_fields: list) -> Optional[str]:
-    """Возвращает основной target текущего уточнения."""
-    fields = list(missing_fields or [])
-    if len(fields) == 1:
-        return fields[0]
-    return None
+# _question_from_missing_fields, _apply_ready_search_snapshot, _apply_incomplete_search_patch,
+# _unique_preserving_order, _beginner_default_price_max, _finalize_search_state,
+# _prepare_clarification_state, _state_to_search_params, _state_to_user_search_params,
+# _search_params_to_user_search_params, _empty_search_params, _safe_router_params_for_log,
+# _clarification_target_from_missing_fields — all imported from backend.agent.state
