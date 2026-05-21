@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Message, ChatState, GuitarResult, Session, ChatMode } from '../types';
+import { Message, ChatState, GuitarResult, Session } from '../types';
 import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession, clearAllHistory } from '../api';
+import { normalizeResult, historyToMessages } from '../messageMappers';
 
 const WS_URL = 'ws://127.0.0.1:8000/chat';
 const PAGE_SIZE = 20;
@@ -42,17 +43,6 @@ function updateSessionUrl(sessionId: number | null, replace = false) {
   writeHistory.call(window.history, {}, '', nextUrl);
 }
 
-function normalizeResult(item: any): GuitarResult {
-  return {
-    id: item.id,
-    title: item.title,
-    price: item.price,
-    currency: item.currency,
-    imageUrl: item.imageUrl || item.image_url,
-    listingUrl: item.listingUrl || item.listing_url,
-  };
-}
-
 interface UseChatReturn extends ChatState {
   sendMessage: (text: string) => void;
   connectionStatus: 'connected' | 'disconnected' | 'connecting';
@@ -69,37 +59,6 @@ interface UseChatReturn extends ChatState {
   hasMoreSessions: boolean;
   isLoadingMoreSessions: boolean;
   isLoadingSessionMessages: boolean;
-}
-
-/**
- * Преобразует элементы истории в массив сообщений
- */
-function historyToMessages(items: any[]): Message[] {
-  const messages: Message[] = [];
-  for (const item of items) {
-    const normalizedResults = item.mode === 'search'
-      ? (item.results || []).map((result: any) => normalizeResult(result))
-      : undefined;
-
-    messages.push({
-      id: `hist-user-${item.id}`,
-      role: 'user',
-      content: item.userQuery,
-      timestamp: new Date(item.createdAt),
-    });
-    messages.push({
-      id: `hist-agent-${item.id}`,
-      role: 'agent',
-      content: item.mode !== 'search'
-        ? (item.answer || '')
-        : (item.answer || `Найдено гитар: ${(normalizedResults || []).length}`),
-      timestamp: new Date(item.createdAt),
-      mode: item.mode as ChatMode,
-      results: normalizedResults,
-      searchParams: item.searchParams || null,
-    });
-  }
-  return messages;
 }
 
 /**
