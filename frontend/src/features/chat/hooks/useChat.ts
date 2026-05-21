@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Message, ChatState, GuitarResult, Session } from '../types';
 import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession, clearAllHistory } from '../api';
 import { normalizeResult, historyToMessages } from '../messageMappers';
+import { readSessionIdFromUrl, updateSessionUrl } from '../sessionUrl';
 
 const WS_URL = 'ws://127.0.0.1:8000/chat';
 const PAGE_SIZE = 20;
-const SESSION_QUERY_PARAM = 'session';
 
 interface SessionSelectionOptions {
   syncUrl?: boolean;
@@ -14,33 +14,6 @@ interface SessionSelectionOptions {
 
 function isUnauthorizedError(error: unknown): boolean {
   return error instanceof Error && 'status' in error && error.status === 401;
-}
-
-function readSessionIdFromUrl(): { sessionId: number | null; error: string | null } {
-  const rawSessionId = new URLSearchParams(window.location.search).get(SESSION_QUERY_PARAM);
-  if (!rawSessionId) {
-    return { sessionId: null, error: null };
-  }
-
-  if (!/^\d+$/.test(rawSessionId)) {
-    return { sessionId: null, error: 'Некорректная ссылка на чат' };
-  }
-
-  return { sessionId: Number(rawSessionId), error: null };
-}
-
-function updateSessionUrl(sessionId: number | null, replace = false) {
-  const url = new URL(window.location.href);
-
-  if (sessionId === null) {
-    url.searchParams.delete(SESSION_QUERY_PARAM);
-  } else {
-    url.searchParams.set(SESSION_QUERY_PARAM, String(sessionId));
-  }
-
-  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
-  const writeHistory = replace ? window.history.replaceState : window.history.pushState;
-  writeHistory.call(window.history, {}, '', nextUrl);
 }
 
 interface UseChatReturn extends ChatState {
