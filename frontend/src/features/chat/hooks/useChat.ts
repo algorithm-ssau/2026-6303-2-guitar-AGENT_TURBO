@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Message, ChatState, GuitarResult, Session, ChatMode } from '../types';
+import { Message, ChatState, GuitarResult, Session } from '../types';
 import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession, clearAllHistory } from '../api';
+import { normalizeResult, historyToMessages } from '../messageMappers';
+import { readSessionIdFromUrl, updateSessionUrl } from '../sessionUrl';
 
 const WS_URL = 'ws://127.0.0.1:8000/chat';
 const PAGE_SIZE = 20;
-const SESSION_QUERY_PARAM = 'session';
 
 interface SessionSelectionOptions {
   syncUrl?: boolean;
@@ -13,44 +14,6 @@ interface SessionSelectionOptions {
 
 function isUnauthorizedError(error: unknown): boolean {
   return error instanceof Error && 'status' in error && error.status === 401;
-}
-
-function readSessionIdFromUrl(): { sessionId: number | null; error: string | null } {
-  const rawSessionId = new URLSearchParams(window.location.search).get(SESSION_QUERY_PARAM);
-  if (!rawSessionId) {
-    return { sessionId: null, error: null };
-  }
-
-  if (!/^\d+$/.test(rawSessionId)) {
-    return { sessionId: null, error: 'Некорректная ссылка на чат' };
-  }
-
-  return { sessionId: Number(rawSessionId), error: null };
-}
-
-function updateSessionUrl(sessionId: number | null, replace = false) {
-  const url = new URL(window.location.href);
-
-  if (sessionId === null) {
-    url.searchParams.delete(SESSION_QUERY_PARAM);
-  } else {
-    url.searchParams.set(SESSION_QUERY_PARAM, String(sessionId));
-  }
-
-  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
-  const writeHistory = replace ? window.history.replaceState : window.history.pushState;
-  writeHistory.call(window.history, {}, '', nextUrl);
-}
-
-function normalizeResult(item: any): GuitarResult {
-  return {
-    id: item.id,
-    title: item.title,
-    price: item.price,
-    currency: item.currency,
-    imageUrl: item.imageUrl || item.image_url,
-    listingUrl: item.listingUrl || item.listing_url,
-  };
 }
 
 interface UseChatReturn extends ChatState {
@@ -69,37 +32,6 @@ interface UseChatReturn extends ChatState {
   hasMoreSessions: boolean;
   isLoadingMoreSessions: boolean;
   isLoadingSessionMessages: boolean;
-}
-
-/**
- * Преобразует элементы истории в массив сообщений
- */
-function historyToMessages(items: any[]): Message[] {
-  const messages: Message[] = [];
-  for (const item of items) {
-    const normalizedResults = item.mode === 'search'
-      ? (item.results || []).map((result: any) => normalizeResult(result))
-      : undefined;
-
-    messages.push({
-      id: `hist-user-${item.id}`,
-      role: 'user',
-      content: item.userQuery,
-      timestamp: new Date(item.createdAt),
-    });
-    messages.push({
-      id: `hist-agent-${item.id}`,
-      role: 'agent',
-      content: item.mode !== 'search'
-        ? (item.answer || '')
-        : (item.answer || `Найдено гитар: ${(normalizedResults || []).length}`),
-      timestamp: new Date(item.createdAt),
-      mode: item.mode as ChatMode,
-      results: normalizedResults,
-      searchParams: item.searchParams || null,
-    });
-  }
-  return messages;
 }
 
 /**

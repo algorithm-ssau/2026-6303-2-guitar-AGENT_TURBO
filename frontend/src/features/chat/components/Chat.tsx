@@ -1,10 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { MessageList } from './MessageList';
-import { InputForm } from './InputForm';
-import { ErrorMessage } from './ErrorMessage';
-import { EmptyResults } from './EmptyResults';
-import { LoadingIndicator } from './LoadingIndicator';
 import { Sidebar } from './Sidebar';
+import { ChatMain } from './ChatMain';
 import { useChat } from '../hooks/useChat';
 import { Theme } from '../../../shared/theme/useTheme';
 import { Message } from '../types';
@@ -212,10 +208,6 @@ export const Chat: React.FC<ChatProps> = ({
     }
   };
 
-  const connectionMessage =
-    connectionStatus === 'connecting' ? 'Подключение...' :
-      connectionStatus === 'disconnected' ? 'Переподключение...' : null;
-
   const thinkingLabel = status || 'Думаю над ответом';
   const displayMessages = messages.map((message): Message => {
     if (message.id !== revealedMessageId || message.role !== 'agent') {
@@ -243,7 +235,6 @@ export const Chat: React.FC<ChatProps> = ({
     });
   }
 
-  const lastDisplayMessage = displayMessages[displayMessages.length - 1];
   const canRetryLastMessage = Boolean(messages.slice().reverse().find((message) => message.role === 'user')?.content);
 
   return (
@@ -267,64 +258,21 @@ export const Chat: React.FC<ChatProps> = ({
           isLoadingMore={isLoadingMoreSessions}
         />
 
-        {/* Основная область чата */}
-        <div className="chat-main">
-          <header className="chat-header">
-            <div className="chat-header-group">
-              <button
-                className="chat-header-toggle"
-                onClick={handleToggleSidebar}
-                title={sidebarOpen ? 'Скрыть сайдбар' : 'Показать сайдбар'}
-                aria-label={sidebarOpen ? 'Скрыть сайдбар' : 'Показать сайдбар'}
-              >
-                ☰
-              </button>
-              <div>
-                <div className="chat-header-title">REVERB AGENT</div>
-                {connectionMessage && (
-                  <span className="chat-header-status">
-                    {connectionMessage}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="chat-header-actions">
-              <span className="chat-current-user">{currentUserLogin}</span>
-              <button className="chat-reset-button" onClick={handleNewChat}>
-                ↻ Новый поиск
-              </button>
-            </div>
-          </header>
-
-          <main className="chat-messages">
-            <div className="chat-content-shell">
-              {isLoadingSessionMessages ? (
-                <LoadingIndicator />
-              ) : (
-                <>
-                  <MessageList messages={displayMessages} />
-
-                  {lastDisplayMessage &&
-                    !lastDisplayMessage.transient &&
-                    lastDisplayMessage.role === 'agent' &&
-                    lastDisplayMessage.mode === 'search' &&
-                    (!lastDisplayMessage.results || lastDisplayMessage.results.length === 0) && (
-                      <EmptyResults />
-                    )}
-
-                  {error && (
-                    <ErrorMessage message={error} onRetry={canRetryLastMessage ? handleRetry : undefined} />
-                  )}
-                </>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-          </main>
-
-          <InputForm onSend={handleSend} disabled={isLoading || isLoadingSessionMessages} />
-        </div>
+        <ChatMain
+          displayMessages={displayMessages}
+          connectionStatus={connectionStatus}
+          error={error}
+          isLoading={isLoading}
+          isLoadingSessionMessages={isLoadingSessionMessages}
+          canRetryLastMessage={canRetryLastMessage}
+          sidebarOpen={sidebarOpen}
+          currentUserLogin={currentUserLogin}
+          onToggleSidebar={handleToggleSidebar}
+          onNewChat={handleNewChat}
+          onSend={handleSend}
+          onRetry={handleRetry}
+          messagesEndRef={messagesEndRef}
+        />
       </div>
 
       <ConfirmDialog
