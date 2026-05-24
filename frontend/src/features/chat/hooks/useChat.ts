@@ -4,7 +4,7 @@ import { fetchSessions, fetchSessionMessages, deleteSession as apiDeleteSession,
 import { normalizeResult, historyToMessages } from '../messageMappers';
 import { readSessionIdFromUrl, updateSessionUrl } from '../sessionUrl';
 
-const WS_URL = 'ws://127.0.0.1:8000/chat';
+const WS_URL = (import.meta.env.VITE_WS_URL as string | undefined) ?? 'ws://127.0.0.1:8000/chat';
 const PAGE_SIZE = 20;
 
 interface SessionSelectionOptions {

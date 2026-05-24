@@ -40,6 +40,22 @@ for name in ROUTER_MODULES:
         logger.warning("Router %s not available: %s", name, e)
 
 
+def _save_error_exchange(session_id, query, error_text: str) -> None:
+    """Сохраняет неудачный обмен в историю — чтобы при перезагрузке сессии было видно
+    запрос пользователя и сообщение об ошибке вместо пустого диалога."""
+    if not session_id or not query:
+        return
+    try:
+        save_exchange(
+            session_id=int(session_id),
+            user_query=query,
+            mode="error",
+            answer=error_text,
+        )
+    except Exception as exc:
+        logger.error("Не удалось сохранить error-обмен в историю: %s", exc)
+
+
 @app.on_event("startup")
 def startup():
     init_db()
@@ -152,10 +168,12 @@ async def chat(websocket: WebSocket):
                     if task.done():
                         task_done = True
                         if error_data:
+                            error_text = error_data.get("status", "Произошла ошибка")
                             await websocket.send_json({
                                 "type": "error",
-                                "status": error_data.get("status", "Произошла ошибка")
+                                "status": error_text
                             })
+                            _save_error_exchange(session_id, query, error_text)
                         break
                     continue
 
@@ -167,14 +185,17 @@ async def chat(websocket: WebSocket):
                 await asyncio.wait_for(task, timeout=30)
             except asyncio.TimeoutError:
                 logger.error("Превышено время ожидания (30 сек) для запроса: %s", query[:100])
+                timeout_text = "Превышено время ожидания (30 сек)"
                 await websocket.send_json({
                     "type": "error",
-                    "status": "Превышено время ожидания (30 сек)"
+                    "status": timeout_text
                 })
+                _save_error_exchange(session_id, query, timeout_text)
                 continue
 
             # Отправляем результат
             if result_data:
+              try:
                 if result_data["mode"] == "conversation":
                     await websocket.send_json({
                         "type": "status",
@@ -276,7 +297,7 @@ async def chat(websocket: WebSocket):
                             listing_url=item.get("listing_url", "")
                         ))
 
-                    results_data = snake_to_camel([r.model_dump() for r in results])
+                    results_data = snake_to_camel([r.model_dump(mode="json") for r in results])
 
                     from backend.agent.service import create_llm_client
                     from backend.agent.explanation import generate_explanation
@@ -314,11 +335,25 @@ async def chat(websocket: WebSocket):
                         )
                     except Exception as e:
                         logger.error("Ошибка сохранения истории: %s", e)
+              except WebSocketDisconnect:
+                raise
+              except Exception as exc:
+                logger.exception("Ошибка при формировании/отправке результата: %s", exc)
+                error_text = f"Произошла ошибка при формировании ответа: {exc}"
+                try:
+                    await websocket.send_json({
+                        "type": "error",
+                        "status": error_text,
+                    })
+                except Exception:
+                    logger.error("Не удалось отправить ошибку клиенту")
+                _save_error_exchange(session_id, query, error_text)
+                continue
 
     except WebSocketDisconnect:
         logger.info("WebSocket клиент отключился")
     except Exception as e:
-        logger.error("Ошибка WebSocket: %s", e)
+        logger.exception("Ошибка WebSocket: %s", e)
         try:
             await websocket.send_json({
                 "type": "error",

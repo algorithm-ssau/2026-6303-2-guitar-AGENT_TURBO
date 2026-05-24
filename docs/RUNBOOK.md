@@ -2,12 +2,30 @@
 
 Этот документ нужен для воспроизводимого запуска проекта перед защитой. Все команды предполагают старт из корня репозитория.
 
-## Быстрый запуск
+## Быстрый запуск (Docker — рекомендуется)
+
+Одна команда поднимает backend (FastAPI) + frontend (nginx) с пробросом WebSocket и REST.
+
+```bash
+git clone https://github.com/algorithm-ssau/2026-6303-2-guitar-AGENT_TURBO.git
+cd 2026-6303-2-guitar-AGENT_TURBO
+cp .env.example .env
+docker compose up --build
+```
+
+После запуска:
+
+- Frontend: `http://localhost`
+- Backend API: `http://localhost:8000`
+
+Если `GROQ_API_KEY` не задан в `.env`, проект всё равно стартует — LLM-ответы будут в degraded-режиме, остальной пайплайн (поиск на mock-данных, история, WS) работает.
+
+## Альтернатива — локальный запуск (без Docker)
 
 ### 1. Клонирование
 
 ```bash
-git clone <url-репозитория>
+git clone https://github.com/algorithm-ssau/2026-6303-2-guitar-AGENT_TURBO.git
 cd 2026-6303-2-guitar-AGENT_TURBO
 ```
 
@@ -84,17 +102,26 @@ curl http://localhost:8000/
 {"status":"ok"}
 ```
 
-### 2. Chat endpoint
+### 2. Health endpoint
 
 ```bash
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"query":"Что такое хамбакер?"}'
+curl http://localhost:8000/api/health/
 ```
 
-Важно: без `GROQ_API_KEY` этот запрос не должен ломать запуск проекта, но содержимое ответа может быть degraded.
+Ожидаемый ответ:
 
-### 3. Startup smoke
+```json
+{"status":"ok","checks":{"database":true,"llm_configured":true,"mock_mode":true,"reverb_api_configured":false},"version":"1.0.0"}
+```
+
+Без `GROQ_API_KEY` поле `llm_configured` будет `false`, статус — `degraded`. Это не блокирует запуск.
+
+### 3. Chat (через UI)
+
+Чат-эндпоинты (`POST /api/chat` и `WebSocket /chat`) требуют авторизации. Сценарий проверки — через UI:
+`http://localhost` (Docker) или `http://localhost:5173` (локально) → зарегистрироваться → отправить запрос.
+
+### 4. Health smoke
 
 ```bash
 bash scripts/smoke_backend.sh
@@ -103,10 +130,10 @@ bash scripts/smoke_backend.sh
 Этот скрипт запускает:
 
 ```bash
-pytest tests/test_startup_smoke.py -v
+pytest tests/test_health.py -v
 ```
 
-### 4. Дополнительная release-проверка
+### 5. Дополнительная release-проверка
 
 ```bash
 python3 scripts/check_env.py

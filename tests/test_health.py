@@ -35,7 +35,7 @@ def test_health_endpoint_returns_all_checks(tmp_path, monkeypatch):
             "mock_mode": True,
             "reverb_api_configured": True,
         },
-        "version": "0.7.0",
+        "version": "1.0.0",
     }
 
 

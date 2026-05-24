@@ -156,7 +156,7 @@
         version: str  # hardcoded "0.7.0"
     ```
     - `checks`:
-      - `database`: True/False (проверка SQLite — `SELECT 1`)
+      - `database`: True/False (проверка БД — `SELECT 1`)
       - `llm_configured`: bool — проверка наличия `GROQ_API_KEY` env
       - `mock_mode`: bool — значение `USE_MOCK_REVERB`
       - `reverb_api_configured`: bool — наличие `REVERB_API_TOKEN`

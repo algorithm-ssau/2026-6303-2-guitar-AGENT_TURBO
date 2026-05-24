@@ -537,7 +537,7 @@ Plan confidence: 94%.
 
 Implementation confidence: 90%.
 
-Реализация выглядит выполнимой в рамках текущей архитектуры. Оставшийся риск связан не с требованиями, а с количеством связанных изменений: backend router prompt/validation, REST/WS payloads, SQLite migration, history serialization, frontend state mapping и docs/tests cleanup. Основной контрольный пункт реализации — сохранить один shape между snake_case backend internals и camelCase public API.
+Реализация выглядит выполнимой в рамках текущей архитектуры. Оставшийся риск связан не с требованиями, а с количеством связанных изменений: backend router prompt/validation, REST/WS payloads, миграция БД, history serialization, frontend state mapping и docs/tests cleanup. Основной контрольный пункт реализации — сохранить один shape между snake_case backend internals и camelCase public API.
 
 ## Шаги реализации
 

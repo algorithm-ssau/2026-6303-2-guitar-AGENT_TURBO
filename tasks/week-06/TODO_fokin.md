@@ -143,7 +143,7 @@
 **Часть B — тесты метрик:**
 
 - Создать `tests/test_pipeline_metrics.py`:
-  - Настройка: temp SQLite БД через `monkeypatch` или env `CHAT_DB_PATH`
+  - Настройка: временная БД через `monkeypatch` или env `CHAT_DB_PATH`
   - `init_metrics_table()` — таблица создана
   - `record_exchange(1, "search", 1500, 5)` + чтение из SQL → запись есть
   - `compute_kpi()` на пустой БД → все нули + `kpi_met=True`

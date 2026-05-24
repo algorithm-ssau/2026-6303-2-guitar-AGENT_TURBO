@@ -28,5 +28,5 @@ if ! "${PYTHON_BIN}" -c "import pytest" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "[ok] Running backend startup smoke tests"
-"${PYTHON_BIN}" -m pytest tests/test_startup_smoke.py -v
+echo "[ok] Running backend health smoke tests"
+"${PYTHON_BIN}" -m pytest tests/test_health.py -v

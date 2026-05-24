@@ -522,6 +522,39 @@ def _handle_search(
     return {"mode": "search", "results": ranked, "search_params": display_params}
 
 
+DEFAULT_ANSWER_MAX_HISTORY_CHARS = 10000
+
+
+def _answer_max_history_chars() -> int:
+    return _env_int("ANSWER_MAX_HISTORY_CHARS", DEFAULT_ANSWER_MAX_HISTORY_CHARS, minimum=1000)
+
+
+def _truncate_history_by_chars(history: Optional[list], max_chars: int) -> Optional[list]:
+    """Оставляет только последние сообщения, суммарно вмещающиеся в max_chars.
+
+    Нужно, чтобы answer-модель (consultation/off_topic) не упиралась в
+    per-request лимит провайдера на длинной истории диалога — аналог emergency-tier
+    у router'а, но для answer-вызова."""
+    if not history:
+        return history
+    kept: list = []
+    total = 0
+    for msg in reversed(history):
+        content = str(msg.get("content") or "")
+        size = len(content)
+        if kept and total + size > max_chars:
+            break
+        kept.append(msg)
+        total += size
+    kept.reverse()
+    if len(kept) < len(history):
+        logger.info(
+            "answer_history_truncated kept=%d/%d chars=%d max=%d",
+            len(kept), len(history), total, max_chars,
+        )
+    return kept
+
+
 def _ask_consultation_llm(
     llm_client: LLMClient,
     text: str,
@@ -529,6 +562,7 @@ def _ask_consultation_llm(
     history: Optional[list],
 ) -> str:
     """Вызывает LLM с history, но совместим со старыми сигнатурами ask()."""
+    history = _truncate_history_by_chars(history, _answer_max_history_chars())
     try:
         return llm_client.ask(text, prompt, history=history)
     except TypeError:
