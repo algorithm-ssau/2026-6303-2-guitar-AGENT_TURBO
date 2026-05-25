@@ -28,6 +28,14 @@ export interface SearchParams {
 
 export type ChatMode = 'search' | 'consultation' | 'conversation' | 'clarification';
 
+export interface AgentAction {
+  kind: 'search_with_budget';
+  label: string;
+  price_max?: number | null;
+  type?: string | null;
+  search_queries?: string[];
+}
+
 export interface Message {
   id: string;
   role: MessageRole;
@@ -41,6 +49,7 @@ export interface Message {
     status?: string | null;
   };
   searchParams?: SearchParams | null;
+  actions?: AgentAction[];
 }
 
 export interface ChatState {

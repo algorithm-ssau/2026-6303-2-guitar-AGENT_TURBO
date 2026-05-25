@@ -34,6 +34,7 @@ export const Chat: React.FC<ChatProps> = ({
     connectionStatus = 'connecting',
     status = null,
     sendMessage = () => {},
+    sendAction = () => {},
     sessions = [],
     isLoadingSessions = false,
     latestLiveMessageId = null,
@@ -271,6 +272,7 @@ export const Chat: React.FC<ChatProps> = ({
           onNewChat={handleNewChat}
           onSend={handleSend}
           onRetry={handleRetry}
+          onAction={sendAction}
           messagesEndRef={messagesEndRef}
         />
       </div>

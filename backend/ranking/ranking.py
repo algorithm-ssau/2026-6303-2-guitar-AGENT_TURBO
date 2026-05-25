@@ -287,7 +287,7 @@ def calculate_total_score(result: dict, params: dict, use_full_formula: bool = T
         use_full_formula: Если True — полная формула, иначе — упрощённая
 
     Упрощённая: (бюджет × 0.55) + (название × 0.45)
-    Расширенная: бюджет(25%) + тип(20%) + датчики(15%) + бренд(10%) + sound(10%) + style(10%) + название(10%)
+    Расширенная: бюджет(25%) + тип(20%) + датчики(15%) + sound(12%) + бренд(10%) + style(10%) + название(8%)
     """
     budget_score = score_budget(result, params)
     title_score = score_title(result, params)
@@ -307,10 +307,10 @@ def calculate_total_score(result: dict, params: dict, use_full_formula: bool = T
             (budget_score * 0.25) +
             (type_score * 0.20) +
             (pickups_score * 0.15) +
+            (sound_score * 0.12) +
             (brand_score * 0.10) +
-            (sound_score * 0.10) +
             (style_score * 0.10) +
-            (title_score * 0.10)
+            (title_score * 0.08)
         )
 
     return round(total_score, 2)

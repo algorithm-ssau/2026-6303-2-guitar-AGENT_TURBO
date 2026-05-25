@@ -20,6 +20,7 @@ def search_reverb(
     price_max: int | None = None,
     *,
     expand_query_synonyms: bool = True,
+    type: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Выполняет поиск объявлений на Reverb по подготовленным параметрам.
@@ -52,12 +53,12 @@ def search_reverb(
     use_mock = os.getenv("USE_MOCK_REVERB", "false").lower() == "true"
 
     if use_mock:
-        return _search_mock_reverb(search_queries, price_min, price_max)
+        return _search_mock_reverb(search_queries, price_min, price_max, type=type)
 
     # Проверяем наличие токена — если нет, fallback на mock
     api_token = os.getenv("REVERB_API_TOKEN")
     if not api_token:
-        return _search_mock_reverb(search_queries, price_min, price_max)
+        return _search_mock_reverb(search_queries, price_min, price_max, type=type)
 
     # Реальный режим: делаем запрос к API с авторизацией
     results = _search_reverb_api(search_queries, price_min, price_max)
@@ -67,7 +68,7 @@ def search_reverb(
 
     # Если API вернул пустой результат, используем мок-данные как fallback
     if not results:
-        results = _search_mock_reverb(search_queries, price_min, price_max)
+        results = _search_mock_reverb(search_queries, price_min, price_max, type=type)
 
     return results
 
@@ -76,6 +77,8 @@ def search_reverb_exact(
     search_queries: list[str],
     price_min: int | None = None,
     price_max: int | None = None,
+    *,
+    type: str | None = None,
 ) -> list[dict[str, Any]]:
     """Executes Reverb search without post-router synonym expansion."""
     return search_reverb(
@@ -83,4 +86,5 @@ def search_reverb_exact(
         price_min,
         price_max,
         expand_query_synonyms=False,
+        type=type,
     )

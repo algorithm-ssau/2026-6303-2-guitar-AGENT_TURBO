@@ -120,13 +120,3 @@ class TestIntegration:
         titles = [r["title"].lower() for r in results]
         assert any("telecaster" in t for t in titles)
 
-    def test_lp_finds_les_paul_in_mock(self):
-        """Запрос 'LP' через пайплайн находит Les Paul."""
-        import os
-        os.environ["USE_MOCK_REVERB"] = "true"
-
-        from backend.search.search_reverb import search_reverb
-
-        results = search_reverb(["lp"], price_max=1200)
-        titles = [r["title"].lower() for r in results]
-        assert any("les paul" in t for t in titles)

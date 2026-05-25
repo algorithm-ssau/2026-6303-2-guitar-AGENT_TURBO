@@ -4,7 +4,7 @@ import { InputForm } from './InputForm';
 import { ErrorMessage } from './ErrorMessage';
 import { EmptyResults } from './EmptyResults';
 import { LoadingIndicator } from './LoadingIndicator';
-import { Message } from '../types';
+import { Message, AgentAction } from '../types';
 
 interface ChatMainProps {
   displayMessages: Message[];
@@ -19,6 +19,7 @@ interface ChatMainProps {
   onNewChat: () => void;
   onSend: (text: string) => void;
   onRetry: () => void;
+  onAction?: (action: AgentAction) => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -34,6 +35,7 @@ export const ChatMain: React.FC<ChatMainProps> = ({
   onToggleSidebar,
   onNewChat,
   onSend,
+  onAction,
   onRetry,
   messagesEndRef,
 }) => {
@@ -79,13 +81,14 @@ export const ChatMain: React.FC<ChatMainProps> = ({
             <LoadingIndicator />
           ) : (
             <>
-              <MessageList messages={displayMessages} />
+              <MessageList messages={displayMessages} onAction={onAction} />
 
               {lastDisplayMessage &&
                 !lastDisplayMessage.transient &&
                 lastDisplayMessage.role === 'agent' &&
                 lastDisplayMessage.mode === 'search' &&
-                (!lastDisplayMessage.results || lastDisplayMessage.results.length === 0) && (
+                (!lastDisplayMessage.results || lastDisplayMessage.results.length === 0) &&
+                !lastDisplayMessage.content && (
                   <EmptyResults />
                 )}
 

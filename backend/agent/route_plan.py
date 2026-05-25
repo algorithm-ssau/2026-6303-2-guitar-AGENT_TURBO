@@ -215,10 +215,10 @@ def validate_ready_search_params(
     errors: list[str] = []
     params = params or {}
     queries = params.get("search_queries") or []
-    if not queries:
-        errors.append("ready search must include final search_params.search_queries")
-    if not (1 <= len(queries) <= 3):
-        errors.append("ready search must include 1-3 final search_params.search_queries")
+    # Пустой search_queries — валидное значение: "любая гитара в бюджете/типе".
+    # Ограничиваем только сверху, чтобы не было спама.
+    if len(queries) > 3:
+        errors.append("ready search must include at most 3 final search_params.search_queries")
     if params.get("price_max") is None and params.get("price_min") is None:
         errors.append("ready search must include explicit final search_params.price_max or price_min")
     if params.get("type") is None:
@@ -228,6 +228,12 @@ def validate_ready_search_params(
     if params.get("price_min") is not None and params.get("price_max") is not None:
         if params["price_min"] > params["price_max"]:
             errors.append("ready search price_min must be <= price_max")
+    # Sanity bounds для цены в USD (защита от очевидных ошибок модели — например
+    # "до $600" интерпретированное как 60000)
+    for field in ("price_min", "price_max"):
+        value = params.get(field)
+        if value is not None and (value < 1 or value > 100000):
+            errors.append(f"{field} must be USD in range 1..100000")
     if "apply_beginner_budget" in default_actions and params.get("price_max") is None:
         errors.append("apply_beginner_budget requires explicit final price_max")
     if "accept_beginner_budget" in default_actions and params.get("price_max") is None:

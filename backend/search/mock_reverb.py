@@ -65,12 +65,39 @@ def _filter_by_price(
     return result
 
 
+def _filter_by_type(
+    listings: list[dict[str, Any]],
+    type_value: str | None,
+) -> list[dict[str, Any]]:
+    """Фильтрует по category. None или 'any' = без фильтра.
+    Маппинг type → допустимые category-значения."""
+    if not type_value or str(type_value).strip().lower() == "any":
+        return listings
+    t = str(type_value).strip().lower()
+    # Электрогитарные типы все попадают в category=electric
+    electric_types = {"stratocaster", "telecaster", "les paul", "sg", "superstrat", "seven_string"}
+    if t in electric_types:
+        wanted = {"electric"}
+    elif t in {"acoustic"}:
+        wanted = {"acoustic"}
+    elif t in {"classical"}:
+        wanted = {"classical"}
+    elif t in {"bass"}:
+        wanted = {"bass"}
+    else:
+        return listings
+    return [item for item in listings if str(item.get("category", "")).strip().lower() in wanted]
+
+
 def _search_mock_reverb(
     search_queries: list[str],
     price_min: int | None,
     price_max: int | None,
+    *,
+    type: str | None = None,
 ) -> list[dict[str, Any]]:
     """Возвращает mock-результаты с теми же фильтрами, что и основной поиск."""
     mock_data = _load_mock_data()
+    mock_data = _filter_by_type(mock_data, type)
     filtered_by_query = _filter_by_queries(mock_data, search_queries)
     return _filter_by_price(filtered_by_query, price_min, price_max)

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Message } from '../types';
+import remarkGfm from 'remark-gfm';
+import { Message, AgentAction } from '../types';
 import { ModeBadge } from './ModeBadge';
 import { ResultsList } from './ResultsList';
 import { SearchParamsPanel } from './SearchParamsPanel';
@@ -8,6 +9,7 @@ import './Message.css';
 
 interface MessageProps {
   message: Message;
+  onAction?: (action: AgentAction) => void;
 }
 
 function splitThinkBlock(content: string): { visibleContent: string; debugThink: string | null } {
@@ -28,7 +30,7 @@ function splitThinkBlock(content: string): { visibleContent: string; debugThink:
  * Компонент одного сообщения в чате
  * Отображает сообщение от пользователя или агента
  */
-export const MessageItem: React.FC<MessageProps> = ({ message }) => {
+export const MessageItem: React.FC<MessageProps> = ({ message, onAction }) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
   const isThinking = message.transient?.phase === 'thinking';
@@ -121,6 +123,7 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
           <div className={!isUser && isTextAnswer ? 'message-markdown' : 'message-plain-text'}>
             {!isUser && isTextAnswer ? (
               <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 components={{
                   code(props) {
                     const { children, className, node, ...rest } = props;
@@ -169,6 +172,29 @@ export const MessageItem: React.FC<MessageProps> = ({ message }) => {
 
         {message.mode === 'search' && message.results && message.results.length > 0 && (
           <ResultsList results={message.results} />
+        )}
+
+        {!isUser && message.actions && message.actions.length > 0 && onAction && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+            {message.actions.map((action, idx) => (
+              <button
+                key={idx}
+                onClick={() => onAction(action)}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  background: 'var(--accent, #4a9eff)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
         )}
         {!message.transient && (
           <div

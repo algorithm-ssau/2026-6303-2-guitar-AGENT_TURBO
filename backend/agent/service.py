@@ -6,7 +6,6 @@
 
 import os
 import json
-import re
 import time
 from typing import Callable, Optional
 
@@ -235,6 +234,9 @@ def interpret_query(
         _safe_router_params_for_log(route_plan.get("search_params")),
     )
 
+    # Серверные guards — страховка от тупняка маленькой модели router.
+    route_plan = _apply_router_guards(text, route_plan, current_state, session_id)
+
     if route_plan["intent"] == "off_topic":
         return _handle_off_topic(text, llm_client, on_status)
 
@@ -262,6 +264,40 @@ def interpret_query(
 
     if not route_plan.get("enough_for_search"):
         merged_state = _apply_incomplete_search_patch(current_state, route_plan)
+
+        # Если после мерджа с current_state стало достаточно (budget + type/no_preference),
+        # промоутим в поиск без повторного уточнения — модель просто забыла state.
+        has_budget = merged_state.get("price_max") is not None or merged_state.get("price_min") is not None
+        has_type = bool(merged_state.get("type")) or "type" in (merged_state.get("no_preference_fields") or [])
+        if not merged_state.get("missing_fields") and has_budget and has_type:
+            logger.info(
+                "router_promoted_to_search session_id=%s price_max=%s type=%s reason=state_sufficient",
+                session_id, merged_state.get("price_max"), merged_state.get("type"),
+            )
+            params = {
+                "search_queries": list(merged_state.get("search_queries") or []),
+                "price_min": merged_state.get("price_min"),
+                "price_max": merged_state.get("price_max"),
+                "type": merged_state.get("type"),
+                "brand": merged_state.get("brand"),
+                "pickups": merged_state.get("pickups"),
+                "sound": merged_state.get("sound"),
+                "style": merged_state.get("style"),
+            }
+            promoted_route_plan = dict(route_plan)
+            promoted_route_plan["search_params"] = params
+            promoted_route_plan["enough_for_search"] = True
+            user_search_params = _search_params_to_user_search_params(params)
+            promoted_state = _apply_ready_search_snapshot(promoted_route_plan, current_state)
+            if session_id:
+                save_session_state(session_id, promoted_state)
+            from backend.agent.context_manager import build_context
+            history = build_context(session_id, get_system_prompt(), text, llm_client)
+            return _handle_search(
+                text, llm_client, actual_search_fn, on_status, history,
+                initial_params=params, display_params=user_search_params,
+            )
+
         merged_state = _finalize_search_state(merged_state)
         merged_state = _prepare_clarification_state(merged_state)
         if session_id:
@@ -269,9 +305,20 @@ def interpret_query(
         user_search_params = _state_to_user_search_params(merged_state)
         return _handle_clarification(text, llm_client, on_status, route_plan, merged_state, user_search_params)
 
-    params = route_plan["search_params"]
-    user_search_params = _search_params_to_user_search_params(params)
     merged_state = _apply_ready_search_snapshot(route_plan, current_state)
+    # Используем merged значения (с inherited от current_state) для реального execution,
+    # а не raw route_plan.search_params — модель часто шлёт partial и теряет type/brand.
+    params = {
+        "search_queries": list(merged_state.get("search_queries") or []),
+        "price_min": merged_state.get("price_min"),
+        "price_max": merged_state.get("price_max"),
+        "type": merged_state.get("type"),
+        "brand": merged_state.get("brand"),
+        "pickups": merged_state.get("pickups"),
+        "sound": merged_state.get("sound"),
+        "style": merged_state.get("style"),
+    }
+    user_search_params = _search_params_to_user_search_params(params)
     if session_id:
         save_session_state(session_id, merged_state)
 
@@ -463,6 +510,65 @@ def _handle_clarification(
     return {"mode": "clarification", "question": question, "search_params": user_search_params or {}}
 
 
+_MAX_CLARIFICATION_ROUNDS = 2
+
+
+def _apply_router_guards(
+    text: str,
+    route_plan: dict,
+    current_state: dict,
+    session_id: Optional[int],
+) -> dict:
+    """Серверные guards без парсинга текста — опираются только на state.
+
+    Guard: если router снова просит уточнение, но мы уже задали ≥N вопросов
+    и в state уже есть бюджет — форсим search с тем что есть (no_preference=type
+    если тип не известен). Это предохранитель от бесконечного цикла уточнений.
+    """
+    intent = route_plan.get("intent")
+    state_budget = current_state.get("price_max") if current_state else None
+    asked_fields = (current_state.get("asked_fields") if current_state else None) or []
+
+    if (
+        intent == "search"
+        and not route_plan.get("enough_for_search")
+        and len(asked_fields) >= _MAX_CLARIFICATION_ROUNDS
+        and state_budget is not None
+    ):
+        logger.info(
+            "router_guard_override reason=clarification_limit session_id=%s asked_fields=%s budget=%s",
+            session_id, asked_fields, state_budget,
+        )
+        return _build_forced_search_plan(current_state)
+
+    return route_plan
+
+
+def _build_forced_search_plan(current_state: dict) -> dict:
+    """Конструирует search-plan из накопленного state когда router зациклился."""
+    state_type = current_state.get("type") if current_state else None
+    has_type = bool(state_type)
+    return {
+        "intent": "search",
+        "enough_for_search": True,
+        "current_turn_search": True,
+        "missing_fields": [],
+        "no_preference_fields": [] if has_type else ["type"],
+        "state_action": "patch",
+        "search_params": {
+            "search_queries": list((current_state.get("search_queries") if current_state else None) or []),
+            "price_min": current_state.get("price_min") if current_state else None,
+            "price_max": current_state.get("price_max") if current_state else None,
+            "type": state_type if has_type else "any",
+            "brand": current_state.get("brand") if current_state else None,
+            "pickups": current_state.get("pickups") if current_state else None,
+            "sound": current_state.get("sound") if current_state else None,
+            "style": current_state.get("style") if current_state else None,
+        },
+        "should_offer_search": False,
+    }
+
+
 def _handle_search(
     text: str,
     llm_client: Optional[LLMClient],
@@ -490,6 +596,7 @@ def _handle_search(
             params.get("search_queries", []),
             params.get("price_min"),
             params.get("price_max"),
+            type=params.get("type"),
         )
     except Exception as e:
         logger.error("Ошибка search_reverb: %s", e)
@@ -519,7 +626,119 @@ def _handle_search(
         logger.error("Ошибка rank_results, возвращаю неранжированные: %s", e)
         ranked = results[:5]
 
-    return {"mode": "search", "results": ranked, "search_params": display_params}
+    response = {"mode": "search", "results": ranked, "search_params": display_params}
+    if not ranked:
+        explanation, actions = _build_empty_search_fallback(params, search_fn)
+        response["fallback_explanation"] = explanation
+        if actions:
+            response["actions"] = actions
+    return response
+
+
+def _build_empty_search_fallback(params: dict, search_fn) -> tuple[str, list[dict]]:
+    """При 0 результатов формирует утвердительное объяснение (без вопросов!)
+    и список actionable suggestions для UI-кнопок."""
+    queries = params.get("search_queries") or []
+    price_max = params.get("price_max")
+    type_value = params.get("type")
+    pretty_query = ", ".join(queries) if queries else "вашему запросу"
+
+    def safe_search(q, pmin, pmax, t):
+        try:
+            return search_fn(q, pmin, pmax, type=t) or []
+        except Exception:
+            return []
+
+    # 1. Был query+budget — самый дешёвый matching query без budget
+    if price_max is not None and queries:
+        without_budget = safe_search(queries, None, None, type_value)
+        if without_budget:
+            cheapest = min(without_budget, key=lambda x: x.get("price") or float("inf"))
+            cheapest_price = cheapest.get("price")
+            if cheapest_price and cheapest_price > price_max:
+                bumped = _round_budget_up(cheapest_price)
+                text = (
+                    f"По запросу «{pretty_query}» под ${int(price_max)} ничего нет. "
+                    f"Минимум — ${int(cheapest_price)} ({cheapest.get('title','')[:80]})."
+                )
+                actions = [{
+                    "kind": "search_with_budget",
+                    "label": f"Показать варианты до ${bumped}",
+                    "price_max": bumped,
+                    "type": type_value,
+                    "search_queries": queries,
+                }]
+                return text, actions
+
+    # 2. Был budget — что-нибудь в budget без query, с типом
+    if price_max is not None:
+        in_budget_typed = safe_search([], None, price_max, type_value)
+        if in_budget_typed:
+            cheapest = min(in_budget_typed, key=lambda x: x.get("price") or float("inf"))
+            text = (
+                f"В бюджете до ${int(price_max)} есть {len(in_budget_typed)} вариантов без фильтра по модели "
+                f"(например {cheapest.get('title','')[:60]} за ${int(cheapest.get('price') or 0)})."
+            )
+            actions = [{
+                "kind": "search_with_budget",
+                "label": "Показать всё в моём бюджете",
+                "price_max": price_max,
+                "type": type_value,
+                "search_queries": [],
+            }]
+            return text, actions
+
+    # 3. Cheapest в типе вообще без budget
+    if price_max is not None and type_value and str(type_value).strip().lower() != "any":
+        in_type = safe_search([], None, None, type_value)
+        if in_type:
+            cheapest = min(in_type, key=lambda x: x.get("price") or float("inf"))
+            cheapest_price = int(cheapest.get("price") or 0)
+            bumped = _round_budget_up(cheapest_price)
+            text = (
+                f"В типе «{type_value}» под ${int(price_max)} ничего нет. "
+                f"Минимум — ${cheapest_price} ({cheapest.get('title','')[:70]})."
+            )
+            actions = [{
+                "kind": "search_with_budget",
+                "label": f"Показать варианты до ${bumped}",
+                "price_max": bumped,
+                "type": type_value,
+                "search_queries": [],
+            }]
+            return text, actions
+
+    # 4. Cheapest в базе вообще
+    if price_max is not None:
+        all_items = safe_search([], None, None, None)
+        if all_items:
+            cheapest = min(all_items, key=lambda x: x.get("price") or float("inf"))
+            cheapest_price = int(cheapest.get("price") or 0)
+            bumped = _round_budget_up(cheapest_price)
+            text = (
+                f"Под ${int(price_max)} в базе ничего нет. "
+                f"Самая дешёвая гитара — ${cheapest_price} ({cheapest.get('title','')[:70]})."
+            )
+            actions = [{
+                "kind": "search_with_budget",
+                "label": f"Показать варианты до ${bumped}",
+                "price_max": bumped,
+                "type": None,
+                "search_queries": [],
+            }]
+            return text, actions
+
+    return ("По заданным параметрам ничего не найдено.", [])
+
+
+def _round_budget_up(price: float) -> int:
+    """Округляет до приятной круглой суммы выше цены (159 → 200, 1680 → 1700)."""
+    p = int(price)
+    if p < 100:
+        return ((p // 10) + 1) * 10
+    if p < 1000:
+        return ((p // 50) + 1) * 50
+    return ((p // 100) + 1) * 100
 
 
 DEFAULT_ANSWER_MAX_HISTORY_CHARS = 10000

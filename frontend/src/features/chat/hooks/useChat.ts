@@ -18,6 +18,7 @@ function isUnauthorizedError(error: unknown): boolean {
 
 interface UseChatReturn extends ChatState {
   sendMessage: (text: string) => void;
+  sendAction: (action: import('../types').AgentAction) => void;
   connectionStatus: 'connected' | 'disconnected' | 'connecting';
   status: string | null;
   sessions: Session[];
@@ -187,7 +188,13 @@ export function useChat(authToken: string, onAuthExpired: () => void): UseChatRe
                 content = data.question || '';
               } else if (data.mode === 'search') {
                 results = (data.results || []).map((item: any) => normalizeResult(item));
-                content = data.explanation ? data.explanation : `Найдено гитар: ${results?.length ?? 0}`;
+                if (data.explanation) {
+                  content = data.explanation;
+                } else if (results && results.length > 0) {
+                  content = `Найдено гитар: ${results.length}`;
+                } else {
+                  content = '';
+                }
               }
 
               const agentMessage: Message = {
@@ -199,6 +206,7 @@ export function useChat(authToken: string, onAuthExpired: () => void): UseChatRe
                 mode: data.mode,
                 debugThink: data.debugThink || null,
                 searchParams: data.searchParams || null,
+                actions: Array.isArray(data.actions) ? data.actions : undefined,
               };
 
               setMessages(prev => [...prev, agentMessage]);
@@ -276,6 +284,32 @@ export function useChat(authToken: string, onAuthExpired: () => void): UseChatRe
     // Отправляем sessionId если есть текущая сессия
     wsRef.current.send(JSON.stringify({
       query: text,
+      sessionId: currentSessionIdRef.current || undefined,
+    }));
+  }, []);
+
+  // Отправка action (клик по кнопке) — bypass LLM
+  const sendAction = useCallback((action: import('../types').AgentAction) => {
+    if (!wsRef.current || wsRef.current.readyState !== window.WebSocket.OPEN) {
+      setError('Нет соединения с сервером');
+      return;
+    }
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: action.label,
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+    setError(null);
+    setStatus(null);
+    setLatestLiveMessageId(null);
+
+    wsRef.current.send(JSON.stringify({
+      action,
       sessionId: currentSessionIdRef.current || undefined,
     }));
   }, []);
@@ -414,6 +448,7 @@ export function useChat(authToken: string, onAuthExpired: () => void): UseChatRe
     connectionStatus,
     status,
     sendMessage,
+    sendAction,
     sessions,
     isLoadingSessions,
     latestLiveMessageId,

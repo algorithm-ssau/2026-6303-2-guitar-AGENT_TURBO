@@ -1,17 +1,18 @@
 import React from 'react';
-import { Message } from '../types';
+import { Message, AgentAction } from '../types';
 import { MessageItem } from './Message';
 import './Message.css';
 
 interface MessageListProps {
   messages: Message[];
+  onAction?: (action: AgentAction) => void;
 }
 
 /**
  * Компонент списка сообщений
  * Рендерит все сообщения в чате
  */
-export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
+export const MessageList: React.FC<MessageListProps> = ({ messages, onAction }) => {
   const hasPersistentMessages = messages.some((message) => !message.transient);
 
   if (!hasPersistentMessages && messages.length === 0) {
@@ -35,7 +36,7 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
   return (
     <div className="message-list">
       {messages.map((message) => (
-        <MessageItem key={message.id} message={message} />
+        <MessageItem key={message.id} message={message} onAction={onAction} />
       ))}
     </div>
   );

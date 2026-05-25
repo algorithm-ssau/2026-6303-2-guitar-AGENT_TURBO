@@ -17,9 +17,24 @@ _SEARCH_PARAM_FIELDS = ("search_queries", "price_min", "price_max", "type", "bra
 
 
 def apply_ready_search_snapshot(route_plan: dict, current_state: Optional[dict] = None) -> dict:
-    """Persists the current router-owned final search_params snapshot."""
+    """Persists final search snapshot. Если state_action='patch' — мерджит с current_state
+    (модель часто шлёт partial params в follow-up: например после "за 50" она шлёт price_max
+    но забывает type=bass из state)."""
     params = route_plan["search_params"]
-    pending = dict((current_state or {}).get("pending_defaults") or {})
+    current = current_state or {}
+    state_action = route_plan.get("state_action", "patch")
+    merge = state_action != "reset"
+
+    def keep(field, default=None):
+        new_val = params.get(field)
+        if new_val is not None or not merge:
+            return new_val
+        return current.get(field, default)
+
+    new_queries = list(params.get("search_queries") or [])
+    queries = new_queries if (new_queries or not merge) else list(current.get("search_queries") or [])
+
+    pending = dict(current.get("pending_defaults") or {})
     pending.pop("budget", None)
     return {
         "state_schema": "ready_search_snapshot_v1",
@@ -27,48 +42,95 @@ def apply_ready_search_snapshot(route_plan: dict, current_state: Optional[dict] 
         "last_intent": "search",
         "ready_for_search": True,
         "missing_fields": [],
-        "search_queries": list(params.get("search_queries") or []),
-        "price_min": params.get("price_min"),
-        "price_max": params.get("price_max"),
-        "type": params.get("type"),
-        "brand": params.get("brand"),
-        "pickups": params.get("pickups"),
-        "sound": params.get("sound"),
-        "style": params.get("style"),
-        "no_preference_fields": list(route_plan.get("no_preference_fields") or []),
+        "search_queries": queries,
+        "price_min": keep("price_min"),
+        "price_max": keep("price_max"),
+        "type": keep("type"),
+        "brand": keep("brand"),
+        "pickups": keep("pickups"),
+        "sound": keep("sound"),
+        "style": keep("style"),
+        "no_preference_fields": list(
+            route_plan.get("no_preference_fields")
+            or (current.get("no_preference_fields") if merge else [])
+            or []
+        ),
         "default_actions": list(route_plan.get("default_actions") or []),
-        "state_action": route_plan.get("state_action", "patch"),
+        "state_action": state_action,
         "pending_defaults": pending,
         "last_clarification_target": None,
     }
 
 
 def apply_incomplete_search_patch(current_state: dict, route_plan: dict) -> dict:
-    """Builds clarification state from current router output without stale executable params."""
+    """Builds clarification state by merging router output with already-known values.
+
+    Маленькая модель router'а часто возвращает partial params в follow-up turn
+    (например после "не важно" она шлёт только {"type":"any"} и забывает price_max).
+    Сервер защищается: для каждого поля используем новое значение если оно явно
+    задано, иначе сохраняем уже известное из current_state.
+
+    state_action="reset" — старое игнорируем (новый поисковой контекст).
+    state_action="patch" (или дефолт) — мерджим с current_state.
+    """
     params = route_plan.get("search_params") if isinstance(route_plan.get("search_params"), dict) else {}
+    current = current_state or {}
+    state_action = route_plan.get("state_action", "patch")
+    merge = state_action != "reset"
+
+    def keep(field):
+        new_val = params.get(field)
+        if new_val is not None or not merge:
+            return new_val
+        return current.get(field)
+
+    new_queries = list(params.get("search_queries") or [])
+    queries = new_queries if (new_queries or not merge) else list(current.get("search_queries") or [])
+
+    no_preference_fields = list(
+        route_plan.get("no_preference_fields")
+        or (current.get("no_preference_fields") if merge else [])
+        or []
+    )
+
+    merged_price_max = keep("price_max")
+    merged_price_min = keep("price_min")
+    merged_type = keep("type")
+
+    # Очищаем missing_fields от уже известных значений / явных "no_preference".
+    # Маленькая модель часто включает в missing то, что уже есть в state.
+    raw_missing = list(route_plan.get("missing_fields") or [])
+    actually_missing = []
+    for field in raw_missing:
+        if field == "budget" and (merged_price_max is not None or merged_price_min is not None):
+            continue
+        if field == "type" and (merged_type or "type" in no_preference_fields):
+            continue
+        actually_missing.append(field)
+
     state = {
         "last_intent": "search",
         "ready_for_search": False,
-        "missing_fields": list(route_plan.get("missing_fields") or []),
-        "search_queries": list(params.get("search_queries") or []),
-        "price_min": params.get("price_min"),
-        "price_max": params.get("price_max"),
-        "type": params.get("type"),
-        "brand": params.get("brand"),
-        "pickups": params.get("pickups"),
-        "sound": params.get("sound"),
-        "style": params.get("style"),
-        "no_preference_fields": list(route_plan.get("no_preference_fields") or []),
+        "missing_fields": actually_missing,
+        "search_queries": queries,
+        "price_min": merged_price_min,
+        "price_max": merged_price_max,
+        "type": merged_type,
+        "brand": keep("brand"),
+        "pickups": keep("pickups"),
+        "sound": keep("sound"),
+        "style": keep("style"),
+        "no_preference_fields": no_preference_fields,
         "default_actions": list(route_plan.get("default_actions") or []),
-        "state_action": route_plan.get("state_action", "patch"),
+        "state_action": state_action,
     }
     asked_fields = [
-        field for field in ((current_state or {}).get("asked_fields") or [])
+        field for field in (current.get("asked_fields") or [])
         if isinstance(field, str) and field in _ALLOWED_NO_PREFERENCE_FIELDS
     ]
     if asked_fields:
         state["asked_fields"] = asked_fields
-    pending = dict((current_state or {}).get("pending_defaults") or {})
+    pending = dict(current.get("pending_defaults") or {})
     if route_plan.get("budget_default_offer") and state.get("price_max") is None and state.get("price_min") is None:
         pending["budget"] = {"kind": "beginner_cheap", "price_max": beginner_default_price_max()}
     if pending:

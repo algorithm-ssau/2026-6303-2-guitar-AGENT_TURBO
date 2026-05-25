@@ -40,6 +40,107 @@ for name in ROUTER_MODULES:
         logger.warning("Router %s not available: %s", name, e)
 
 
+async def _handle_ui_action(websocket, action: dict, session_id, current_user) -> None:
+    """Обрабатывает клик по UI-кнопке: исполняет search детерминированно, минуя router."""
+    kind = action.get("kind")
+    if kind != "search_with_budget":
+        await websocket.send_json({"type": "error", "status": f"Неизвестное действие: {kind}"})
+        return
+
+    if not session_id:
+        title = action.get("label") or "Search"
+        session_id = create_session(title=str(title)[:100], user_id=current_user["id"])
+    else:
+        try:
+            ensure_session_owner(int(session_id), current_user["id"])
+            session_id = int(session_id)
+        except (TypeError, ValueError, HTTPException):
+            await websocket.send_json({"type": "error", "status": "Сессия не найдена"})
+            return
+
+    price_max = action.get("price_max")
+    type_value = action.get("type") or "any"
+    search_queries = list(action.get("search_queries") or [])
+
+    try:
+        from backend.search.search_reverb import search_reverb_exact
+        from backend.ranking.ranking import rank_results
+        from backend.models import GuitarResult
+        from backend.agent.service import _build_empty_search_fallback, create_llm_client
+        from backend.agent.explanation import generate_explanation
+
+        raw = search_reverb_exact(search_queries, None, price_max, type=type_value)
+        rank_params = {
+            "budget_max": price_max,
+            "search_queries": search_queries,
+            "type": None if str(type_value).lower() == "any" else type_value,
+        }
+        try:
+            ranked = rank_results(raw, rank_params)
+        except Exception:
+            ranked = raw[:5]
+
+        results = [GuitarResult(
+            id=str(item.get("id", "")),
+            title=item.get("title", ""),
+            price=float(item.get("price", 0)),
+            currency=item.get("currency", "USD"),
+            image_url=item.get("image_url", ""),
+            listing_url=item.get("listing_url", ""),
+        ) for item in ranked]
+        results_data = snake_to_camel([r.model_dump(mode="json") for r in results])
+
+        actions: list = []
+        if results_data:
+            llm_client = create_llm_client()
+            user_query = action.get("label") or "Подбор по бюджету"
+            explanation = generate_explanation(user_query, results_data, llm_client) if llm_client else ""
+        else:
+            params = {
+                "search_queries": search_queries,
+                "price_min": None,
+                "price_max": price_max,
+                "type": type_value,
+            }
+            explanation, actions = _build_empty_search_fallback(params, search_reverb_exact)
+
+        search_params_data = snake_to_camel({
+            "search_queries": search_queries,
+            "price_min": None,
+            "price_max": price_max,
+            "type": type_value,
+            "brand": None,
+            "pickups": None,
+            "sound": None,
+            "style": None,
+        })
+
+        await websocket.send_json({
+            "type": "result",
+            "mode": "search",
+            "results": results_data,
+            "explanation": explanation,
+            "searchParams": search_params_data,
+            "sessionId": session_id,
+            "actions": actions,
+        })
+
+        try:
+            save_exchange(
+                session_id=session_id,
+                user_query=action.get("label") or "[action]",
+                mode="search",
+                answer=explanation or None,
+                results=results_data,
+                search_params=search_params_data,
+            )
+        except Exception as exc:
+            logger.error("Ошибка сохранения action в историю: %s", exc)
+    except Exception as exc:
+        logger.exception("Ошибка обработки action: %s", exc)
+        await websocket.send_json({"type": "error", "status": f"Ошибка: {exc}"})
+
+
 def _save_error_exchange(session_id, query, error_text: str) -> None:
     """Сохраняет неудачный обмен в историю — чтобы при перезагрузке сессии было видно
     запрос пользователя и сообщение об ошибке вместо пустого диалога."""
@@ -88,6 +189,12 @@ async def chat(websocket: WebSocket):
             data = await websocket.receive_json()
             query = data.get("query", "")
             session_id = data.get("sessionId")
+            action = data.get("action")  # UI button click — детерминированный search без LLM
+
+            # Action-сообщение: исполняем напрямую, минуя router
+            if action and isinstance(action, dict):
+                await _handle_ui_action(websocket, action, session_id, current_user)
+                continue
 
             # Отправляем начальный статус
             await websocket.send_json({
@@ -302,7 +409,11 @@ async def chat(websocket: WebSocket):
                     from backend.agent.service import create_llm_client
                     from backend.agent.explanation import generate_explanation
                     llm_client_inst = create_llm_client()
-                    explanation = generate_explanation(query, results_data, llm_client_inst)
+                    if results_data:
+                        explanation = generate_explanation(query, results_data, llm_client_inst)
+                    else:
+                        # Backend-computed deterministic suggestion when nothing matched
+                        explanation = result_data.get("fallback_explanation", "")
 
                     search_params = result_data.get("search_params")
                     search_params_data = snake_to_camel(search_params) if search_params else None
@@ -314,6 +425,7 @@ async def chat(websocket: WebSocket):
                         "explanation": explanation,
                         "searchParams": search_params_data,
                         "sessionId": session_id,
+                        "actions": result_data.get("actions") or [],
                     })
                     try:
                         record_exchange(
@@ -330,6 +442,7 @@ async def chat(websocket: WebSocket):
                             session_id=session_id,
                             user_query=query,
                             mode="search",
+                            answer=explanation or None,
                             results=results_data,
                             search_params=search_params_data,
                         )

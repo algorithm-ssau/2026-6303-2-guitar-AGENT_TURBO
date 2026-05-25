@@ -284,7 +284,7 @@ def _build_router_prompt(user_query: str, history_context: str, current_state: d
     return f"""Guitar router. JSON only.
 Keys: intent,enough_for_search,missing_fields,search_params,should_offer_search; optional current_turn_search,no_preference_fields,budget_default_offer,default_actions,state_action.
 Intents: search,consultation,off_topic,conversation.
-search_params: search_queries,price_min,price_max,type,brand,pickups,sound,style. RUB 100=1USD.
+search_params: search_queries,price_min,price_max,type,brand,pickups,sound,style. Currency: USD only, range 1..100000. "$600"=600, "до 800"=800. If user said "X руб" → divide by 100 (RUB 100=1USD); NEVER multiply by 100.
 Ready search: enough=true,current_turn_search=true, final snapshot only, 1-3 title-searchable queries, explicit price, explicit type or "any". No stale state/history search.
 Types: stratocaster,telecaster,les paul,sg,superstrat,acoustic,classical,bass,seven_string,any.
 Not ready search: enough=false, missing_fields only budget/type. Type not important => type="any", no_preference_fields ["type"]. Unknown budget stays not ready; use budget_default_offer if relevant.
@@ -292,21 +292,44 @@ conversation: short conversational/meta turn with no guitar advice, result compa
 consultation: guitar advice/explanation or comparison of latest numbered results without asking for new catalog variants. off_topic: unrelated.
 Search if current message asks start/continue/broaden/narrow/change catalog search ("покажи ещё", cheaper, links, budget/type change). Style/language meta plus search change is still search; answer language is handled later. New search reset; follow-up patch full snapshot.
 
+Critical: search_queries MUST be empty [] if user did NOT mention a specific brand or model (e.g. "хочу гитару", "любую гитару", "что есть"). Empty queries returns all listings, then filtered by price/type. Do NOT inject any brand the user did not name.
+Critical: search_queries MUST contain the brand/model ONLY if user explicitly named it (Stratocaster, Telecaster, Les Paul, Gibson, Fender, etc.).
+Critical: price_max MUST come from current message OR preserved state. Never invent a default; never use 500 unless user explicitly said it.
+Critical: "да"/"yes"/"ок" after clarification = confirmation. Preserve all known state values (price_max, type, queries) from State, set enough_for_search=true, current_turn_search=true.
+
 Examples:
-Q:"хочу гитару, я новичок, ничего не понимаю, без лишних вопросов"
-A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"no_preference_fields":["type"],"default_actions":["apply_beginner_budget"],"state_action":"reset","search_params":{{"search_queries":["Yamaha Pacifica"],"price_max":500,"type":"any"}},"should_offer_search":false}}
+Q:"хочу гитару за 500"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"reset","search_params":{{"search_queries":[],"price_max":500,"type":"any"}},"should_offer_search":false}}
+Q:"что есть до 1500?"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"reset","search_params":{{"search_queries":[],"price_max":1500,"type":"any"}},"should_offer_search":false}}
+Q:"хочу телекастер до $800"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"reset","search_params":{{"search_queries":["Telecaster"],"price_max":800,"type":"telecaster"}},"should_offer_search":false}}
+Q:"страт до 1500"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"reset","search_params":{{"search_queries":["Stratocaster"],"price_max":1500,"type":"stratocaster"}},"should_offer_search":false}}
+Q:"Les Paul до 2000"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"reset","search_params":{{"search_queries":["Les Paul"],"price_max":2000,"type":"les paul"}},"should_offer_search":false}}
+Q:"акустика до 600"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"reset","search_params":{{"search_queries":[],"price_max":600,"type":"acoustic"}},"should_offer_search":false}}
+Q:"бас до 700"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"reset","search_params":{{"search_queries":[],"price_max":700,"type":"bass"}},"should_offer_search":false}}
+Q:"хочу гитару, я новичок"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"no_preference_fields":["type"],"default_actions":["apply_beginner_budget"],"state_action":"reset","search_params":{{"search_queries":[],"price_max":500,"type":"any"}},"should_offer_search":false}}
+State price_max=1500,type=any Q:"да"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"patch","search_params":{{"search_queries":[],"price_max":1500,"type":"any"}},"should_offer_search":false}}
+State price_max=800,type=telecaster Q:"да"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"patch","search_params":{{"search_queries":["Telecaster"],"price_max":800,"type":"telecaster"}},"should_offer_search":false}}
 State price_max=500,type=any Q:"до 1000"
-A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"patch","search_params":{{"search_queries":["Yamaha Pacifica"],"price_max":1000,"type":"any"}},"should_offer_search":false}}
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"patch","search_params":{{"search_queries":[],"price_max":1000,"type":"any"}},"should_offer_search":false}}
 State missing_fields=["budget","type"],asked_fields=["budget","type"] Q:"не принципиально"
 A:{{"intent":"search","enough_for_search":false,"missing_fields":["budget"],"no_preference_fields":["type"],"state_action":"patch","search_params":{{"type":"any"}},"should_offer_search":false}}
+State price_max=600,missing_fields=["type"] Q:"не важно"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"no_preference_fields":["type"],"state_action":"patch","search_params":{{"search_queries":[],"price_max":600,"type":"any"}},"should_offer_search":false}}
+State price_max=600,missing_fields=["type"] Q:"любой"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"no_preference_fields":["type"],"state_action":"patch","search_params":{{"search_queries":[],"price_max":600,"type":"any"}},"should_offer_search":false}}
 State ready search Q:"can you answer in english?"
 A:{{"intent":"conversation","enough_for_search":false,"missing_fields":[],"search_params":null,"should_offer_search":false}}
-State ready search Q:"amazing"
-A:{{"intent":"conversation","enough_for_search":false,"missing_fields":[],"search_params":null,"should_offer_search":false}}
-State ready search Q:"спасибо, теперь до 700"
-A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"patch","search_params":{{"search_queries":["Yamaha Pacifica"],"price_max":700,"type":"any"}},"should_offer_search":false}}
-State ready search Q:"can you answer in english and show cheaper ones?"
-A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"patch","search_params":{{"search_queries":["Yamaha Pacifica"],"price_max":500,"type":"any"}},"should_offer_search":false}}
+State ready search,price_max=1000,type=stratocaster Q:"спасибо, теперь до 700"
+A:{{"intent":"search","enough_for_search":true,"missing_fields":[],"current_turn_search":true,"state_action":"patch","search_params":{{"search_queries":["Stratocaster"],"price_max":700,"type":"stratocaster"}},"should_offer_search":false}}
 Context: Последняя поисковая выдача Q:"чем 1ый лучше 2го"
 A:{{"intent":"consultation","enough_for_search":false,"missing_fields":[],"search_params":null,"should_offer_search":false}}
 {history_block}
