@@ -131,19 +131,17 @@ def looks_like_catalog_content(text: str, allowed_titles: Optional[list[str]] = 
     if "ссылка на пример" in lowered or "примеры телекастеров" in lowered:
         return True
 
+    # Когда есть search-выдача и пользователь задаёт consultation поверх неё,
+    # упоминание брендов/моделей в нарративе ожидаемо. Защита от ссылок и
+    # магазинов уже отработала выше, поэтому brand-match отключаем.
+    if allowed_titles and any(str(t or "").strip() for t in allowed_titles):
+        return False
+
     branded_models = extract_branded_model_mentions(text)
     if not branded_models:
         return False
 
-    allowed = [normalize_model_text(title) for title in (allowed_titles or []) if str(title or "").strip()]
-    if not allowed:
-        return True
-
-    uncovered = [
-        mention for mention in branded_models
-        if not is_allowed_model_mention(normalize_model_text(mention), allowed)
-    ]
-    return bool(uncovered)
+    return True
 
 
 def extract_branded_model_mentions(text: str) -> list[str]:
